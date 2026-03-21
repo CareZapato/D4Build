@@ -1,0 +1,83 @@
+{
+  "habilidades_activas": [
+    {
+      "nombre": "Choque",
+      "tipo": "Básica",
+      "rama": "Leviatán",
+      "nivel": 1,
+      "genera_recurso": {
+        "tipo": "Fe",
+        "cantidad": 20
+      },
+      "descripcion": "Golpeas a un enemigo con tu arma y escudo, lo que inflige 2,007 de daño.",
+      "tipo_danio": "Daño físico",
+      "requiere": "Un escudo",
+      "siguiente_rango": {
+        "danio": 2207
+      },
+      "modificadores": [
+        {
+          "nombre": "Choque Potenciado",
+          "descripcion": "Cada vez que lanzas Choque, obtienes Marcha del Guerrero Divino durante 6 segundos."
+        },
+        {
+          "nombre": "Castigo",
+          "descripcion": "Te envalentonas durante la Marcha del Guerrero Divino.",
+          "efectos": [
+            "30% de probabilidad de Retribución",
+            "1,980 de Espinas",
+            "20% de daño de Espinas"
+          ]
+        }
+      ],
+      "efectos_generados": [
+        {
+          "nombre": "Marcha del Guerrero Divino",
+          "duracion_segundos": 6,
+          "efectos": [
+            "15% de probabilidad de bloqueo",
+            "2 acumulaciones de Determinación"
+          ]
+        }
+      ]
+    },
+    {
+      "nombre": "Escudo Bendecido",
+      "tipo": "Principal",
+      "rama": "Leviatán",
+      "nivel": 1,
+      "costo_recurso": {
+        "tipo": "Fe",
+        "cantidad": 25
+      },
+      "descripcion": "Bendices tu escudo con energía sagrada, lo lanzas e infliges 3,769 de daño, que rebota hasta 3 veces.",
+      "tipo_danio": "Daño físico",
+      "requiere": "Un escudo",
+      "siguiente_rango": {
+        "danio": 4146
+      },
+      "modificadores": [
+        {
+          "nombre": "Escudo Bendecido Potenciado",
+          "descripcion": "Escudo Bendecido inflige un 1% más de daño por cada punto de armadura en tu escudo."
+        },
+        {
+          "nombre": "Escudo de Retribución",
+          "descripcion": "Ahora Escudo Bendecido es una habilidad de Leviatán. Viaja en línea recta sin regresar, lo que inflige daño de Espinas durante 3 segundos antes de explotar para infligir 6,597 de daño."
+        }
+      ]
+    }
+  ],
+  "habilidades_pasivas": [
+    {
+      "nombre": "En Guardia",
+      "nivel": 3,
+      "efecto": "Obtienes un 30% más de armadura y un 15% más de probabilidad de bloqueo."
+    },
+    {
+      "nombre": "Réplica",
+      "nivel": 3,
+      "efecto": "Bloquear te otorga un 18% de daño durante 5 segundos."
+    }
+  ]
+}

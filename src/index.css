@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #0a0a0a;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b8860b;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #daa520;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Estilos de botones */
+.btn-primary {
+  @apply bg-d4-accent hover:bg-d4-accent-hover text-black font-semibold py-2 px-4 rounded transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-d4-surface hover:bg-d4-border text-d4-text font-semibold py-2 px-4 rounded border border-d4-border transition-colors;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors;
+}
+
+/* Estilos de tarjetas */
+.card {
+  @apply bg-d4-surface border border-d4-border rounded-lg p-4 shadow-lg;
+}
+
+.card-hover {
+  @apply card hover:border-d4-accent transition-colors cursor-pointer;
+}
+
+/* Estilos de inputs */
+.input {
+  @apply bg-d4-surface border border-d4-border rounded px-3 py-2 text-d4-text focus:outline-none focus:border-d4-accent transition-colors;
+}
+
+/* Badge de rareza */
+.badge-raro {
+  @apply inline-block px-2 py-1 text-xs rounded bg-blue-900 text-blue-200 border border-blue-600;
+}
+
+.badge-legendario {
+  @apply inline-block px-2 py-1 text-xs rounded bg-orange-900 text-orange-200 border border-orange-600;
+}
+
+/* Tooltips */
+.tooltip {
+  @apply absolute z-50 bg-d4-surface border border-d4-accent rounded p-3 shadow-xl text-sm max-w-sm;
+}

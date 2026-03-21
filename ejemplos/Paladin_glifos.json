@@ -1,0 +1,66 @@
+{
+  "glifos": [
+    {
+      "nombre": "Centinela",
+      "rareza": "Raro",
+      "estado": "Encontrado",
+      "tamano_radio": 3,
+      "atributo_escalado": {
+        "atributo": "Fuerza",
+        "cada": 5,
+        "bonificacion": "+2.0% más de daño de Leviatán"
+      },
+      "bonificacion_adicional": {
+        "descripcion": "Infliges un 1.5% más de daño por cada acumulación de Determinación que tengas.",
+        "requisito": {
+          "atributo": "Fuerza",
+          "valor_requerido": 40
+        }
+      },
+      "bonificacion_legendaria": {
+        "descripcion": "Infliges un 6.0% más de daño a los enemigos cercanos.",
+        "requiere_mejora": "Legendario nivel 45"
+      }
+    },
+    {
+      "nombre": "Retador",
+      "rareza": "Raro",
+      "estado": "Encontrado",
+      "tamano_radio": 3,
+      "efecto_base": {
+        "descripcion": "Otorga una bonificación del +22.4% a todos los nodos normales dentro del alcance."
+      },
+      "bonificacion_adicional": {
+        "descripcion": "Infliges un 10% más de daño a los enemigos de Élite.",
+        "requisito": {
+          "atributo": "Fuerza",
+          "valor_requerido": 40
+        }
+      },
+      "bonificacion_legendaria": {
+        "descripcion": "Aumenta el daño contra monstruos de Élite un 8.0%.",
+        "requiere_mejora": "Legendario nivel 45"
+      }
+    },
+    {
+      "nombre": "Revancha",
+      "rareza": "Raro",
+      "estado": "Encontrado",
+      "tamano_radio": 3,
+      "efecto_base": {
+        "descripcion": "Otorga una bonificación del +20.0% a todos los nodos raros dentro del alcance."
+      },
+      "bonificacion_adicional": {
+        "descripcion": "Cuando infliges daño de Espinas a un enemigo aumenta todo el daño que recibe de ti un 1%, hasta un máximo del 15% durante 10 segundos.",
+        "requisito": {
+          "atributo": "Inteligencia",
+          "valor_requerido": 25
+        }
+      },
+      "bonificacion_legendaria": {
+        "descripcion": "Aumenta el daño un 5.0%.",
+        "requiere_mejora": "Legendario nivel 45"
+      }
+    }
+  ]
+}

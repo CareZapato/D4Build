@@ -1,0 +1,104 @@
+{
+  "aspectos": [
+    {
+      "id": "aspect-001",
+      "name": "Aspecto de Retribución",
+      "shortName": "Retribución",
+      "effect": "El Bloqueo tiene un 15% de probabilidad de arrojar un rayo sagrado que inflige 300% de daño a enemigos.",
+      "level": "1/21",
+      "category": "ofensivo",
+      "keywords": ["bloqueo", "rayo", "daño"],
+      "tags": ["holy", "damage", "defensive"]
+    },
+    {
+      "id": "aspect-002",
+      "name": "Aspecto de Hierro Sagrado",
+      "shortName": "Hierro Sagrado",
+      "effect": "Ganas un 10% de reducción de daño por cada enemigo cercano, hasta un máximo del 50%.",
+      "level": "1/21",
+      "category": "defensivo",
+      "keywords": ["reducción de daño", "supervivencia"],
+      "tags": ["defensive", "tanky"]
+    },
+    {
+      "id": "aspect-003",
+      "name": "Aspecto del Protector",
+      "shortName": "Protector",
+      "effect": "Dañar a un enemigo de élite otorga una barrera que absorbe hasta 400 de daño durante 10s.",
+      "level": "1/21",
+      "category": "defensivo",
+      "keywords": ["barrera", "élite", "escudo"],
+      "tags": ["defensive", "barrier"]
+    },
+    {
+      "id": "aspect-004",
+      "name": "Aspecto de Fervor",
+      "shortName": "Fervor",
+      "effect": "Generas un 30% más de recurso principal.",
+      "level": "1/21",
+      "category": "recurso",
+      "keywords": ["generación", "recurso", "furia"],
+      "tags": ["resource", "generation"]
+    },
+    {
+      "id": "aspect-005",
+      "name": "Aspecto del Martillo Dorado",
+      "shortName": "Martillo Dorado",
+      "effect": "Los ataques de Martillo Bendito tienen un 25% de probabilidad de crear un campo de bendición que inflige daño continuo.",
+      "level": "1/21",
+      "category": "ofensivo",
+      "keywords": ["martillo bendito", "campo", "área"],
+      "tags": ["area", "damage", "blessed hammer"]
+    },
+    {
+      "id": "aspect-006",
+      "name": "Aspecto de Velocidad Divina",
+      "shortName": "Velocidad Divina",
+      "effect": "Después de usar una habilidad de movimiento, ganas un 30% de velocidad de movimiento durante 3s.",
+      "level": "1/21",
+      "category": "movilidad",
+      "keywords": ["velocidad", "movimiento", "dash"],
+      "tags": ["movement", "speed"]
+    },
+    {
+      "id": "aspect-007",
+      "name": "Aspecto del Justiciero",
+      "shortName": "Justiciero",
+      "effect": "Tus ataques críticos tienen un 20% de probabilidad de otorgar invulnerabilidad durante 2s.",
+      "level": "1/21",
+      "category": "utilidad",
+      "keywords": ["crítico", "invulnerabilidad", "supervivencia"],
+      "tags": ["utility", "survivability", "crit"]
+    },
+    {
+      "id": "aspect-008",
+      "name": "Aspecto de Castigo Ardiente",
+      "shortName": "Castigo Ardiente",
+      "effect": "Los enemigos afectados por tus habilidades sagradas se queman, recibiendo daño durante 4s.",
+      "level": "1/21",
+      "category": "ofensivo",
+      "keywords": ["quemadura", "sagrado", "daño continuo"],
+      "tags": ["damage", "holy", "burn", "dot"]
+    },
+    {
+      "id": "aspect-009",
+      "name": "Aspecto del Escudo Inquebrantable",
+      "shortName": "Inquebrantable",
+      "effect": "Usar tu habilidad definitiva otorga un 40% de reducción de daño durante 5s.",
+      "level": "1/21",
+      "category": "defensivo",
+      "keywords": ["definitiva", "reducción", "escudo"],
+      "tags": ["defensive", "ultimate"]
+    },
+    {
+      "id": "aspect-010",
+      "name": "Aspecto de Celeridad Sagrada",
+      "shortName": "Celeridad",
+      "effect": "Cada habilidad usada aumenta tu velocidad de ataque en un 5% durante 5s, acumulable hasta 5 veces.",
+      "level": "1/21",
+      "category": "utilidad",
+      "keywords": ["velocidad de ataque", "acumulación", "buff"],
+      "tags": ["utility", "attack speed", "buff"]
+    }
+  ]
+}
