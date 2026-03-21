@@ -413,6 +413,20 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
                             ))}
                           </div>
                         )}
+                        
+                        {aspect.palabras_clave && aspect.palabras_clave.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-d4-border/50 flex flex-wrap gap-1">
+                            {aspect.palabras_clave.map((palabra, idx) => (
+                              <span
+                                key={idx}
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
+                                title="Palabra clave del juego"
+                              >
+                                {palabra}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Actions */}

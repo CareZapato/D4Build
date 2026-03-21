@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Upload, Plus, Trash2, Gem, Copy, Check } from 'lucide-react';
 import { Personaje, Glifo, GlifosHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
+import { KeywordsService } from '../../services/KeywordsService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
@@ -98,9 +99,21 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
       return;
     }
 
+    // Primero importar keywords globales si existen
+    if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
+      try {
+        await KeywordsService.importKeywordsFromJSON(data as any);
+      } catch (error) {
+        console.error('Error importando palabras clave:', error);
+      }
+    }
+
     // Primero sincronizar con el héroe (actualizar existentes o agregar nuevos)
     const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase);
     const updatedHeroGlyphs: GlifosHeroe = heroGlyphs || { glifos: [] };
+
+    let actualizados = 0;
+    let agregados = 0;
 
     data.glifos.forEach(glyph => {
       const existingIndex = updatedHeroGlyphs.glifos.findIndex(g => g.nombre === glyph.nombre);
@@ -111,6 +124,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
           ...glyph,
           id: updatedHeroGlyphs.glifos[existingIndex].id
         };
+        actualizados++;
       } else {
         // Agregar nuevo glifo con ID generado
         const glyphWithId = {
@@ -118,6 +132,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
           id: glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         };
         updatedHeroGlyphs.glifos.push(glyphWithId);
+        agregados++;
       }
     });
 
@@ -152,7 +167,12 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     setGlyphsRefs(updatedRefs);
     onChange(updatedRefs);
     
-    modal.showSuccess(`${data.glifos.length} glifos procesados correctamente`);
+    // Mensaje detallado
+    const mensajes = [];
+    if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
+    if (agregados > 0) mensajes.push(`${agregados} nuevos`);
+    
+    modal.showSuccess(`Glifos procesados: ${mensajes.join(', ')}`);
   };
 
   const handleAddGlyph = (glyph: Glifo) => {
@@ -343,6 +363,20 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
                 <p className="text-xs text-d4-text-dim mt-2 font-semibold">
                   Radio: {glyph.tamano_radio}
                 </p>
+              )}
+              
+              {glyph.palabras_clave && glyph.palabras_clave.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-d4-border/50 flex flex-wrap gap-1">
+                  {glyph.palabras_clave.map((palabra, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
+                      title="Palabra clave del juego"
+                    >
+                      {palabra}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           ))}

@@ -1,4 +1,5 @@
 import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe } from '../types';
+import { TagService } from './TagService';
 
 export class WorkspaceService {
   private static workspaceConfig: WorkspaceConfig | null = null;
@@ -18,6 +19,9 @@ export class WorkspaceService {
 
       const ruta = this.fileSystemHandle.name;
       
+      // Configurar TagService con el handle del directorio
+      TagService.setFileSystemHandle(this.fileSystemHandle);
+      
       // Crear estructura de carpetas
       await this.createWorkspaceStructure();
 
@@ -29,6 +33,9 @@ export class WorkspaceService {
       };
 
       await this.saveWorkspaceConfig();
+      
+      // Cargar tags del workspace
+      await TagService.loadTags();
       
       // Guardar handle en localStorage para persistencia
       localStorage.setItem('workspaceName', ruta);

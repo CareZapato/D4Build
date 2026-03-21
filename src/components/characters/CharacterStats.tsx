@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Upload, TrendingUp } from 'lucide-react';
-import { Personaje, Estadisticas } from '../../types';
+import { Upload, TrendingUp, Copy, Check } from 'lucide-react';
+import { Personaje, Estadisticas, Tag } from '../../types';
+import { TagService } from '../../services/TagService';
+import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
+import ConfirmImportModal, { ImportSummary } from '../common/ConfirmImportModal';
 
 interface Props {
   personaje: Personaje;
@@ -15,9 +18,269 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [showTextInput, setShowTextInput] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [activeTab, setActiveTab] = useState<string>('personaje');
+  const [copied, setCopied] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingImportData, setPendingImportData] = useState<any>(null);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const [estadisticas, setEstadisticas] = useState<Estadisticas>(
     personaje.estadisticas || {}
   );
+
+  // Convertir formato V2 a V1 (formato interno actual)
+  const convertV2ToV1 = (v2Data: any): { stats: Estadisticas; nivel?: number; nivelParagon?: number } => {
+    // Si ya es formato V1, retornar directamente
+    if (!v2Data.estadisticas || typeof v2Data.estadisticas !== 'object' || Array.isArray(v2Data.estadisticas)) {
+      return {
+        stats: v2Data as Estadisticas,
+        nivel: v2Data.atributosPrincipales?.nivel,
+        nivelParagon: v2Data.nivel_paragon
+      };
+    }
+
+    // Formato V2 detectado - convertir a V1
+    const v2Stats = v2Data.estadisticas;
+    const convertedStats: Estadisticas = {};
+
+    // Extraer nivel del personaje (puede venir como objeto o como número)
+    let nivelPersonaje: number | undefined;
+    if (v2Data.nivel) {
+      // Si nivel es un objeto con estructura completa
+      if (typeof v2Data.nivel === 'object' && v2Data.nivel.nivel) {
+        nivelPersonaje = v2Data.nivel.nivel;
+      } else if (typeof v2Data.nivel === 'number') {
+        nivelPersonaje = v2Data.nivel;
+      }
+    }
+
+    // Convertir atributos_principales a atributosPrincipales
+    if (v2Stats.atributos_principales && Array.isArray(v2Stats.atributos_principales)) {
+      const attrs: any = {};
+      v2Stats.atributos_principales.forEach((attr: any) => {
+        attrs[attr.id] = attr.valor;
+      });
+      // Agregar nivel si existe
+      if (nivelPersonaje) {
+        attrs.nivel = nivelPersonaje;
+      }
+      convertedStats.atributosPrincipales = attrs;
+    }
+
+    // Convertir ofensivo (array a objeto plano)
+    if (v2Stats.ofensivo && Array.isArray(v2Stats.ofensivo)) {
+      const ofensivo: any = {};
+      v2Stats.ofensivo.forEach((stat: any) => {
+        // Mapear IDs a campos conocidos
+        const fieldMap: any = {
+          'probabilidad_de_golpe_critico': 'probabilidadGolpeCritico',
+          'danio_de_golpe_critico': 'danioGolpeCritico',
+          'danio_contra_enemigos_vulnerables': 'danioContraEnemigosVulnerables',
+          'danio_con_corrupcion': 'danioConCorrupcion',
+          'danio_base_arma': 'danioBaseArma',
+          'todo_el_danio': 'todoElDanio',
+          'danio_con_sangrado': 'danioConSangrado',
+          'danio_con_quemadura': 'danioConQuemadura',
+          'danio_con_veneno': 'danioConVeneno',
+          'probabilidad_abrumar': 'probabilidadAbrumar',
+          'danio_abrumador': 'danioAbrumador',
+          'danio_vs_enemigos_elite': 'danioVsEnemigosElite',
+          'danio_vs_enemigos_saludables': 'danioVsEnemigosSaludables',
+          'espinas': 'espinas',
+          'velocidad_arma': 'velocidadArma',
+          'bonificacion_velocidad_ataque': 'bonificacionVelocidadAtaque'
+        };
+        const field = fieldMap[stat.id] || stat.id;
+        ofensivo[field] = stat.valor;
+      });
+      convertedStats.ofensivo = ofensivo;
+    }
+
+    // Convertir defensivo (array a objeto plano)
+    if (v2Stats.defensivo && Array.isArray(v2Stats.defensivo)) {
+      const defensivo: any = {};
+      v2Stats.defensivo.forEach((stat: any) => {
+        const fieldMap: any = {
+          'vida_maxima': 'vidaMaxima',
+          'probabilidad_de_bloqueo': 'probabilidadBloqueo',
+          'reduccion_bloqueo': 'reduccionBloqueo',
+          'generacion_de_barrera': 'bonificacionBarrera',
+          'bonificacion_fortificacion': 'bonificacionFortificacion',
+          'probabilidad_esquivar': 'probabilidadEsquivar',
+          'sanacion_recibida': 'sanacionRecibida',
+          'vida_por_eliminacion': 'vidaPorEliminacion',
+          'vida_cada_5_segundos': 'vidaCada5Segundos',
+          'cantidad_pociones': 'cantidadPociones'
+        };
+        const field = fieldMap[stat.id] || stat.id;
+        defensivo[field] = stat.valor;
+      });
+      convertedStats.defensivo = defensivo;
+    }
+
+    // Convertir recursos
+    if (v2Stats.recursos && Array.isArray(v2Stats.recursos)) {
+      const utilidad: any = {};
+      v2Stats.recursos.forEach((stat: any) => {
+        const fieldMap: any = {
+          'maximo_de_furia': 'maximoFe',
+          'maximo_de_fe': 'maximoFe',
+          'coste_de_reduccion_de_furia': 'reduccionCostoFe',
+          'coste_de_reduccion_de_fe': 'reduccionCostoFe',
+          'regeneracion_fe': 'regeneracionFe',
+          'fe_con_cada_eliminacion': 'feConCadaEliminacion'
+        };
+        const field = fieldMap[stat.id] || stat.id;
+        utilidad[field] = stat.valor;
+      });
+      convertedStats.utilidad = { ...convertedStats.utilidad, ...utilidad };
+    }
+
+    // Convertir utilidad
+    if (v2Stats.utilidad && Array.isArray(v2Stats.utilidad)) {
+      const utilidad: any = convertedStats.utilidad || {};
+      v2Stats.utilidad.forEach((stat: any) => {
+        const fieldMap: any = {
+          'velocidad_de_movimiento': 'velocidadMovimiento',
+          'velocidad_de_ataque': 'bonificacionVelocidadAtaque',
+          'reduccion_recuperacion': 'reduccionRecuperacion',
+          'bonificacion_probabilidad_golpe_afortunado': 'bonificacionProbabilidadGolpeAfortunado',
+          'bonificacion_experiencia': 'bonificacionExperiencia'
+        };
+        const field = fieldMap[stat.id] || stat.id;
+        utilidad[field] = stat.valor;
+      });
+      convertedStats.utilidad = utilidad;
+    }
+
+    // Convertir armadura y resistencias
+    if (v2Stats.defensivo && Array.isArray(v2Stats.defensivo)) {
+      const armadura: any = {};
+      v2Stats.defensivo.forEach((stat: any) => {
+        if (stat.id === 'armadura') {
+          armadura.armadura = stat.valor;
+        } else if (stat.id.startsWith('resistencia')) {
+          const fieldMap: any = {
+            'resistencia_fisica': 'resistenciaDanioFisico',
+            'resistencia_al_danio_fisico': 'resistenciaDanioFisico',
+            'resistencia_danio_fisico': 'resistenciaDanioFisico',
+            'resistencia_fuego': 'resistenciaFuego',
+            'resistencia_al_fuego': 'resistenciaFuego',
+            'resistencia_rayo': 'resistenciaRayo',
+            'resistencia_al_rayo': 'resistenciaRayo',
+            'resistencia_frio': 'resistenciaFrio',
+            'resistencia_al_frio': 'resistenciaFrio',
+            'resistencia_veneno': 'resistenciaVeneno',
+            'resistencia_al_veneno': 'resistenciaVeneno',
+            'resistencia_sombra': 'resistenciaSombra',
+            'resistencia_a_la_sombra': 'resistenciaSombra'
+          };
+          const field = fieldMap[stat.id] || stat.id;
+          armadura[field] = stat.valor;
+        }
+      });
+      if (Object.keys(armadura).length > 0) {
+        convertedStats.armaduraYResistencias = armadura;
+      }
+    }
+
+    return {
+      stats: convertedStats,
+      nivel: nivelPersonaje,
+      nivelParagon: v2Data.nivel_paragon
+    };
+  };
+
+  const parseMultipleJSON = (text: string): string[] => {
+    // Intentar parsear como un solo JSON primero
+    try {
+      JSON.parse(text);
+      return [text];
+    } catch {
+      // Si falla, buscar múltiples objetos JSON
+      const jsonObjects: string[] = [];
+      const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+      const matches = text.match(regex);
+      
+      if (matches) {
+        for (const match of matches) {
+          try {
+            JSON.parse(match);
+            jsonObjects.push(match);
+          } catch {
+            // Ignorar JSON inválidos
+          }
+        }
+      }
+      
+      return jsonObjects.length > 0 ? jsonObjects : [text];
+    }
+  };
+
+  const analyzeImportChanges = (jsonText: string): ImportSummary => {
+    try {
+      const JSONObjects = parseMultipleJSON(jsonText);
+      const seccionesActualizadas: string[] = [];
+      let palabrasClaveCount = 0;
+
+      JSONObjects.forEach(jsonStr => {
+        try {
+          const parsed = JSON.parse(jsonStr);
+          
+          // Contar palabras clave
+          if (parsed.palabras_clave && Array.isArray(parsed.palabras_clave)) {
+            palabrasClaveCount += parsed.palabras_clave.length;
+          }
+          
+          const { stats, nivel } = convertV2ToV1(parsed);
+          
+          // Detectar si hay nivel
+          if (nivel !== undefined) {
+            if (!seccionesActualizadas.includes('Nivel del Personaje')) {
+              seccionesActualizadas.push('Nivel del Personaje');
+            }
+          }
+          
+          // Detectar secciones con datos
+          if (stats.personaje && Object.keys(stats.personaje).length > 0) {
+            if (!seccionesActualizadas.includes('Personaje')) seccionesActualizadas.push('Personaje');
+          }
+          if (stats.atributosPrincipales && Object.keys(stats.atributosPrincipales).length > 0) {
+            if (!seccionesActualizadas.includes('Atributos')) seccionesActualizadas.push('Atributos');
+          }
+          if (stats.defensivo && Object.keys(stats.defensivo).length > 0) {
+            if (!seccionesActualizadas.includes('Defensivo')) seccionesActualizadas.push('Defensivo');
+          }
+          if (stats.ofensivo && Object.keys(stats.ofensivo).length > 0) {
+            if (!seccionesActualizadas.includes('Ofensivo')) seccionesActualizadas.push('Ofensivo');
+          }
+          if (stats.utilidad && Object.keys(stats.utilidad).length > 0) {
+            if (!seccionesActualizadas.includes('Utilidad')) seccionesActualizadas.push('Utilidad');
+          }
+          if (stats.armaduraYResistencias && Object.keys(stats.armaduraYResistencias).length > 0) {
+            if (!seccionesActualizadas.includes('Armadura y Resistencias')) seccionesActualizadas.push('Armadura y Resistencias');
+          }
+          if (stats.jcj && Object.keys(stats.jcj).length > 0) {
+            if (!seccionesActualizadas.includes('JcJ')) seccionesActualizadas.push('JcJ');
+          }
+          if (stats.moneda && Object.keys(stats.moneda).length > 0) {
+            if (!seccionesActualizadas.includes('Moneda')) seccionesActualizadas.push('Moneda');
+          }
+        } catch (parseError) {
+          console.error('Error parseando JSON individual:', parseError);
+          throw new Error('JSON mal formado o incompleto. Verifica que el texto pegado sea un JSON válido.');
+        }
+      });
+
+      return {
+        estadisticas: {
+          seccionesActualizadas
+        },
+        palabrasClave: palabrasClaveCount > 0 ? palabrasClaveCount : undefined
+      };
+    } catch (error: any) {
+      console.error('Error analizando cambios:', error);
+      throw error; // Propagar el error para mostrarlo al usuario
+    }
+  };
 
   const handleImportJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -26,20 +289,16 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
     setImporting(true);
     try {
       const content = await file.text();
-      const parsed = JSON.parse(content);
-      const data = parsed as Estadisticas;
-      setEstadisticas(data);
       
-      // Extraer nivel y nivel paragon si existen en las estadísticas
-      // nivel viene de atributosPrincipales, nivel_paragon puede venir del objeto raíz
-      const nivel = data.atributosPrincipales?.nivel;
-      const nivelParagon = parsed.nivel_paragon;
-      onChange(data, nivel, nivelParagon);
+      // Analizar cambios primero
+      const summary = analyzeImportChanges(content);
+      setImportSummary(summary);
+      setPendingImportData(content);
+      setShowConfirmModal(true);
       
-      modal.showSuccess('Estadísticas importadas correctamente');
-    } catch (error) {
-      console.error('Error importando estadísticas:', error);
-      modal.showError('Error al importar el archivo JSON. Verifica el formato.');
+    } catch (error: any) {
+      console.error('Error leyendo archivo:', error);
+      modal.showError(error.message || 'Error al leer el archivo JSON. Verifica que esté completo y sea válido.');
     } finally {
       setImporting(false);
     }
@@ -51,32 +310,94 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       return;
     }
 
+    try {
+      // Analizar cambios primero
+      const summary = analyzeImportChanges(jsonText);
+      setImportSummary(summary);
+      setPendingImportData(jsonText);
+      setShowConfirmModal(true);
+    } catch (error: any) {
+      console.error('Error analizando JSON:', error);
+      modal.showError(error.message || 'Error al procesar el JSON. Verifica que esté completo y sea válido.');
+    }
+  };
+
+  const confirmAndApplyImport = async () => {
+    if (!pendingImportData) return;
+
     setImporting(true);
     try {
-      const parsed = JSON.parse(jsonText);
-      const data = parsed as Estadisticas;
-      setEstadisticas(data);
-      
-      // Extraer nivel y nivel paragon si existen en las estadísticas
-      // nivel viene de atributosPrincipales, nivel_paragon puede venir del objeto raíz
-      const nivel = data.atributosPrincipales?.nivel;
-      const nivelParagon = parsed.nivel_paragon;
-      onChange(data, nivel, nivelParagon);
+      const JSONObjects = parseMultipleJSON(pendingImportData);
+      let mergedStats: Estadisticas = { ...estadisticas };
+      let extractedNivel: number | undefined;
+      let extractedNivelParagon: number | undefined;
+      let allTags: Tag[] = [];
+
+      for (const jsonStr of JSONObjects) {
+        const parsed = JSON.parse(jsonStr);
+        
+        // Recolectar todos los tags del JSON V2
+        if (parsed.palabras_clave && Array.isArray(parsed.palabras_clave)) {
+          allTags = [...allTags, ...parsed.palabras_clave];
+        }
+
+        // Convertir V2 a V1
+        const { stats, nivel, nivelParagon } = convertV2ToV1(parsed);
+        
+        // Merge progresivo
+        mergedStats = {
+          personaje: { ...mergedStats.personaje, ...stats.personaje },
+          atributosPrincipales: { ...mergedStats.atributosPrincipales, ...stats.atributosPrincipales },
+          defensivo: { ...mergedStats.defensivo, ...stats.defensivo },
+          ofensivo: { ...mergedStats.ofensivo, ...stats.ofensivo },
+          utilidad: { ...mergedStats.utilidad, ...stats.utilidad },
+          armaduraYResistencias: { ...mergedStats.armaduraYResistencias, ...stats.armaduraYResistencias },
+          jcj: { ...mergedStats.jcj, ...stats.jcj },
+          moneda: { ...mergedStats.moneda, ...stats.moneda },
+        };
+
+        // Extraer nivel si existe
+        if (nivel !== undefined) extractedNivel = nivel;
+        if (nivelParagon !== undefined) extractedNivelParagon = nivelParagon;
+      }
+
+      // Procesar y guardar tags globalmente, obtener IDs
+      const tagIds = await TagService.processAndSaveTagsV2(allTags, 'estadistica');
+      console.log('Tags guardados con IDs:', tagIds);
+
+      // TODO: Agregar campo tag_ids a Estadisticas para guardar las referencias
+      // Por ahora solo guardamos los tags globalmente
+
+      setEstadisticas(mergedStats);
+      onChange(mergedStats, extractedNivel, extractedNivelParagon);
       
       setJsonText('');
       setShowTextInput(false);
-      modal.showSuccess('Estadísticas importadas correctamente');
+      modal.showSuccess(`Estadísticas importadas correctamente (${tagIds.length} tags procesados)`);
     } catch (error) {
-      console.error('Error importando estadísticas:', error);
-      modal.showError('Error al procesar el JSON. Verifica el formato.');
+      console.error('Error aplicando importación:', error);
+      modal.showError('Error al aplicar los cambios');
     } finally {
       setImporting(false);
+      setPendingImportData(null);
+      setShowConfirmModal(false);
     }
   };
 
   useEffect(() => {
     onChange(estadisticas);
   }, [estadisticas]);
+
+  const handleCopyPrompt = async () => {
+    const prompt = ImageExtractionPromptService.generateStatsPromptV2();
+    const success = await ImageExtractionPromptService.copyToClipboard(prompt);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      modal.showError('Error al copiar al portapapeles');
+    }
+  };
 
   const tabs = [
     { id: 'personaje', label: 'Personaje' },
@@ -224,7 +545,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
       {showTextInput && (
         <div className="bg-d4-bg p-3 rounded border border-d4-accent mb-3">
-          <h4 className="font-bold text-d4-accent mb-2 text-sm">Pegar JSON</h4>
+          <h4 className="font-bold text-d4-accent mb-2 text-sm">Pegar JSON de Estadísticas</h4>
           <textarea
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
@@ -232,11 +553,32 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             rows={6}
             placeholder='{"personaje": {"danioArma": 595, "aguante": 52619}, ...}'
           />
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setShowTextInput(false)} className="btn-secondary text-xs py-1 px-2">Cancelar</button>
-            <button onClick={handleImportFromText} className="btn-primary text-xs py-1 px-2" disabled={importing || !jsonText.trim()}>
-              {importing ? 'Importando...' : 'Importar'}
+          <div className="flex justify-between items-center gap-2">
+            <button
+              onClick={handleCopyPrompt}
+              className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
+              title="Copiar prompt para extraer estadísticas de imágenes usando IA"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3" />
+                  ¡Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  Prompt IA
+                </>
+              )}
             </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowTextInput(false)} className="btn-secondary text-xs py-1 px-2">
+                Cancelar
+              </button>
+              <button onClick={handleImportFromText} className="btn-primary text-xs py-1 px-2" disabled={importing || !jsonText.trim()}>
+                {importing ? 'Importando...' : 'Importar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -357,6 +699,21 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           </div>
         )}
       </div>
+      
+      {showConfirmModal && importSummary && (
+        <ConfirmImportModal
+          isOpen={showConfirmModal}
+          summary={importSummary}
+          type="estadisticas"
+          onClose={() => {
+            setShowConfirmModal(false);
+            setPendingImportData(null);
+            setImportSummary(null);
+          }}
+          onConfirm={confirmAndApplyImport}
+        />
+      )}
+      
       <Modal {...modal} />
     </>
   );

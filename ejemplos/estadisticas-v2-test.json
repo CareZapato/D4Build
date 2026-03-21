@@ -1,0 +1,346 @@
+{
+  "nivel": 60,
+  "nivel_paragon": null,
+  "estadisticas": {
+    "atributos_principales": [
+      {
+        "id": "fuerza",
+        "nombre": "Fuerza",
+        "categoria": "atributo_principal",
+        "valor": 1670,
+        "unidad": "puntos",
+        "descripcion": null,
+        "detalles": [
+          {
+            "texto": "Contribución de objetos: 1297",
+            "tipo": "contribucion",
+            "valor": 1297,
+            "unidad": "puntos",
+            "contribucion": "objetos",
+            "tags": []
+          },
+          {
+            "texto": "Aumenta el daño de habilidad en 208.8 %",
+            "tipo": "bonificacion",
+            "valor": 208.8,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "danio_de_habilidad",
+                "texto_original": "daño de habilidad",
+                "significado": null,
+                "categoria": "atributo",
+                "fuente": "tooltip"
+              }
+            ]
+          },
+          {
+            "texto": "Aumenta la armadura en +3,340",
+            "tipo": "bonificacion",
+            "valor": 3340,
+            "unidad": "puntos",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "armadura",
+                "texto_original": "armadura",
+                "significado": "Reduce el daño recibido de ataques.",
+                "categoria": "defensivo",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "danio_de_habilidad",
+            "texto_original": "daño de habilidad",
+            "significado": null,
+            "categoria": "atributo",
+            "fuente": "tooltip"
+          }
+        ]
+      },
+      {
+        "id": "inteligencia",
+        "nombre": "Inteligencia",
+        "categoria": "atributo_principal",
+        "valor": 208,
+        "unidad": "puntos",
+        "descripcion": null,
+        "detalles": [
+          {
+            "texto": "Aumenta la probabilidad de golpe crítico en +4.2 %",
+            "tipo": "bonificacion",
+            "valor": 4.2,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "golpe_critico",
+                "texto_original": "golpe crítico",
+                "significado": "Probabilidad de que un ataque inflija daño adicional.",
+                "categoria": "atributo",
+                "fuente": "tooltip"
+              }
+            ]
+          },
+          {
+            "texto": "Aumenta la resistencia a todos los elementos en +83",
+            "tipo": "bonificacion",
+            "valor": 83,
+            "unidad": "puntos",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "resistencias_elementales",
+                "texto_original": "resistencia a todos los elementos",
+                "significado": null,
+                "categoria": "defensivo",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "golpe_critico",
+            "texto_original": "golpe crítico",
+            "significado": "Probabilidad de que un ataque inflija daño adicional.",
+            "categoria": "atributo",
+            "fuente": "tooltip"
+          }
+        ]
+      },
+      {
+        "id": "voluntad",
+        "nombre": "Voluntad",
+        "categoria": "atributo_principal",
+        "valor": 215,
+        "unidad": "puntos",
+        "descripcion": null,
+        "detalles": [
+          {
+            "texto": "Aumenta la generación de recursos en 6.5 %",
+            "tipo": "bonificacion",
+            "valor": 6.5,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "generacion_de_recursos",
+                "texto_original": "generación de recursos",
+                "significado": null,
+                "categoria": "recurso",
+                "fuente": "tooltip"
+              }
+            ]
+          },
+          {
+            "texto": "Aumenta la sanación recibida en +7.6 %",
+            "tipo": "bonificacion",
+            "valor": 7.6,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "sanacion_recibida",
+                "texto_original": "sanación recibida",
+                "significado": null,
+                "categoria": "defensivo",
+                "fuente": "tooltip"
+              }
+            ]
+          },
+          {
+            "texto": "Aumenta el daño abrumador en +54.0 %",
+            "tipo": "bonificacion",
+            "valor": 54.0,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "danio_abrumador",
+                "texto_original": "daño abrumador",
+                "significado": null,
+                "categoria": "mecanica",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": []
+      },
+      {
+        "id": "destreza",
+        "nombre": "Destreza",
+        "categoria": "atributo_principal",
+        "valor": 133,
+        "unidad": "puntos",
+        "descripcion": null,
+        "detalles": [
+          {
+            "texto": "Aumenta la probabilidad de esquivar en +0.8 %",
+            "tipo": "bonificacion",
+            "valor": 0.8,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "probabilidad_de_esquivar",
+                "texto_original": "probabilidad de esquivar",
+                "significado": null,
+                "categoria": "defensivo",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": []
+      }
+    ],
+    "defensivo": [
+      {
+        "id": "armadura",
+        "nombre": "Armadura",
+        "categoria": "defensivo",
+        "valor": 20296,
+        "unidad": "puntos",
+        "descripcion": "Reduce el daño recibido en 73.7 %",
+        "detalles": [
+          {
+            "texto": "Aplica al daño físico y daño en el tiempo",
+            "tipo": "aclaracion",
+            "valor": null,
+            "unidad": null,
+            "contribucion": null,
+            "tags": []
+          }
+        ],
+        "tags": [
+          {
+            "tag": "reduccion_de_danio",
+            "texto_original": "Reduce el daño recibido",
+            "significado": null,
+            "categoria": "defensivo",
+            "fuente": "tooltip"
+          }
+        ]
+      },
+      {
+        "id": "resistencia_danio_fisico",
+        "nombre": "Resistencia al daño físico",
+        "categoria": "defensivo",
+        "valor": 759,
+        "unidad": "puntos",
+        "descripcion": "Reduce el daño físico recibido en 41.2 %",
+        "detalles": [
+          {
+            "texto": "Se aplica al daño físico directo y daño de sangrado",
+            "tipo": "aclaracion",
+            "valor": null,
+            "unidad": null,
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "danio_fisico",
+                "texto_original": "daño físico",
+                "significado": null,
+                "categoria": "tipo_de_danio",
+                "fuente": "tooltip"
+              },
+              {
+                "tag": "sangrado",
+                "texto_original": "sangrado",
+                "significado": null,
+                "categoria": "condicion",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": []
+      },
+      {
+        "id": "resistencia_fuego",
+        "nombre": "Resistencia al fuego",
+        "categoria": "defensivo",
+        "valor": 759,
+        "unidad": "puntos",
+        "descripcion": "Reduce el daño de fuego recibido en 41.2 %",
+        "detalles": [
+          {
+            "texto": "Aplica al daño directo y daño en el tiempo",
+            "tipo": "aclaracion",
+            "valor": null,
+            "unidad": null,
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "danio_de_fuego",
+                "texto_original": "daño de fuego",
+                "significado": null,
+                "categoria": "tipo_de_danio",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": []
+      }
+    ]
+  },
+  "palabras_clave": [
+    {
+      "tag": "golpe_critico",
+      "texto_original": "golpe crítico",
+      "significado": "Probabilidad de infligir daño adicional.",
+      "categoria": "atributo",
+      "descripcion_jugabilidad": null,
+      "sinonimos": ["critico", "crit"],
+      "origen": "tooltip",
+      "pendiente_revision": false
+    },
+    {
+      "tag": "danio_de_habilidad",
+      "texto_original": "daño de habilidad",
+      "significado": null,
+      "categoria": "atributo",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": true
+    },
+    {
+      "tag": "danio_abrumador",
+      "texto_original": "daño abrumador",
+      "significado": null,
+      "categoria": "mecanica",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": true
+    },
+    {
+      "tag": "generacion_de_recursos",
+      "texto_original": "generación de recursos",
+      "significado": null,
+      "categoria": "recurso",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": true
+    },
+    {
+      "tag": "danio_fisico",
+      "texto_original": "daño físico",
+      "significado": null,
+      "categoria": "tipo_de_danio",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": true
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "nivel": {
+    "nivel": 60,
+    "descripcion": "El nivel de tu personaje, que se incrementa al acumular experiencia. Con cada nivel, obtienes Vida base y atributos principales. Cada nivel hasta el nivel 60 te otorga un punto de habilidad. Después, cada nivel Paragón hasta el nivel 300 te otorga un punto Paragón.",
+    "detalles": [
+      {
+        "texto": "Los monstruos en este nivel tienen 85.0 % de reducción de daño visible.",
+        "tipo": "efecto",
+        "valor": 85.0,
+        "unidad": "%",
+        "contribucion": null,
+        "tags": [
+          {
+            "tag": "reduccion_de_danio_visible",
+            "texto_original": "reducción de daño visible",
+            "significado": null,
+            "categoria": "mecanica",
+            "fuente": "tooltip"
+          }
+        ]
+      },
+      {
+        "texto": "El daño infligido entre un enemigo y tú se ajusta según la diferencia de nivel.",
+        "tipo": "aclaracion",
+        "valor": null,
+        "unidad": null,
+        "contribucion": null,
+        "tags": []
+      }
+    ],
+    "tags": [
+      {
+        "tag": "reduccion_de_danio_visible",
+        "texto_original": "reducción de daño visible",
+        "significado": null,
+        "categoria": "mecanica",
+        "fuente": "tooltip"
+      }
+    ]
+  },
+  "nivel_paragon": null,
+  "estadisticas": {},
+  "palabras_clave": [
+    {
+      "tag": "reduccion_de_danio_visible",
+      "texto_original": "reducción de daño visible",
+      "significado": null,
+      "categoria": "mecanica",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": true
+    }
+  ]
+}

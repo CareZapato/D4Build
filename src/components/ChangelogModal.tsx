@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">22 de Marzo, 2026</p>
+                <p className="text-d4-text font-semibold">21 de Marzo, 2026</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,404 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.4 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.4</h3>
+            <span className="text-xs text-d4-text-dim bg-green-600/20 text-green-400 px-2 py-1 rounded">Tags Estructurados</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Tags Estructurados */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🏷️ Sistema de Tags con Metadata</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Tag como objeto:</strong> Ahora cada tag tiene estructura {`{tag, texto_original, significado, categoria, fuente}`}</li>
+                <li>• <strong>Significado nullable:</strong> Permite guardar tags sin definición (significado: null)</li>
+                <li>• <strong>Metadata rica:</strong> Categorías (atributo, condicion, recurso, etc.), fuente (tooltip, estadistica, manual)</li>
+                <li>• <strong>Captura progresiva:</strong> Guarda lo que tienes ahora, enriquece después</li>
+                <li>• <strong>Nombres en español:</strong> Todo en español - tag: "golpe_critico" (no "critical_hit")</li>
+              </ul>
+            </div>
+
+            {/* Diccionario Global */}
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📚 Diccionario Global de Palabras Clave</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Sección palabras_clave[]:</strong> Lista global de todas las palabras detectadas</li>
+                <li>• <strong>Enriquecimiento:</strong> Campos adicionales (descripcion_jugabilidad, sinonimos, origen)</li>
+                <li>• <strong>pendiente_revision:</strong> Flag para identificar tags sin completar (significado: null)</li>
+                <li>• <strong>Centralizado:</strong> Una única fuente de verdad para todas las keywords del juego</li>
+                <li>• <strong>Evolutivo:</strong> Agrega definiciones y contexto después de extraer datos</li>
+              </ul>
+            </div>
+
+            {/* Modelo Refactorizado */}
+            <div className="bg-d4-bg border-l-4 border-teal-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔧 Modelo JSON Refactorizado V2</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>DetalleEstadisticaV2:</strong> Detalles con tags como objetos estructurados</li>
+                <li>• <strong>EstadisticaV2:</strong> Modelo completo (id, nombre, categoria, valor, unidad, detalles, tags)</li>
+                <li>• <strong>PalabraClaveGlobal:</strong> Interface para diccionario con enriquecimiento</li>
+                <li>• <strong>EstadisticasConPalabrasClave:</strong> Root con palabras_clave[] global</li>
+                <li>• <strong>Ejemplo completo:</strong> estadisticas-v2-completo.json en carpeta ejemplos/</li>
+              </ul>
+            </div>
+
+            {/* Prompt V2 */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🤖 Prompt IA V2 - Extracción Estructurada</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>generateStatsPromptV2():</strong> Nuevo prompt para formato V2</li>
+                <li>• <strong>Instrucciones detalladas:</strong> Cómo extraer tags con metadata completa</li>
+                <li>• <strong>Ejemplos de tags:</strong> Demuestra tags con/sin significado</li>
+                <li>• <strong>Categorización:</strong> Guía para asignar categorías correctas</li>
+                <li>• <strong>Todo en español:</strong> Genera variables, tags y textos en español</li>
+                <li>• CharacterStats actualizado para usar generateStatsPromptV2()</li>
+              </ul>
+            </div>
+
+            {/* Documentación */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📖 Documentación Completa</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>docs/modelo-estadisticas-refactorizado.md:</strong> Documentación exhaustiva del nuevo modelo</li>
+                <li>• <strong>Interfaces TypeScript:</strong> Todas las definiciones de tipos V2</li>
+                <li>• <strong>Ejemplo JSON:</strong> JSON completo con mezcla de tags completos y parciales</li>
+                <li>• <strong>Beneficios:</strong> Explica ventajas del modelo estructurado</li>
+                <li>• <strong>Guía de migración:</strong> Estrategia para actualizar datos existentes</li>
+              </ul>
+            </div>
+
+            {/* Beneficios del Modelo V2 */}
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Beneficios del Sistema V2</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Captura incremental:</strong> No necesitas toda la info de golpe - guarda lo que tienes</li>
+                <li>• <strong>Búsqueda mejorada:</strong> Filtra por categoría, fuente, estado de revisión</li>
+                <li>• <strong>Extensibilidad:</strong> Agrega campos sin romper estructura existente</li>
+                <li>• <strong>Visualización:</strong> Renderiza tooltips completos desde el significado</li>
+                <li>• <strong>Análisis de builds:</strong> Agrupa por categoría (ofensivo, defensivo, etc.)</li>
+                <li>• <strong>Multiidioma ready:</strong> texto_original + traducciones futuras</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.3 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.3</h3>
+            <span className="text-xs text-d4-text-dim bg-indigo-600/20 text-indigo-400 px-2 py-1 rounded">Confirmación y Multi-JSON</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Botón Prompt IA en Stats */}
+            <div className="bg-d4-bg border-l-4 border-indigo-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📸 Prompt IA en Estadísticas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>CharacterStats:</strong> Ahora tiene botón "Prompt IA" en sección de texto JSON</li>
+                <li>• <strong>Copiar al portapapeles:</strong> Copia prompt completo para extraer estadísticas desde imágenes</li>
+                <li>• <strong>Icono dinámico:</strong> Copy/Check con feedback visual de 2 segundos</li>
+                <li>• <strong>Consistencia UI:</strong> Mismo diseño que CharacterSkills y CharacterGlyphs</li>
+                <li>• Generá JSON completo de estadísticas con IA usando imágenes del juego</li>
+              </ul>
+            </div>
+
+            {/* Multi-JSON */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📦 Soporte para Múltiples JSON</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Parseo inteligente:</strong> Detecta y procesa múltiples objetos JSON en el mismo texto</li>
+                <li>• <strong>Combina datos:</strong> Merge automático de todos los JSON detectados</li>
+                <li>• <strong>Regex avanzado:</strong> Identifica objetos JSON válidos incluso con saltos de línea</li>
+                <li>• <strong>Sin errores:</strong> Ignora JSON inválidos y continúa con los válidos</li>
+                <li>• <strong>CharacterSkills implementado:</strong> Pega varios JSON de habilidades de una vez</li>
+                <li>• Facilita importación desde múltiples capturas de pantalla</li>
+              </ul>
+            </div>
+
+            {/* Modal de Confirmación */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✅ Confirmación Antes de Importar</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Análisis previo:</strong> Calcula cambios SIN aplicarlos primero</li>
+                <li>• <strong>Resumen detallado:</strong> Muestra exactamente qué se actualizará y qué se agregará</li>
+                <li>• <strong>Modal ConfirmImportModal:</strong> Nuevo componente reutilizable para confirmaciones</li>
+                <li>• <strong>Ejemplos:</strong> "2 habilidades activas actualizadas, 3 habilidades activas nuevas"</li>
+                <li>• <strong>Botones claros:</strong> Cancelar para abortar, Confirmar para aplicar</li>
+                <li>• <strong>Sin cambios accidentales:</strong> Previene sobrescribir datos sin querer</li>
+                <li>• Usuario tiene control total antes de modificar su workspace</li>
+              </ul>
+            </div>
+
+            {/* Lógica de Merge */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔄 Merge Inteligente de Datos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>analyzeImportChanges():</strong> Nueva función que analiza sin aplicar</li>
+                <li>• <strong>Contador preciso:</strong> Distingue entre actualizaciones y agregados</li>
+                <li>• <strong>Combina múltiples JSON:</strong> Merge de arrays antes de analizar</li>
+                <li>• <strong>Keywords globales:</strong> Importa todas las palabras_clave de todos los JSON</li>
+                <li>• <strong>applyImportChanges():</strong> Solo se ejecuta después de confirmación</li>
+                <li>• <strong>Preserva IDs:</strong> Mantiene IDs originales al actualizar contenido</li>
+                <li>• Sin duplicados, sin data perdida, todo controlado</li>
+              </ul>
+            </div>
+
+            {/* Flujo Completo */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎯 Flujo de Importación Mejorado</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>1. Pegar JSON:</strong> Uno o múltiples objetos en el textarea</li>
+                <li>• <strong>2. Análisis previo:</strong> Sistema detecta cambios sin modificar nada</li>
+                <li>• <strong>3. Modal de resumen:</strong> Muestra qué se actualizará/agregará</li>
+                <li>• <strong>4. Usuario decide:</strong> Cancelar o Confirmar</li>
+                <li>• <strong>5. Aplicación:</strong> Solo si confirma, se guardan los cambios</li>
+                <li>• <strong>6. Feedback final:</strong> Mensaje de éxito con detalles</li>
+                <li>• Transparencia total en cada paso del proceso</li>
+              </ul>
+            </div>
+
+            {/* Keywords en Prompts */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔑 Prompts Actualizados</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Todos los prompts:</strong> Ahora mencionan que pueden incluir palabras_clave[]</li>
+                <li>• <strong>Estructura consistente:</strong> Sección palabras_clave en todos los JSON generados</li>
+                <li>• <strong>generateStatsPrompt():</strong> Ya incluía palabras_clave (v0.3.1)</li>
+                <li>• <strong>generateSkillsPrompt():</strong> Actualizado con ejemplos de palabras_clave</li>
+                <li>• <strong>generateGlyphsPrompt():</strong> Incluye sección de keywords</li>
+                <li>• IA ahora sabe extraer keywords en todos los tipos de importación</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.2 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.2</h3>
+            <span className="text-xs text-d4-text-dim bg-teal-600/20 text-teal-400 px-2 py-1 rounded">Mejoras en Importación</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Detalles Opcionales */}
+            <div className="bg-d4-bg border-l-4 border-teal-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📦 Detalles de Estadísticas Opcionales</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Flexibilidad total:</strong> Los detalles[] ahora son completamente opcionales en importación</li>
+                <li>• <strong>Doble modalidad:</strong> Importa JSON con estructura completa (detalles, palabras_clave) o simple (solo valores)</li>
+                <li>• <strong>Sin errores:</strong> Si el JSON no trae detalles[], solo guarda valor base de la estadística</li>
+                <li>• <strong>Compatibilidad:</strong> JSON de v0.3.0 y v0.3.1 funcionan igual sin modificaciones</li>
+                <li>• <strong>Gradualidad:</strong> Puedes empezar con valores simples y agregar detalles después</li>
+                <li>• Reduce complejidad inicial para usuarios nuevos</li>
+              </ul>
+            </div>
+
+            {/* Keywords en Stats */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔑 Keywords en Estadísticas Corregido</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>CharacterStats:</strong> Ahora importa palabras_clave globales desde JSON de estadísticas</li>
+                <li>• <strong>Importación unificada:</strong> Tanto archivo como texto importan keywords correctamente</li>
+                <li>• <strong>4/4 componentes:</strong> CharacterSkills, CharacterGlyphs, CharacterStats, HeroManager</li>
+                <li>• <strong>Cobertura total:</strong> Todos los tipos de importación ahora guardan keywords</li>
+                <li>• <strong>Sin duplicados:</strong> KeywordsService previene keywords repetidas automáticamente</li>
+                <li>• Base de conocimiento completa y consistente en todo el workspace</li>
+              </ul>
+            </div>
+
+            {/* Robustez */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✅ Robustez en Importaciones</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Manejo de errores:</strong> Importación de keywords no falla proceso completo</li>
+                <li>• <strong>Validación segura:</strong> Verifica que palabras_clave existe y es array antes de importar</li>
+                <li>• <strong>Logs informativos:</strong> Console.log cuando keywords se importan exitosamente</li>
+                <li>• <strong>Fallback gracioso:</strong> Si keywords falla, el resto de la importación continúa</li>
+                <li>• Mayor estabilidad en flujo completo de importación</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.1</h3>
+            <span className="text-xs text-d4-text-dim bg-emerald-600/20 text-emerald-400 px-2 py-1 rounded">Estadísticas Detalladas y Actualizaciones Inteligentes</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Detalles de Estadísticas */}
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📊 Sistema de Detalles de Estadísticas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>DetalleEstadistica:</strong> Nueva interfaz para capturar composición de valores</li>
+                <li>• <strong>Detalles anidados:</strong> Cada estadística ahora tiene array detalles[] opcional</li>
+                <li>• <strong>Estructura completa:</strong> texto, valor, contribucion, palabras_clave por detalle</li>
+                <li>• <strong>Ejemplo:</strong> "Probabilidad de golpe crítico" → detalles["Contribución de objetos: 0", "Aumenta la probabilidad de asestar golpe crítico"]</li>
+                <li>• <strong>7 interfaces actualizadas:</strong> EstadisticasPersonaje, AtributosBase, Defensivo, Ofensivo, Utilidad, Armadura, AtributosPrincipales</li>
+                <li>• <strong>Todas con detalles[]:</strong> Información de cómo se compone cada stat</li>
+                <li>• Mayor transparencia en cálculos del juego</li>
+              </ul>
+            </div>
+
+            {/* Palabras Clave en Stats */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔑 Palabras Clave en Estadísticas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>palabras_clave[] global:</strong> Todas las interfaces de stats ahora soportan keywords</li>
+                <li>• <strong>Double tracking:</strong> Keywords tanto a nivel de stat como de detalle individual</li>
+                <li>• <strong>Coherencia total:</strong> Mismo sistema que skills/glyphs/aspects para stats</li>
+                <li>• <strong>Ejemplo:</strong> "vulnerable", "reduccion_de_danio", "aumentado" detectados en textos</li>
+                <li>• <strong>Importación automática:</strong> Keywords de stats también van a workspace global</li>
+                <li>• Keywords en blanco/subrayadas de tooltips ahora capturadas</li>
+                <li>• Base de conocimiento unificada entre todas las entidades</li>
+              </ul>
+            </div>
+
+            {/* Definición de Aguante */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🛡️ Definición de Aguante</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>aguante_definicion:</strong> Nuevo campo en EstadisticasPersonaje</li>
+                <li>• <strong>Texto completo del tooltip:</strong> "El Aguante es una aproximación de la vida efectiva..."</li>
+                <li>• <strong>Extracción desde imágenes:</strong> IA captura tooltip completo al procesar screenshots</li>
+                <li>• <strong>UI futura:</strong> Preparado para mostrar definición en hover/modal</li>
+                <li>• Documentación in-app del funcionamiento de Aguante</li>
+              </ul>
+            </div>
+
+            {/* Actualizaciones Inteligentes */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔄 Actualizaciones Inteligentes</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Merge inteligente:</strong> Importación ahora actualiza datos existentes en lugar de duplicar</li>
+                <li>• <strong>findIndex por nombre:</strong> Detecta si habilidad/glifo/aspecto ya existe</li>
+                <li>• <strong>Update o Add:</strong> Si existe actualiza valores, si no existe lo añade nuevo</li>
+                <li>• <strong>5 componentes actualizados:</strong> CharacterSkills, CharacterGlyphs, HeroManager (×3 tipos)</li>
+                <li>• <strong>Preservación de IDs:</strong> IDs originales mantenidos al actualizar contenido</li>
+                <li>• Sin duplicados al re-importar mismo JSON</li>
+                <li>• Data consistency mejorada en todo el workspace</li>
+              </ul>
+            </div>
+
+            {/* Mensajes de Modal Mejorados */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💬 Feedback Detallado en Importaciones</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Counters específicos:</strong> Rastreo separado de actualizados vs. agregados</li>
+                <li>• <strong>Habilidades:</strong> "2 activas actualizadas, 3 activas nuevas, 1 pasiva actualizada"</li>
+                <li>• <strong>Glifos:</strong> "5 actualizados, 2 nuevos"</li>
+                <li>• <strong>Aspectos:</strong> "3 actualizados, 1 nuevo"</li>
+                <li>• <strong>CharacterSkills:</strong> 4 contadores (activas/pasivas × actualizada/nueva)</li>
+                <li>• <strong>CharacterGlyphs:</strong> 2 contadores (actualizado/agregado)</li>
+                <li>• <strong>HeroManager:</strong> Contadores para los 3 tipos de importación</li>
+                <li>• Mensajes informativos en lugar de genéricos "éxito"</li>
+                <li>• Usuario sabe exactamente qué cambió con cada importación</li>
+              </ul>
+            </div>
+
+            {/* Prompts para IA */}
+            <div className="bg-d4-bg border-l-4 border-pink-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📸 Prompt de Estadísticas Mejorado</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>generateStatsPrompt():</strong> Nuevo método en ImageExtractionPromptService (150+ líneas)</li>
+                <li>• <strong>Extrae detalles completos:</strong> TODOS los sub-items de cada estadística</li>
+                <li>• <strong>Captura aguante_definicion:</strong> Tooltip completo del Aguante</li>
+                <li>• <strong>Detecta palabras_clave:</strong> Términos en blanco/subrayados en detalles</li>
+                <li>• <strong>JSON estructurado:</strong> Ejemplo completo con detalles[] anidados</li>
+                <li>• <strong>7 secciones:</strong> personaje, atributosPrincipales, defensivo, ofensivo, utilidad, armaduraYResistencias, jcj</li>
+                <li>• Extracción precisa de screenshots del juego a datos estructurados</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.0</h3>
+            <span className="text-xs text-d4-text-dim bg-amber-600/20 text-amber-400 px-2 py-1 rounded">Sistema de Keywords y Clasificación de Skills</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Clasificación de Habilidades */}
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎯 Clasificación Inteligente de Habilidades</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>3 tipos de habilidad:</strong> Skill (habilidad base), Modificador (mejora seleccionable), Pasiva</li>
+                <li>• <strong>Campo tipo_habilidad:</strong> Añadido a todas las habilidades activas y pasivas</li>
+                <li>• <strong>skill_padre:</strong> Modificadores ahora referencian la skill que mejoran</li>
+                <li>• <strong>nivel_maximo:</strong> Cada skill/modificador/pasiva conoce su límite (1-5)</li>
+                <li>• <strong>Prompts actualizados:</strong> IA ahora extrae el tipo de habilidad desde imágenes</li>
+                <li>• Mayor precisión en la gestión de builds complejos</li>
+                <li>• Permite analizar dependencias entre skills y sus modificadores</li>
+              </ul>
+            </div>
+
+            {/* Sistema de Keywords Global */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔑 Sistema de Palabras Clave Globales</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Entidad transversal:</strong> Keywords guardadas a nivel workspace, no por héroe</li>
+                <li>• <strong>KeywordsService:</strong> Nuevo servicio CRUD completo para gestión de keywords</li>
+                <li>• <strong>Sin duplicados:</strong> Sistema inteligente de upsert previene keywords repetidas</li>
+                <li>• <strong>Normalización de IDs:</strong> "Golpe Crítico" → "kw_golpe_critico" automáticamente</li>
+                <li>• <strong>Categorías:</strong> atributo, efecto, condición, recurso, otro</li>
+                <li>• <strong>Descripciones detalladas:</strong> Cada keyword guarda explicación del término</li>
+                <li>• <strong>Importación desde JSON:</strong> Keywords de imágenes extraídas y guardadas globalmente</li>
+                <li>• Base de conocimiento reutilizable entre todas las skills/glyphs/aspects</li>
+              </ul>
+            </div>
+
+            {/* Extracción desde Imágenes */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📸 Extracción de Keywords desde Imágenes</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Palabras en blanco:</strong> IA detecta términos marcados en blanco/subrayados</li>
+                <li>• <strong>Todos los prompts actualizados:</strong> Skills, glyphs, aspects ahora incluyen palabras_clave[]</li>
+                <li>• <strong>JSON estructurado:</strong> palabras_clave global con palabra, descripción, categoría</li>
+                <li>• <strong>Importación automática:</strong> HeroManager procesa palabras_clave antes de guardar datos</li>
+                <li>• <strong>Consistencia total:</strong> Mismas keywords en múltiples skills sin duplicar</li>
+                <li>• Los tooltips de imágenes ahora se capturan como descripciones</li>
+                <li>• Mayor precisión en builds al conocer modificadores exactos del juego</li>
+              </ul>
+            </div>
+
+            {/* Visualización UI */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💎 Visualización de Keywords en UI</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Badges ámbar:</strong> Keywords mostradas como pills color ámbar brillante</li>
+                <li>• <strong>Todas las vistas:</strong> CharacterSkills, CharacterGlyphs con keywords visibles</li>
+                <li>• <strong>Gestión de Heroes:</strong> HeroSkills, HeroGlyphs, HeroAspects muestran keywords</li>
+                <li>• <strong>Separación visual:</strong> Keywords en sección separada con border-top</li>
+                <li>• <strong>Tamaño reducido:</strong> text-[9px] para no interferir con contenido principal</li>
+                <li>• <strong>Tooltip descriptivo:</strong> "Palabra clave del juego" al hacer hover</li>
+                <li>• Fácil identificación de mecánicas compartidas entre elementos</li>
+              </ul>
+            </div>
+
+            {/* Arquitectura */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🏗️ Mejoras Arquitectónicas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Tipos actualizados:</strong> PalabraClave, PalabrasClaveGlobales, TipoHabilidad</li>
+                <li>• <strong>LocalStorage workspace-scoped:</strong> {`{workspace}_palabras_clave_globales`}</li>
+                <li>• <strong>Separación keywords/palabras_clave:</strong> keywords[] búsqueda simple, palabras_clave[] IDs detallados</li>
+                <li>• <strong>Métodos async:</strong> loadKeywords(), upsertKeywords(), searchKeywords()</li>
+                <li>• <strong>Por categoría:</strong> getKeywordsByCategory() para filtrado especializado</li>
+                <li>• <strong>Búsqueda por IDs:</strong> getKeywordsByIds() para resolver referencias</li>
+                <li>• Código mantenible y escalable para futuras features</li>
+                <li>• Base sólida para sistema de filtrado y búsqueda avanzada</li>
+              </ul>
             </div>
           </div>
         </div>

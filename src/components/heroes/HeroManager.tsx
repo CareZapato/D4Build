@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Upload, Download, FileJson, Copy, Check, Database } from 'lucide-react';
 import { WorkspaceService } from '../../services/WorkspaceService';
-import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe } from '../../types';
+import { TagService } from '../../services/TagService';
+import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, Tag } from '../../types';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import HeroSkills from './HeroSkills';
 import HeroGlyphs from './HeroGlyphs';
@@ -107,6 +108,53 @@ const HeroManager: React.FC = () => {
   const processJSONImport = async (content: string) => {
     const data = JSON.parse(content);
 
+    // Procesar tags globalmente si existen
+    let allTags: Tag[] = [];
+    if (data.palabras_clave && Array.isArray(data.palabras_clave)) {
+      allTags = data.palabras_clave;
+    }
+
+    // Recolectar tags de entidades individuales
+    if (importType === 'habilidades') {
+      [...(data.habilidades_activas || []), ...(data.habilidades_pasivas || [])].forEach((skill: any) => {
+        if (skill.palabras_clave && Array.isArray(skill.palabras_clave)) {
+          skill.palabras_clave.forEach((kw: any) => {
+            if (typeof kw === 'object' && kw.tag) {
+              allTags.push(kw);
+            }
+          });
+        }
+      });
+    } else if (importType === 'glifos') {
+      (data.glifos || []).forEach((glifo: any) => {
+        if (glifo.palabras_clave && Array.isArray(glifo.palabras_clave)) {
+          glifo.palabras_clave.forEach((kw: any) => {
+            if (typeof kw === 'object' && kw.tag) {
+              allTags.push(kw);
+            }
+          });
+        }
+      });
+    } else if (importType === 'aspectos') {
+      (data.aspectos || []).forEach((aspecto: any) => {
+        if (aspecto.palabras_clave && Array.isArray(aspecto.palabras_clave)) {
+          aspecto.palabras_clave.forEach((kw: any) => {
+            if (typeof kw === 'object' && kw.tag) {
+              allTags.push(kw);
+            }
+          });
+        }
+      });
+    }
+
+    // Guardar tags globalmente
+    if (allTags.length > 0) {
+      const origen = importType === 'habilidades' ? 'habilidad' :
+                     importType === 'glifos' ? 'glifo' : 'aspecto';
+      const tagIds = await TagService.processAndSaveTagsV2(allTags, origen as any);
+      console.log(`${tagIds.length} tags guardados desde ${importType}`);
+    }
+
     if (importType === 'habilidades') {
       // Validar que tenga la estructura correcta
       if (!data.habilidades_activas || !data.habilidades_pasivas) {
@@ -114,21 +162,65 @@ const HeroManager: React.FC = () => {
         return;
       }
       
-      // Asignar IDs a habilidades que no los tengan
-      const dataWithIds: HabilidadesPersonaje = {
-        habilidades_activas: data.habilidades_activas.map((hab: any) => ({
-          ...hab,
-          id: hab.id || `skill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        })),
-        habilidades_pasivas: data.habilidades_pasivas.map((hab: any) => ({
-          ...hab,
-          id: hab.id || `passive_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        }))
+      // Cargar datos existentes
+      const existingSkills = await WorkspaceService.loadHeroSkills(selectedClass);
+      const existing: HabilidadesPersonaje = existingSkills || {
+        habilidades_activas: [],
+        habilidades_pasivas: []
       };
+
+      let activasActualizadas = 0;
+      let activasAgregadas = 0;
+
+      // Actualizar o agregar habilidades activas
+      data.habilidades_activas.forEach((hab: any) => {
+        const existingIndex = existing.habilidades_activas.findIndex(s => s.nombre === hab.nombre);
+        if (existingIndex >= 0) {
+          existing.habilidades_activas[existingIndex] = {
+            ...hab,
+            id: existing.habilidades_activas[existingIndex].id
+          };
+          activasActualizadas++;
+        } else {
+          existing.habilidades_activas.push({
+            ...hab,
+            id: hab.id || `skill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          });
+          activasAgregadas++;
+        }
+      });
+
+      let pasivasActualizadas = 0;
+      let pasivasAgregadas = 0;
+
+      // Actualizar o agregar habilidades pasivas
+      data.habilidades_pasivas.forEach((hab: any) => {
+        const existingIndex = existing.habilidades_pasivas.findIndex(s => s.nombre === hab.nombre);
+        if (existingIndex >= 0) {
+          existing.habilidades_pasivas[existingIndex] = {
+            ...hab,
+            id: existing.habilidades_pasivas[existingIndex].id
+          };
+          pasivasActualizadas++;
+        } else {
+          existing.habilidades_pasivas.push({
+            ...hab,
+            id: hab.id || `passive_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          });
+          pasivasAgregadas++;
+        }
+      });
       
-      await WorkspaceService.saveHeroSkills(selectedClass, dataWithIds);
-      setHeroSkills(dataWithIds);
-      modal.showSuccess(`Habilidades de ${selectedClass} importadas correctamente`);
+      await WorkspaceService.saveHeroSkills(selectedClass, existing);
+      setHeroSkills(existing);
+      
+      const mensajes = [];
+      if (activasActualizadas > 0) mensajes.push(`${activasActualizadas} activas actualizadas`);
+      if (activasAgregadas > 0) mensajes.push(`${activasAgregadas} activas nuevas`);
+      if (pasivasActualizadas > 0) mensajes.push(`${pasivasActualizadas} pasivas actualizadas`);
+      if (pasivasAgregadas > 0) mensajes.push(`${pasivasAgregadas} pasivas nuevas`);
+      
+      modal.showSuccess(`Habilidades ${selectedClass}: ${mensajes.join(', ')}`);
     } else if (importType === 'glifos') {
       // Validar que tenga la estructura correcta
       if (!data.glifos) {
@@ -136,26 +228,79 @@ const HeroManager: React.FC = () => {
         return;
       }
       
-      // Asignar IDs a glifos que no los tengan
-      const dataWithIds: GlifosHeroe = {
-        glifos: data.glifos.map((glifo: any) => ({
-          ...glifo,
-          id: glifo.id || `glyph_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        }))
-      };
+      // Cargar datos existentes
+      const existingData = await WorkspaceService.loadHeroGlyphs(selectedClass);
+      const existing: GlifosHeroe = existingData || { glifos: [] };
+
+      let actualizados = 0;
+      let agregados = 0;
+
+      // Actualizar o agregar glifos
+      data.glifos.forEach((glifo: any) => {
+        const existingIndex = existing.glifos.findIndex(g => g.nombre === glifo.nombre);
+        if (existingIndex >= 0) {
+          existing.glifos[existingIndex] = {
+            ...glifo,
+            id: existing.glifos[existingIndex].id
+          };
+          actualizados++;
+        } else {
+          existing.glifos.push({
+            ...glifo,
+            id: glifo.id || `glyph_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          });
+          agregados++;
+        }
+      });
       
-      await WorkspaceService.saveHeroGlyphs(selectedClass, dataWithIds);
-      setHeroGlyphs(dataWithIds);
-      modal.showSuccess(`Glifos de ${selectedClass} importados correctamente`);
+      await WorkspaceService.saveHeroGlyphs(selectedClass, existing);
+      setHeroGlyphs(existing);
+      
+      const mensajes = [];
+      if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
+      if (agregados > 0) mensajes.push(`${agregados} nuevos`);
+      
+      modal.showSuccess(`Glifos ${selectedClass}: ${mensajes.join(', ')}`);
     } else if (importType === 'aspectos') {
       // Validar que tenga la estructura correcta
       if (!data.aspectos) {
         modal.showError('El archivo no tiene el formato correcto de aspectos');
         return;
       }
-      await WorkspaceService.saveHeroAspects(selectedClass, data as AspectosHeroe);
-      setHeroAspects(data as AspectosHeroe);
-      modal.showSuccess(`Aspectos de ${selectedClass} importados correctamente`);
+
+      // Cargar datos existentes
+      const existingData = await WorkspaceService.loadHeroAspects(selectedClass);
+      const existing: AspectosHeroe = existingData || { aspectos: [] };
+
+      let actualizados = 0;
+      let agregados = 0;
+
+      // Actualizar o agregar aspectos
+      data.aspectos.forEach((aspecto: any) => {
+        const existingIndex = existing.aspectos.findIndex(a => a.name === aspecto.name);
+        if (existingIndex >= 0) {
+          existing.aspectos[existingIndex] = {
+            ...aspecto,
+            id: existing.aspectos[existingIndex].id
+          };
+          actualizados++;
+        } else {
+          existing.aspectos.push({
+            ...aspecto,
+            id: aspecto.id || `aspect_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          });
+          agregados++;
+        }
+      });
+
+      await WorkspaceService.saveHeroAspects(selectedClass, existing);
+      setHeroAspects(existing);
+      
+      const mensajes = [];
+      if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
+      if (agregados > 0) mensajes.push(`${agregados} nuevos`);
+      
+      modal.showSuccess(`Aspectos ${selectedClass}: ${mensajes.join(', ')}`);
     }
   };
 

@@ -1,0 +1,89 @@
+{
+  "nivel": null,
+  "nivel_paragon": null,
+  "estadisticas": {
+    "atributos_principales": [
+      {
+        "id": "fuerza",
+        "nombre": "Fuerza",
+        "categoria": "atributo_principal",
+        "valor": 1670,
+        "unidad": "puntos",
+        "descripcion": null,
+        "detalles": [
+          {
+            "texto": "Contribución de objetos: 1297",
+            "tipo": "contribucion",
+            "valor": 1297,
+            "unidad": "puntos",
+            "contribucion": "objetos",
+            "tags": []
+          },
+          {
+            "texto": "Aumenta el daño de habilidad en 208.8 %",
+            "tipo": "bonificacion",
+            "valor": 208.8,
+            "unidad": "%",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "danio_de_habilidad",
+                "texto_original": "daño de habilidad",
+                "significado": null,
+                "categoria": "atributo",
+                "fuente": "tooltip"
+              }
+            ]
+          },
+          {
+            "texto": "Aumenta la armadura en +3,340",
+            "tipo": "bonificacion",
+            "valor": 3340,
+            "unidad": "puntos",
+            "contribucion": null,
+            "tags": [
+              {
+                "tag": "armadura",
+                "texto_original": "armadura",
+                "significado": "Reduce el daño recibido de ataques.",
+                "categoria": "defensivo",
+                "fuente": "tooltip"
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "danio_de_habilidad",
+            "texto_original": "daño de habilidad",
+            "significado": null,
+            "categoria": "atributo",
+            "fuente": "tooltip"
+          }
+        ]
+      }
+    ]
+  },
+  "palabras_clave": [
+    {
+      "tag": "danio_de_habilidad",
+      "texto_original": "daño de habilidad",
+      "significado": null,
+      "categoria": "atributo",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": true
+    },
+    {
+      "tag": "armadura",
+      "texto_original": "armadura",
+      "significado": "Reduce el daño recibido de ataques.",
+      "categoria": "defensivo",
+      "descripcion_jugabilidad": null,
+      "sinonimos": [],
+      "origen": "tooltip",
+      "pendiente_revision": false
+    }
+  ]
+}

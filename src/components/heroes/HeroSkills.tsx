@@ -21,6 +21,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
   const [editFormActive, setEditFormActive] = useState<HabilidadActiva>({
     id: '',
     nombre: '',
+    tipo_habilidad: 'skill',
     tipo: '',
     rama: '',
     nivel: 1,
@@ -30,6 +31,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
   const [editFormPassive, setEditFormPassive] = useState<HabilidadPasiva>({
     id: '',
     nombre: '',
+    tipo_habilidad: 'pasiva',
     nivel: 1,
     efecto: ''
   });
@@ -45,6 +47,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
       setEditFormActive({
         id: `skill-active-${Date.now()}`,
         nombre: '',
+        tipo_habilidad: 'skill',
         tipo: '',
         rama: '',
         nivel: 1,
@@ -55,6 +58,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
       setEditFormPassive({
         id: `skill-passive-${Date.now()}`,
         nombre: '',
+        tipo_habilidad: 'pasiva',
         nivel: 1,
         efecto: ''
       });
@@ -147,6 +151,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
     setEditFormActive({
       id: '',
       nombre: '',
+      tipo_habilidad: 'skill',
       tipo: '',
       rama: '',
       nivel: 1,
@@ -156,6 +161,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
     setEditFormPassive({
       id: '',
       nombre: '',
+      tipo_habilidad: 'pasiva',
       nivel: 1,
       efecto: ''
     });
@@ -402,6 +408,19 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                       Modificadores: {skill.modificadores.length}
                     </p>
                   )}
+                  {skill.palabras_clave && skill.palabras_clave.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {skill.palabras_clave.map((palabra, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
+                          title="Palabra clave del juego"
+                        >
+                          {palabra}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-1 flex-shrink-0">
@@ -458,6 +477,19 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                     )}
                   </div>
                   <p className="text-sm text-d4-text">{skill.efecto}</p>
+                  {skill.palabras_clave && skill.palabras_clave.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {skill.palabras_clave.map((palabra, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
+                          title="Palabra clave del juego"
+                        >
+                          {palabra}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-1 flex-shrink-0">
