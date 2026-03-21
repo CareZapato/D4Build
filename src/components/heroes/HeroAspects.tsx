@@ -162,23 +162,11 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
   const endIndex = startIndex + itemsPerPage;
   const paginatedAspects = filteredAspects.slice(startIndex, endIndex);
 
-  // Debug logging
-  console.log('HeroAspects Debug:', {
-    totalAspects: aspectsList.length,
-    filteredCount: filteredAspects.length,
-    paginatedCount: paginatedAspects.length,
-    currentPage,
-    itemsPerPage,
-    paginatedAspects: paginatedAspects.map(a => ({ id: a.id, name: a.name, category: a.category }))
-  });
-
   // Group paginated aspects by category for display
   const aspectsByCategory = categories.map(cat => ({
     ...cat,
     aspects: paginatedAspects.filter(a => a.category === cat.value)
   })).filter(cat => cat.aspects.length > 0); // Only show categories with aspects
-
-  console.log('Aspects by category:', aspectsByCategory.map(c => ({ category: c.value, count: c.aspects.length })));
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -376,28 +364,6 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
 
       {/* Aspects List by Category */}
       <div className="space-y-4">
-        {/* Debug info */}
-        <div className="card bg-yellow-900/20 border-yellow-600">
-          <h4 className="font-bold text-yellow-400 mb-2">🔍 Debug Info</h4>
-          <div className="text-xs text-yellow-200 space-y-1">
-            <p>Total aspectos: {aspectsList.length}</p>
-            <p>Filtrados: {filteredAspects.length}</p>
-            <p>Paginados: {paginatedAspects.length}</p>
-            <p>Categorías con aspectos: {aspectsByCategory.length}</p>
-            <p>Página actual: {currentPage} de {totalPages}</p>
-            {paginatedAspects.length > 0 && (
-              <div>
-                <p className="font-bold mt-2">Aspectos en esta página:</p>
-                <ul className="list-disc list-inside">
-                  {paginatedAspects.map(a => (
-                    <li key={a.id}>{a.name} - categoria: "{a.category}"</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-
         {aspectsByCategory.length > 0 ? (
           aspectsByCategory.map(cat => (
             <div key={cat.value} className="card">
