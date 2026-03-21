@@ -162,6 +162,7 @@ export interface Personaje {
   glifos_refs?: Array<{
     id: string;  // ID del glifo en el héroe
     nivel_actual: number;  // Nivel específico del personaje
+    nivel_maximo?: number;  // Nivel máximo del glifo (por defecto 100)
   }>;
   // Referencias a aspectos del héroe
   aspectos_refs?: string[]; // IDs de aspectos equipados

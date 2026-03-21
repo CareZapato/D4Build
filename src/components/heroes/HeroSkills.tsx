@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Zap, Shield } from 'lucide-react';
 import { HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje } from '../../types';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface HeroSkillsProps {
   heroClass: string;
@@ -9,6 +11,7 @@ interface HeroSkillsProps {
 }
 
 const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) => {
+  const modal = useModal();
   const [activeSkills, setActiveSkills] = useState<HabilidadActiva[]>(skills.habilidades_activas || []);
   const [passiveSkills, setPassiveSkills] = useState<HabilidadPasiva[]>(skills.habilidades_pasivas || []);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -75,7 +78,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
     const currentForm = skillType === 'activa' ? editFormActive : editFormPassive;
     
     if (!currentForm.nombre) {
-      alert('Por favor completa al menos el nombre');
+      modal.showWarning('Por favor completa al menos el nombre');
       return;
     }
 
@@ -107,12 +110,13 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
       handleCancel();
     } catch (error) {
       console.error('Error guardando habilidad:', error);
-      alert('Error al guardar la habilidad');
+      modal.showError('Error al guardar la habilidad');
     }
   };
 
   const handleDelete = async (id: string, type: 'activa' | 'pasiva') => {
-    if (!confirm('¿Estás seguro de eliminar esta habilidad?')) return;
+    const confirmed = await modal.showConfirm('¿Estás seguro de eliminar esta habilidad?');
+    if (!confirmed) return;
 
     try {
       let updatedActiveSkills = [...activeSkills];
@@ -133,7 +137,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
       setPassiveSkills(updatedPassiveSkills);
     } catch (error) {
       console.error('Error eliminando habilidad:', error);
-      alert('Error al eliminar la habilidad');
+      modal.showError('Error al eliminar la habilidad');
     }
   };
 
@@ -485,6 +489,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
           )}
         </div>
       </div>
+      <Modal {...modal} />
     </div>
   );
 };

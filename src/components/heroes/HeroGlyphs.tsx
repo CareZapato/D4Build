@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Gem } from 'lucide-react';
 import { Glifo, GlifosHeroe } from '../../types';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface HeroGlyphsProps {
   heroClass: string;
@@ -9,6 +11,7 @@ interface HeroGlyphsProps {
 }
 
 const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) => {
+  const modal = useModal();
   const [glyphsList, setGlyphsList] = useState<Glifo[]>(glyphs.glifos || []);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,7 +49,7 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
 
   const handleSave = async () => {
     if (!editForm.nombre) {
-      alert('Por favor completa al menos el nombre');
+      modal.showWarning('Por favor completa al menos el nombre');
       return;
     }
 
@@ -63,12 +66,13 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
       handleCancel();
     } catch (error) {
       console.error('Error guardando glifo:', error);
-      alert('Error al guardar el glifo');
+      modal.showError('Error al guardar el glifo');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este glifo?')) return;
+    const confirmed = await modal.showConfirm('¿Estás seguro de eliminar este glifo?');
+    if (!confirmed) return;
 
     const updatedList = glyphsList.filter(g => g.id !== id);
     try {
@@ -76,7 +80,7 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
       setGlyphsList(updatedList);
     } catch (error) {
       console.error('Error eliminando glifo:', error);
-      alert('Error al eliminar el glifo');
+      modal.showError('Error al eliminar el glifo');
     }
   };
 
@@ -375,6 +379,7 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
           )}
         </div>
       </div>
+      <Modal {...modal} />
     </div>
   );
 };

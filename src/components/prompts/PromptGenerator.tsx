@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { Sparkles, Copy, Check, FileText } from 'lucide-react';
 import { Personaje } from '../../types';
 import { PromptService } from '../../services/PromptService';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personajes: Personaje[];
 }
 
 const PromptGenerator: React.FC<Props> = ({ personajes }) => {
+  const modal = useModal();
   const [selectedPersonaje, setSelectedPersonaje] = useState<string>('');
   const [promptType, setPromptType] = useState<'custom' | 'synergy' | 'optimization'>('custom');
   const [customQuestion, setCustomQuestion] = useState('');
@@ -20,7 +23,7 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
   const handleGenerate = async () => {
     const personaje = personajes.find(p => p.id === selectedPersonaje);
     if (!personaje) {
-      alert('Selecciona un personaje');
+      modal.showWarning('Selecciona un personaje');
       return;
     }
 
@@ -49,7 +52,7 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } else {
-      alert('Error al copiar al portapapeles');
+      modal.showError('Error al copiar al portapapeles');
     }
   };
 
@@ -250,6 +253,7 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
           )}
         </div>
       </div>
+      <Modal {...modal} />
     </div>
   );
 };

@@ -3,6 +3,8 @@ import { Upload, Plus, Trash2, Zap, Shield, Copy, Check } from 'lucide-react';
 import { Personaje, HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personaje: Personaje;
@@ -10,6 +12,7 @@ interface Props {
 }
 
 const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
+  const modal = useModal();
   const [importing, setImporting] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<HabilidadesPersonaje | null>(null);
   const [activeSkillsData, setActiveSkillsData] = useState<HabilidadActiva[]>([]);
@@ -67,7 +70,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       await processJSONImport(content);
     } catch (error) {
       console.error('Error importando habilidades:', error);
-      alert('Error al importar el archivo JSON. Verifica el formato.');
+      modal.showError('Error al importar el archivo JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -75,7 +78,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
 
   const handleImportFromText = async () => {
     if (!jsonText.trim()) {
-      alert('Por favor ingresa un JSON válido');
+      modal.showError('Por favor ingresa un JSON válido');
       return;
     }
 
@@ -86,7 +89,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       setShowTextInput(false);
     } catch (error) {
       console.error('Error importando habilidades:', error);
-      alert('Error al procesar el JSON. Verifica el formato.');
+      modal.showError('Error al procesar el JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -96,7 +99,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     const data = JSON.parse(content) as HabilidadesPersonaje;
 
     if (!data.habilidades_activas || !data.habilidades_pasivas) {
-      alert('El archivo no tiene el formato correcto de habilidades');
+      modal.showError('El archivo no tiene el formato correcto de habilidades');
       return;
     }
 
@@ -107,10 +110,17 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       habilidades_pasivas: []
     };
 
-    // Agregar habilidades activas que no existan
+    // Actualizar o agregar habilidades activas
     data.habilidades_activas.forEach(skill => {
-      const exists = updatedHeroSkills.habilidades_activas.some(s => s.nombre === skill.nombre);
-      if (!exists) {
+      const existingIndex = updatedHeroSkills.habilidades_activas.findIndex(s => s.nombre === skill.nombre);
+      if (existingIndex >= 0) {
+        // Actualizar la existente manteniendo el ID
+        updatedHeroSkills.habilidades_activas[existingIndex] = {
+          ...skill,
+          id: updatedHeroSkills.habilidades_activas[existingIndex].id
+        };
+      } else {
+        // Agregar nueva
         const skillWithId = {
           ...skill,
           id: skill.id || `skill_activa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -119,10 +129,17 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       }
     });
 
-    // Agregar habilidades pasivas que no existan
+    // Actualizar o agregar habilidades pasivas
     data.habilidades_pasivas.forEach(skill => {
-      const exists = updatedHeroSkills.habilidades_pasivas.some(s => s.nombre === skill.nombre);
-      if (!exists) {
+      const existingIndex = updatedHeroSkills.habilidades_pasivas.findIndex(s => s.nombre === skill.nombre);
+      if (existingIndex >= 0) {
+        // Actualizar la existente manteniendo el ID
+        updatedHeroSkills.habilidades_pasivas[existingIndex] = {
+          ...skill,
+          id: updatedHeroSkills.habilidades_pasivas[existingIndex].id
+        };
+      } else {
+        // Agregar nueva
         const skillWithId = {
           ...skill,
           id: skill.id || `skill_pasiva_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -134,26 +151,26 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     await WorkspaceService.saveHeroSkills(personaje.clase, updatedHeroSkills);
     setAvailableSkills(updatedHeroSkills);
 
-    // Ahora agregar referencias al personaje
-    const activasIds = data.habilidades_activas.map(skill => {
+    // Ahora agregar referencias al personaje (solo las que no existan)
+    const newActivasIds = data.habilidades_activas.map(skill => {
       const heroSkill = updatedHeroSkills.habilidades_activas.find(s => s.nombre === skill.nombre);
-      return heroSkill?.id || skill.id || '';
-    }).filter(Boolean);
+      return heroSkill?.id || '';
+    }).filter(id => id && !skillsRefs.activas.includes(id));
 
-    const pasivasIds = data.habilidades_pasivas.map(skill => {
+    const newPasivasIds = data.habilidades_pasivas.map(skill => {
       const heroSkill = updatedHeroSkills.habilidades_pasivas.find(s => s.nombre === skill.nombre);
-      return heroSkill?.id || skill.id || '';
-    }).filter(Boolean);
+      return heroSkill?.id || '';
+    }).filter(id => id && !skillsRefs.pasivas.includes(id));
 
     const updatedRefs = {
-      activas: [...skillsRefs.activas, ...activasIds],
-      pasivas: [...skillsRefs.pasivas, ...pasivasIds]
+      activas: [...skillsRefs.activas, ...newActivasIds],
+      pasivas: [...skillsRefs.pasivas, ...newPasivasIds]
     };
     
     setSkillsRefs(updatedRefs);
     onChange(updatedRefs);
     
-    alert(`${activasIds.length} activas y ${pasivasIds.length} pasivas importadas`);
+    modal.showSuccess(`${data.habilidades_activas.length} activas y ${data.habilidades_pasivas.length} pasivas procesadas correctamente`);
   };
 
   const handleAddSkill = (skill: HabilidadActiva | HabilidadPasiva, type: 'activa' | 'pasiva') => {
@@ -161,7 +178,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
 
     if (type === 'activa') {
       if (skillsRefs.activas.includes(skill.id)) {
-        alert('Esta habilidad ya está en tu personaje');
+        modal.showInfo('Esta habilidad ya está en tu personaje');
         return;
       }
       const updatedRefs = {
@@ -172,7 +189,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       onChange(updatedRefs);
     } else {
       if (skillsRefs.pasivas.includes(skill.id)) {
-        alert('Esta habilidad ya está en tu personaje');
+        modal.showInfo('Esta habilidad ya está en tu personaje');
         return;
       }
       const updatedRefs = {
@@ -211,7 +228,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } else {
-      alert('Error al copiar al portapapeles');
+      modal.showError('Error al copiar al portapapeles');
     }
   };
 
@@ -315,29 +332,34 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
             <p className="text-xs">No hay habilidades activas</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {activeSkillsData.map((skill) => (
-              <div key={skill.id} className="bg-d4-bg p-2 rounded border border-d4-border hover:border-d4-accent transition-colors">
-                <div className="flex items-start justify-between mb-1">
+              <div key={skill.id} className="bg-d4-bg p-3 rounded-lg border-2 border-d4-border hover:border-d4-accent transition-all duration-200 hover:shadow-lg">
+                <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <h5 className="font-bold text-d4-accent text-xs truncate" title={skill.nombre}>
-                      {skill.nombre}
+                    <h5 className="font-bold text-d4-accent text-base truncate mb-1" title={skill.nombre}>
+                      {skill.nombre} <span className="text-sm text-d4-text-dim">({skill.nivel})</span>
                     </h5>
-                    <div className="flex gap-1 mt-0.5 flex-wrap">
-                      <span className="text-[10px] badge-raro px-1 py-0.5">{skill.tipo}</span>
-                      <span className="text-[10px] badge-normal px-1 py-0.5">{skill.rama}</span>
-                      <span className="text-[10px] badge-normal px-1 py-0.5">Nv. {skill.nivel}</span>
+                    <div className="flex gap-1 flex-wrap">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-200 border border-blue-600/50 font-semibold uppercase">
+                        {skill.tipo}
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase">
+                        {skill.rama}
+                      </span>
                     </div>
                   </div>
                   <button
                     onClick={() => handleRemoveSkill(skill.id!, 'activa')}
-                    className="p-0.5 hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+                    className="p-1 hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
                     title="Eliminar"
                   >
-                    <Trash2 className="w-3 h-3 text-red-500" />
+                    <Trash2 className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
-                <p className="text-[10px] text-d4-text-dim mt-1.5 line-clamp-2">{skill.descripcion}</p>
+                <p className="text-sm text-d4-text leading-relaxed mt-3">
+                  {skill.descripcion}
+                </p>
               </div>
             ))}
           </div>
@@ -355,29 +377,31 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
             <p className="text-xs">No hay habilidades pasivas</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {passiveSkillsData.map((skill) => (
-              <div key={skill.id} className="bg-d4-bg p-2 rounded border border-d4-border hover:border-d4-accent transition-colors">
-                <div className="flex items-start justify-between mb-1">
+              <div key={skill.id} className="bg-d4-bg p-3 rounded-lg border-2 border-d4-border hover:border-d4-accent transition-all duration-200 hover:shadow-lg">
+                <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <h5 className="font-bold text-d4-accent text-xs truncate" title={skill.nombre}>
-                      {skill.nombre}
+                    <h5 className="font-bold text-d4-accent text-base truncate mb-1" title={skill.nombre}>
+                      {skill.nombre} {skill.nivel && <span className="text-sm text-d4-text-dim">({skill.nivel})</span>}
                     </h5>
-                    {skill.nivel && (
-                      <span className="text-[10px] badge-normal px-1 py-0.5 mt-0.5 inline-block">
-                        Nv. {skill.nivel}
+                    {skill.tipo && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase inline-block">
+                        {skill.tipo}
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleRemoveSkill(skill.id!, 'pasiva')}
-                    className="p-0.5 hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+                    className="p-1 hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
                     title="Eliminar"
                   >
-                    <Trash2 className="w-3 h-3 text-red-500" />
+                    <Trash2 className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
-                <p className="text-[10px] text-d4-text-dim mt-1.5 line-clamp-2">{skill.efecto}</p>
+                <p className="text-sm text-d4-text leading-relaxed mt-3">
+                  {skill.descripcion || skill.efecto}
+                </p>
               </div>
             ))}
           </div>
@@ -450,6 +474,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
           </div>
         </div>
       )}
+      <Modal {...modal} />
     </>
   );
 };

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Upload, TrendingUp } from 'lucide-react';
 import { Personaje, Estadisticas } from '../../types';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personaje: Personaje;
@@ -8,6 +10,7 @@ interface Props {
 }
 
 const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
+  const modal = useModal();
   const [importing, setImporting] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -33,10 +36,10 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       const nivelParagon = parsed.nivel_paragon;
       onChange(data, nivel, nivelParagon);
       
-      alert('Estadísticas importadas correctamente');
+      modal.showSuccess('Estadísticas importadas correctamente');
     } catch (error) {
       console.error('Error importando estadísticas:', error);
-      alert('Error al importar el archivo JSON. Verifica el formato.');
+      modal.showError('Error al importar el archivo JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -44,7 +47,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
   const handleImportFromText = async () => {
     if (!jsonText.trim()) {
-      alert('Por favor ingresa un JSON válido');
+      modal.showError('Por favor ingresa un JSON válido');
       return;
     }
 
@@ -62,10 +65,10 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       
       setJsonText('');
       setShowTextInput(false);
-      alert('Estadísticas importadas correctamente');
+      modal.showSuccess('Estadísticas importadas correctamente');
     } catch (error) {
       console.error('Error importando estadísticas:', error);
-      alert('Error al procesar el JSON. Verifica el formato.');
+      modal.showError('Error al procesar el JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -354,6 +357,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           </div>
         )}
       </div>
+      <Modal {...modal} />
     </>
   );
 };

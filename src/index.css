@@ -2,13 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Importar fuentes gaming */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
 :root {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  font-family: 'Rajdhani', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  font-weight: 500;
+  font-size: 16px;
 
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
+  color: rgba(255, 255, 255, 0.92);
   background-color: #0a0a0a;
 
   font-synthesis: none;
@@ -20,36 +24,54 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1410 100%);
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Títulos con fuente gaming */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.1rem; }
+h6 { font-size: 1rem; }
+
 /* Scrollbar personalizado */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
   background: #1a1a1a;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #b8860b;
-  border-radius: 5px;
+  background: linear-gradient(180deg, #b8860b 0%, #daa520 100%);
+  border-radius: 6px;
+  border: 2px solid #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #daa520;
+  background: linear-gradient(180deg, #daa520 0%, #f4c542 100%);
 }
 
 /* Animaciones */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(15px);
   }
   to {
     opacity: 1;
@@ -57,47 +79,129 @@ body {
   }
 }
 
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(184, 134, 11, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(218, 165, 32, 0.8), 0 0 30px rgba(218, 165, 32, 0.4);
+  }
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
 }
 
 /* Estilos de botones */
 .btn-primary {
-  @apply bg-d4-accent hover:bg-d4-accent-hover text-black font-semibold py-2 px-4 rounded transition-colors;
+  @apply bg-d4-accent hover:bg-d4-accent-hover text-black font-bold py-2.5 px-5 rounded-md transition-all duration-200;
+  box-shadow: 0 4px 6px rgba(184, 134, 11, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.95rem;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(218, 165, 32, 0.5);
 }
 
 .btn-secondary {
-  @apply bg-d4-surface hover:bg-d4-border text-d4-text font-semibold py-2 px-4 rounded border border-d4-border transition-colors;
+  @apply bg-d4-surface hover:bg-d4-border text-d4-text font-semibold py-2.5 px-5 rounded-md border-2 border-d4-border transition-all duration-200;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+}
+
+.btn-secondary:hover {
+  border-color: #b8860b;
+  box-shadow: 0 0 10px rgba(184, 134, 11, 0.3);
 }
 
 .btn-danger {
-  @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors;
+  @apply bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-md transition-all duration-200;
+  box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.95rem;
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(239, 68, 68, 0.5);
 }
 
 /* Estilos de tarjetas */
 .card {
-  @apply bg-d4-surface border border-d4-border rounded-lg p-4 shadow-lg;
+  @apply bg-d4-surface border-2 border-d4-border rounded-xl p-5 shadow-2xl;
+  background: linear-gradient(135deg, #1a1612 0%, #252117 100%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .card-hover {
-  @apply card hover:border-d4-accent transition-colors cursor-pointer;
+  @apply card hover:border-d4-accent transition-all duration-300 cursor-pointer;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(184, 134, 11, 0.3), 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 /* Estilos de inputs */
 .input {
-  @apply bg-d4-surface border border-d4-border rounded px-3 py-2 text-d4-text focus:outline-none focus:border-d4-accent transition-colors;
+  @apply bg-d4-surface border-2 border-d4-border rounded-md px-4 py-2.5 text-d4-text focus:outline-none focus:border-d4-accent transition-all duration-200;
+  font-size: 1rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.input:focus {
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Badge de rareza */
 .badge-raro {
-  @apply inline-block px-2 py-1 text-xs rounded bg-blue-900 text-blue-200 border border-blue-600;
+  @apply inline-block px-3 py-1.5 text-sm rounded-md bg-blue-900/80 text-blue-200 border-2 border-blue-600 font-bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 
 .badge-legendario {
-  @apply inline-block px-2 py-1 text-xs rounded bg-orange-900 text-orange-200 border border-orange-600;
+  @apply inline-block px-3 py-1.5 text-sm rounded-md bg-orange-900/80 text-orange-200 border-2 border-orange-600 font-bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+}
+
+.badge-normal {
+  @apply inline-block px-2.5 py-1 text-xs rounded-md bg-gray-800/80 text-gray-300 border border-gray-600 font-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 /* Tooltips */
 .tooltip {
-  @apply absolute z-50 bg-d4-surface border border-d4-accent rounded p-3 shadow-xl text-sm max-w-sm;
+  @apply absolute z-50 bg-d4-surface border-2 border-d4-accent rounded-lg p-4 shadow-2xl text-base max-w-sm;
+  box-shadow: 0 8px 32px rgba(184, 134, 11, 0.4);
+}
+
+/* Efectos especiales para stats */
+.stat-value {
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #daa520;
+  text-shadow: 0 0 10px rgba(218, 165, 32, 0.5);
+}
+
+.stat-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.7);
 }

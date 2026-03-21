@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">20 de Marzo, 2026</p>
+                <p className="text-d4-text font-semibold">22 de Marzo, 2026</p>
               </div>
             </div>
           </div>
@@ -68,51 +68,274 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.2.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.2.0</h3>
+            <span className="text-xs text-d4-text-dim bg-cyan-600/20 text-cyan-400 px-2 py-1 rounded">Mejoras UX y Sistema Inteligente</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Sistema de Modales */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💬 Sistema de Diálogos Profesional</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Adiós a alert():</strong> Todos los mensajes del navegador reemplazados</li>
+                <li>• <strong>Modales personalizados:</strong> Componente Modal con diseño gaming inmersivo</li>
+                <li>• <strong>5 tipos de diálogo:</strong> Info (azul), Success (verde), Warning (amarillo), Error (rojo), Confirm (dorado)</li>
+                <li>• <strong>Iconografía clara:</strong> Info, CheckCircle, AlertTriangle, AlertCircle según tipo</li>
+                <li>• <strong>Hook useModal:</strong> Sistema reutilizable con API simple (showInfo, showSuccess, etc.)</li>
+                <li>• <strong>Confirmaciones async:</strong> showConfirm retorna Promise&lt;boolean&gt; para flujo moderno</li>
+                <li>• <strong>Backdrop con blur:</strong> Fondo oscuro con efecto de desenfoque</li>
+                <li>• <strong>Animaciones suaves:</strong> Fade-in con transiciones fluidas</li>
+                <li>• Botón de cerrar (X) en todas las variantes</li>
+                <li>• Mensajes con títulos por defecto inteligentes</li>
+              </ul>
+            </div>
+
+            {/* Actualización Inteligente */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔄 Actualización Inteligente de Datos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Smart update:</strong> Al importar JSONs, actualiza elementos existentes en lugar de duplicar</li>
+                <li>• <strong>Detección por nombre:</strong> Encuentra items por nombre y actualiza sus datos</li>
+                <li>• <strong>Preserva IDs:</strong> Mantiene identidad original al actualizar, evita referencias rotas</li>
+                <li>• <strong>Skills actualizados:</strong> Importar JSON actualiza nivel, descripción, valores, etc.</li>
+                <li>• <strong>Glyphs inteligentes:</strong> Actualiza nivel_actual de glifos existentes</li>
+                <li>• <strong>Agregar nuevos:</strong> Solo agrega items si no existen previamente</li>
+                <li>• <strong>Mensajes claros:</strong> "X procesados correctamente" indica update + add</li>
+                <li>• Lógica con findIndex para búsqueda eficiente</li>
+                <li>• Aplicado en CharacterSkills y CharacterGlyphs</li>
+              </ul>
+            </div>
+
+            {/* Mejoras Visuales Cards */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎨 Refinamiento Visual de Tarjetas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Títulos más grandes:</strong> Skills/Glyphs ahora usan text-base para nombres</li>
+                <li>• <strong>Nivel entre paréntesis:</strong> Formato "Nombre de Skill (Nivel 5)" más legible</li>
+                <li>• <strong>Badges reducidos:</strong> Etiquetas tipo/rama ahora en text-[9px] uppercase</li>
+                <li>• <strong>Descripciones mejoradas:</strong> text-sm con leading-relaxed para mejor lectura</li>
+                <li>• <strong>Espacio optimizado:</strong> Padding p-3, márgenes ajustados (mt-3 en descripción)</li>
+                <li>• <strong>Consistencia total:</strong> Skills activas, pasivas y glifos homologados</li>
+                <li>• <strong>Borders reforzados:</strong> border-2 para mayor definición</li>
+                <li>• Jerarquía visual clara con tamaños diferenciados</li>
+              </ul>
+            </div>
+
+            {/* Integración Completa */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✅ Integración en Toda la App</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Characters:</strong> CharacterList, CharacterDetail, CharacterSkills, CharacterGlyphs, CharacterStats</li>
+                <li>• <strong>Heroes:</strong> HeroManager, HeroSkills, HeroGlyphs, HeroAspects</li>
+                <li>• <strong>Prompts:</strong> PromptGenerator con modales integrados</li>
+                <li>• <strong>Confirmaciones UX:</strong> Eliminar personajes/skills/glyphs ahora con modal confirm</li>
+                <li>• <strong>Errores claros:</strong> Importaciones fallidas, validaciones, errores de guardado</li>
+                <li>• <strong>Éxitos visibles:</strong> Operaciones exitosas muestran feedback inmediato</li>
+                <li>• 0 alerts nativos restantes en toda la aplicación</li>
+                <li>• Experiencia profesional y consistente</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.1.3 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.1.3</h3>
+            <span className="text-xs text-d4-text-dim bg-purple-600/20 text-purple-400 px-2 py-1 rounded">Mejoras Visuales y Funcionales</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Rediseño Visual */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎨 Rediseño Visual Completo</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Fuentes gaming:</strong> Implementadas Rajdhani y Orbitron de Google Fonts</li>
+                <li>• <strong>Tipografía mejorada:</strong> Títulos con efecto uppercase y tracking amplio</li>
+                <li>• <strong>Tamaños aumentados:</strong> Textos más legibles y mejor jerarquía visual</li>
+                <li>• <strong>Botones renovados:</strong> Efectos hover con elevación y sombras mejoradas</li>
+                <li>• <strong>Tarjetas premium:</strong> Gradientes sutiles y efectos de profundidad</li>
+                <li>• <strong>Scrollbar gaming:</strong> Gradientes dorados con efectos de brillo</li>
+                <li>• Animaciones suaves con transform y box-shadow</li>
+                <li>• Background con gradiente diagonal para mayor inmersión</li>
+              </ul>
+            </div>
+
+            {/* Mejoras UX */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Experiencia de Usuario</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Sidebar mejorado:</strong> Diseño más amplio con gradientes y efectos visuales</li>
+                <li>• <strong>Versión actualizada:</strong> Badge de versión v0.1.3 en sidebar</li>
+                <li>• <strong>Tarjetas de personaje:</strong> Efecto de brillo en hover con elevación</li>
+                <li>• <strong>Stats visuales:</strong> Valores con fuente Orbitron y efecto text-shadow dorado</li>
+                <li>• <strong>Grid optimizado:</strong> Hasta 4 columnas en pantallas XL</li>
+                <li>• <strong>Badges mejorados:</strong> Más grandes con borders y sombras</li>
+                <li>• Mejor aprovechamiento del espacio en todas las vistas</li>
+                <li>• Reducción de espacios vacíos innecesarios</li>
+              </ul>
+            </div>
+
+            {/* Glifos con Nivel */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💎 Sistema de Niveles para Glifos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Nivel mostrado:</strong> Visualización "nivel actual / 100" en cada glifo</li>
+                <li>• <strong>Tipo actualizado:</strong> Soporte para nivel_actual y nivel_maximo en tipos</li>
+                <li>• <strong>Importación mejorada:</strong> Al importar glifos se establece nivel_maximo = 100</li>
+                <li>• <strong>Agregar glifos:</strong> Nuevos glifos inician en nivel 1 con máx. 100</li>
+                <li>• <strong>Heroes sin nivel:</strong> En gestión de héroes no se muestra nivel (todos son 100)</li>
+                <li>• Input mejorado con indicador visual del máximo</li>
+              </ul>
+            </div>
+
+            {/* Descripción Pasivas */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🛠️ Corrección Skills Pasivas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Bug corregido:</strong> Habilidades pasivas ahora muestran descripción correctamente</li>
+                <li>• <strong>Compatibilidad:</strong> Lee tanto campo "descripcion" como "efecto"</li>
+                <li>• <strong>Fallback inteligente:</strong> Muestra descripcion primero, luego efecto si no existe</li>
+                <li>• Todas las pasivas ahora visibles sin importar el campo usado</li>
+              </ul>
+            </div>
+
+            {/* Fecha de Actualización */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🕐 Indicador de Última Actualización</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Headers informativos:</strong> Fecha y hora en secciones colapsables</li>
+                <li>• <strong>Formato localizado:</strong> Fecha en español con hora (DD/MM/YYYY HH:MM)</li>
+                <li>• <strong>Secciones incluidas:</strong> Habilidades, Estadísticas y Glifos del personaje</li>
+                <li>• Actualización automática al guardar cambios</li>
+                <li>• Mejor trazabilidad de modificaciones</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.1.2 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.1.2</h3>
+            <span className="text-xs text-d4-text-dim bg-green-600/20 text-green-400 px-2 py-1 rounded">Correcciones Críticas</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Correcciones Críticas */}
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔧 Correcciones Críticas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Importación de habilidades:</strong> Corregido error tipográfico crítico en HeroManager.tsx</li>
+                <li>• <strong>Bug fix:</strong> Arreglado typo en habilidades_pasivas que impedía la compilación</li>
+                <li>• <strong>Prompts IA:</strong> Corregidas referencias a stats en CharacterPrompts</li>
+                <li>• <strong>Estadísticas:</strong> Ahora usa personaje.estadisticas correctamente en lugar de personaje.stats</li>
+                <li>• <strong>Contexto de stats:</strong> Extraído correctamente de defensivo, ofensivo y armaduraYResistencias</li>
+                <li>• La aplicación ahora compila y se levanta sin errores</li>
+              </ul>
+            </div>
+
+            {/* Mejoras en Prompts */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Mejoras en Generador de Prompts</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Contexto mejorado:</strong> Ahora extrae correctamente vida, daño base y armadura</li>
+                <li>• <strong>Datos precisos:</strong> Usa los campos reales del tipo Personaje</li>
+                <li>• <strong>Información completa:</strong> Incluye todos los datos relevantes para análisis de IA</li>
+                <li>• <strong>Sinergia perfecta:</strong> Compatible con el sistema de referencias de la app</li>
+              </ul>
+            </div>
+
+            {/* Estabilidad */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✅ Estabilidad y Rendimiento</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• Todos los errores de compilación TypeScript resueltos</li>
+                <li>• Tipos correctos en toda la aplicación</li>
+                <li>• Sin warnings de referencias no utilizadas</li>
+                <li>• Aplicación lista para producción</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.1.1 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
             <h3 className="text-xl font-bold text-d4-accent">Versión 0.1.1</h3>
-            <span className="text-xs text-d4-text-dim">Correcciones y Mejoras</span>
+            <span className="text-xs text-d4-text-dim">Mejoras Mayores y Correcciones</span>
           </div>
 
           <div className="space-y-4">
-            {/* Sistema de Aspectos Mejorado */}
-            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
-              <h4 className="font-semibold text-d4-text mb-2">🔧 Sistema de Aspectos Mejorado</h4>
+            {/* Generador de Prompts IA */}
+            <div className="bg-d4-bg border-l-4 border-pink-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Generador de Prompts IA (NUEVO)</h4>
               <ul className="space-y-1 text-sm text-d4-text-dim">
-                <li>• <strong>Corrección crítica:</strong> Los aspectos ahora se visualizan correctamente</li>
-                <li>• <strong>Compatibilidad de formatos:</strong> Soporte para formato antiguo (nombre/categoria/descripcion) y nuevo (name/category/effect)</li>
-                <li>• <strong>Normalización automática:</strong> Conversión transparente entre formatos</li>
-                <li>• <strong>Sistema de paginación:</strong> Navega entre aspectos con controles intuitivos</li>
-                <li>• Selector de items por página: 5, 10, 20, 50 o 100 aspectos</li>
-                <li>• Navegación con botones: Primera, Anterior, Siguiente, Última</li>
-                <li>• Contador de páginas con resaltado de página actual</li>
-                <li>• Auto-scroll al cambiar de página para mejor experiencia</li>
+                <li>• <strong>Nueva sección en personajes:</strong> Genera consultas inteligentes sobre tu build</li>
+                <li>• <strong>6 tipos de prompts especializados:</strong></li>
+                <li>&nbsp;&nbsp;- Análisis completo de build con sinergias</li>
+                <li>&nbsp;&nbsp;- Optimización de sinergias de glifos</li>
+                <li>&nbsp;&nbsp;- Recomendaciones de aspectos legendarios</li>
+                <li>&nbsp;&nbsp;- Rotación óptima de habilidades</li>
+                <li>&nbsp;&nbsp;- Prioridad de estadísticas</li>
+                <li>&nbsp;&nbsp;- Evaluación de viabilidad endgame</li>
+                <li>• Los prompts incluyen automáticamente toda la información de tu personaje</li>
+                <li>• Copia con un clic para usar en ChatGPT, Claude, Gemini u otras IAs</li>
+                <li>• Contexto completo: skills, glifos, aspectos, stats y nivel</li>
+              </ul>
+            </div>
+
+            {/* Sistema de IDs Mejorado */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔑 Sistema de IDs para Skills y Glifos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>IDs automáticos:</strong> Se asignan al importar habilidades y glifos</li>
+                <li>• <strong>Gestión por referencia:</strong> Los personajes guardan solo los IDs</li>
+                <li>• <strong>Optimización de almacenamiento:</strong> Evita duplicación de datos</li>
+                <li>• <strong>Consistencia:</strong> Mismo sistema que aspectos</li>
+                <li>• Cada skill, glifo y aspecto tiene un ID único generado automáticamente</li>
+              </ul>
+            </div>
+
+            {/* Vista de Aspectos Mejorada */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎨 Vista de Aspectos Reorganizada</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Lista unificada:</strong> Todos los aspectos en una sola lista continua</li>
+                <li>• <strong>Íconos de categoría:</strong> Indicadores visuales pequeños y eficientes</li>
+                <li>• <strong>Colores distintivos:</strong> Rojo (ofensivo), Azul (defensivo), Verde (recurso), Morado (utilidad), Amarillo (movilidad)</li>
+                <li>• <strong>Mejor paginación:</strong> Selector de items por página (5, 10, 20, 50, 100)</li>
+                <li>• Los filtros ahora funcionan perfectamente con la vista unificada</li>
+                <li>• Búsqueda en tiempo real sin perder contexto visual</li>
               </ul>
             </div>
 
             {/* Correcciones Técnicas */}
             <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
-              <h4 className="font-semibold text-d4-text mb-2">🐛 Correcciones</h4>
+              <h4 className="font-semibold text-d4-text mb-2">🐛 Correcciones Críticas</h4>
               <ul className="space-y-1 text-sm text-d4-text-dim">
-                <li>• Arreglado: Aspectos importados no se mostraban en la interfaz</li>
-                <li>• Arreglado: Prop types incorrectos entre HeroAspects y HeroManager</li>
-                <li>• Arreglado: Categorías en mayúsculas no se reconocían</li>
-                <li>• Mejorado: Manejo de errores en importación de aspectos</li>
-                <li>• Mejorado: Estado de carga sincronizado correctamente</li>
+                <li>• <strong>Aspectos:</strong> Corrección crítica del bug que impedía visualizar aspectos</li>
+                <li>• <strong>Compatibilidad:</strong> Soporte para formato antiguo (nombre/categoria/descripcion)</li>
+                <li>• <strong>Normalización:</strong> Conversión automática entre formatos sin pérdida de datos</li>
+                <li>• <strong>Props types:</strong> Corregidos tipos entre HeroAspects y HeroManager</li>
+                <li>• <strong>Categorías:</strong> Manejo correcto de mayúsculas/minúsculas</li>
+                <li>• Panel de debug removido de producción</li>
               </ul>
             </div>
 
-            {/* Mejoras de UI/UX */}
-            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
-              <h4 className="font-semibold text-d4-text mb-2">✨ Mejoras de Interfaz</h4>
+            {/* Mejoras UX */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎯 Mejoras de Experiencia</h4>
               <ul className="space-y-1 text-sm text-d4-text-dim">
-                <li>• Header reorganizado con información de paginación</li>
-                <li>• Contador de aspectos: "Mostrando: 1-10 de 45"</li>
-                <li>• Controles de navegación intuitivos con iconos</li>
-                <li>• Paginación solo visible cuando hay múltiples páginas</li>
-                <li>• Reset automático a página 1 al cambiar filtros</li>
-                <li>• Mejor feedback visual en estados de carga</li>
+                <li>• Auto-scroll suave al cambiar de página en aspectos</li>
+                <li>• Información contextual en header: "Mostrando X-Y de Z"</li>
+                <li>• Botones de navegación inteligentes (deshabilitados cuando no aplican)</li>
+                <li>• Secciones colapsables para mejor organización</li>
+                <li>• Indicadores visuales más claros en toda la interfaz</li>
+                <li>• Tooltips informativos en íconos y botones</li>
               </ul>
             </div>
           </div>

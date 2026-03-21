@@ -5,6 +5,9 @@ import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
 import CharacterGlyphs from './CharacterGlyphs';
 import CharacterSkills from './CharacterSkills';
+import CharacterPrompts from './CharacterPrompts';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personaje: Personaje;
@@ -13,13 +16,14 @@ interface Props {
 }
 
 const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
+  const modal = useModal();
   const [editMode, setEditMode] = useState(false);
   const [editedPersonaje, setEditedPersonaje] = useState<Personaje>({ ...personaje });
   const [saving, setSaving] = useState(false);
 
   // Estados para los cambios pendientes
   const [pendingStats, setPendingStats] = useState<Estadisticas | undefined>(personaje.estadisticas);
-  const [pendingGlyphs, setPendingGlyphs] = useState<Array<{ id: string; nivel_actual: number }>>(
+  const [pendingGlyphs, setPendingGlyphs] = useState<Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>>(
     personaje.glifos_refs || []
   );
   const [pendingSkills, setPendingSkills] = useState<{ activas: string[]; pasivas: string[] }>(
@@ -31,6 +35,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [skillsCollapsed, setSkillsCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [glyphsCollapsed, setGlyphsCollapsed] = useState(false);
+  const [promptsCollapsed, setPromptsCollapsed] = useState(false);
 
   const handleSaveBasicInfo = async () => {
     setSaving(true);
@@ -42,7 +47,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
       onUpdate();
     } catch (error) {
       console.error('Error guardando personaje:', error);
-      alert('Error al guardar el personaje');
+      modal.showError('Error al guardar el personaje');
     } finally {
       setSaving(false);
     }
@@ -64,10 +69,10 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
       setEditMode(false);
       setHasChanges(false);
       onUpdate();
-      alert('Todos los cambios guardados correctamente');
+      modal.showSuccess('Todos los cambios guardados correctamente');
     } catch (error) {
       console.error('Error guardando personaje:', error);
-      alert('Error al guardar el personaje');
+      modal.showError('Error al guardar el personaje');
     } finally {
       setSaving(false);
     }
@@ -86,7 +91,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     setHasChanges(true);
   };
 
-  const handleGlyphsChange = (glifosRefs: Array<{ id: string; nivel_actual: number }>) => {
+  const handleGlyphsChange = (glifosRefs: Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>) => {
     setPendingGlyphs(glifosRefs);
     setHasChanges(true);
   };
@@ -94,6 +99,17 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const handleSkillsChange = (skillsRefs: { activas: string[]; pasivas: string[] }) => {
     setPendingSkills(skillsRefs);
     setHasChanges(true);
+  };
+
+  const formatLastUpdate = (isoDate: string) => {
+    const date = new Date(isoDate);
+    return date.toLocaleString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -239,7 +255,12 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
               onClick={() => setSkillsCollapsed(!skillsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <h3 className="text-lg font-bold text-d4-accent">Habilidades del Personaje</h3>
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Habilidades del Personaje</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
               {skillsCollapsed ? (
                 <ChevronDown className="w-5 h-5 text-d4-accent" />
               ) : (
@@ -261,7 +282,12 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
               onClick={() => setStatsCollapsed(!statsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <h3 className="text-lg font-bold text-d4-accent">Estadísticas</h3>
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Estadísticas</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
               {statsCollapsed ? (
                 <ChevronDown className="w-5 h-5 text-d4-accent" />
               ) : (
@@ -283,7 +309,12 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
               onClick={() => setGlyphsCollapsed(!glyphsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <h3 className="text-lg font-bold text-d4-accent">Glifos del Personaje</h3>
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Glifos del Personaje</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
               {glyphsCollapsed ? (
                 <ChevronDown className="w-5 h-5 text-d4-accent" />
               ) : (
@@ -297,7 +328,30 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             )}
           </div>
         </div>
+
+        {/* Prompts Inteligentes */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setPromptsCollapsed(!promptsCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <h3 className="text-lg font-bold text-d4-accent">Generador de Prompts IA</h3>
+              {promptsCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!promptsCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterPrompts personaje={editedPersonaje} />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+      <Modal {...modal} />
     </div>
   );
 };

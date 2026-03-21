@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, User, Trash2, Eye } from 'lucide-react';
 import { Personaje } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personajes: Personaje[];
@@ -11,6 +13,7 @@ interface Props {
 }
 
 const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loading }) => {
+  const modal = useModal();
   const [showNewModal, setShowNewModal] = useState(false);
   const [newCharName, setNewCharName] = useState('');
   const [newCharClass, setNewCharClass] = useState('Paladín');
@@ -40,21 +43,22 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
       onUpdate();
     } catch (error) {
       console.error('Error creando personaje:', error);
-      alert('Error al crear el personaje');
+      modal.showError('Error al crear el personaje');
     } finally {
       setCreating(false);
     }
   };
 
   const handleDeleteCharacter = async (id: string, nombre: string) => {
-    if (!confirm(`¿Estás seguro de eliminar a ${nombre}?`)) return;
+    const confirmed = await modal.showConfirm(`¿Estás seguro de eliminar a ${nombre}?`);
+    if (!confirmed) return;
 
     try {
       await WorkspaceService.deletePersonaje(id);
       onUpdate();
     } catch (error) {
       console.error('Error eliminando personaje:', error);
-      alert('Error al eliminar el personaje');
+      modal.showError('Error al eliminar el personaje');
     }
   };
 
@@ -90,67 +94,78 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {personajes.map(personaje => (
-            <div key={personaje.id} className="card-hover group">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-lg font-bold text-d4-accent group-hover:text-d4-accent-hover transition-colors">
-                    {personaje.nombre}
-                  </h3>
-                  <p className="text-sm text-d4-text-dim">{personaje.clase}</p>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelect(personaje);
-                    }}
-                    className="p-2 hover:bg-d4-border rounded transition-colors"
-                    title="Ver detalles"
-                  >
-                    <Eye className="w-4 h-4 text-d4-text" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCharacter(personaje.id, personaje.nombre);
-                    }}
-                    className="p-2 hover:bg-red-900/20 rounded transition-colors"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-              </div>
+            <div key={personaje.id} className="card-hover group relative overflow-hidden">
+              {/* Decoración de fondo */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-d4-accent/10 to-transparent rounded-full blur-2xl"></div>
               
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-d4-text-dim">Nivel:</span>
-                  <span className="text-d4-text font-semibold">{personaje.nivel}</span>
-                </div>
-                {personaje.nivel_paragon && (
-                  <div className="flex justify-between">
-                    <span className="text-d4-text-dim">Paragon:</span>
-                    <span className="text-d4-text font-semibold">{personaje.nivel_paragon}</span>
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold text-d4-accent group-hover:text-d4-accent-hover transition-colors truncate">
+                      {personaje.nombre}
+                    </h3>
+                    <p className="text-base text-d4-text-dim uppercase tracking-wide">{personaje.clase}</p>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-d4-text-dim">Habilidades:</span>
-                  <span className="text-d4-text">
-                    {personaje.habilidades_refs ? 
-                      `${personaje.habilidades_refs.activas.length} activas` : 
-                      'Sin configurar'}
-                  </span>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(personaje);
+                      }}
+                      className="p-2 hover:bg-d4-accent/20 rounded-md transition-all"
+                      title="Ver detalles"
+                    >
+                      <Eye className="w-4 h-4 text-d4-accent" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCharacter(personaje.id, personaje.nombre);
+                      }}
+                      className="p-2 hover:bg-red-900/30 rounded-md transition-all"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+                
+                <div className="space-y-2.5 mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="stat-label text-sm">Nivel:</span>
+                    <span className="stat-value text-lg">{personaje.nivel}</span>
+                  </div>
+                  {personaje.nivel_paragon && personaje.nivel_paragon > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="stat-label text-sm">Paragon:</span>
+                      <span className="stat-value text-lg">{personaje.nivel_paragon}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="stat-label text-sm">Habilidades:</span>
+                    <span className="text-d4-text font-semibold">
+                      {personaje.habilidades_refs ? 
+                        `${personaje.habilidades_refs.activas.length + personaje.habilidades_refs.pasivas.length}` : 
+                        '0'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="stat-label text-sm">Glifos:</span>
+                    <span className="text-d4-text font-semibold">
+                      {personaje.glifos_refs?.length || 0}
+                    </span>
+                  </div>
+                </div>
 
-              <button
-                onClick={() => onSelect(personaje)}
-                className="w-full mt-4 btn-secondary text-sm"
-              >
-                Ver Detalles
-              </button>
+                <button
+                  onClick={() => onSelect(personaje)}
+                  className="w-full btn-secondary text-sm py-2"
+                >
+                  Ver Detalles
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -226,6 +241,7 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
           </div>
         </div>
       )}
+      <Modal {...modal} />
     </div>
   );
 };

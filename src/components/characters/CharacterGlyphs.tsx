@@ -3,17 +3,20 @@ import { Upload, Plus, Trash2, Gem, Copy, Check } from 'lucide-react';
 import { Personaje, Glifo, GlifosHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personaje: Personaje;
-  onChange: (glifosRefs: Array<{ id: string; nivel_actual: number }>) => void;
+  onChange: (glifosRefs: Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>) => void;
 }
 
 const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
+  const modal = useModal();
   const [importing, setImporting] = useState(false);
   const [availableGlyphs, setAvailableGlyphs] = useState<Glifo[]>([]);
   const [characterGlyphsData, setCharacterGlyphsData] = useState<Glifo[]>([]);
-  const [glyphsRefs, setGlyphsRefs] = useState<Array<{ id: string; nivel_actual: number }>>(
+  const [glyphsRefs, setGlyphsRefs] = useState<Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>>(
     personaje.glifos_refs || []
   );
   const [showAddModal, setShowAddModal] = useState(false);
@@ -62,7 +65,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
       await processJSONImport(content);
     } catch (error) {
       console.error('Error importando glifos:', error);
-      alert('Error al importar el archivo JSON. Verifica el formato.');
+      modal.showError('Error al importar el archivo JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -70,7 +73,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
 
   const handleImportFromText = async () => {
     if (!jsonText.trim()) {
-      alert('Por favor ingresa un JSON válido');
+      modal.showError('Por favor ingresa un JSON válido');
       return;
     }
 
@@ -81,7 +84,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
       setShowTextInput(false);
     } catch (error) {
       console.error('Error importando glifos:', error);
-      alert('Error al procesar el JSON. Verifica el formato.');
+      modal.showError('Error al procesar el JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -91,17 +94,25 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     const data = JSON.parse(content) as GlifosHeroe;
 
     if (!data.glifos || !Array.isArray(data.glifos)) {
-      alert('El archivo no tiene el formato correcto de glifos');
+      modal.showError('El archivo no tiene el formato correcto de glifos');
       return;
     }
 
-    // Primero sincronizar con el héroe
+    // Primero sincronizar con el héroe (actualizar existentes o agregar nuevos)
     const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase);
     const updatedHeroGlyphs: GlifosHeroe = heroGlyphs || { glifos: [] };
 
     data.glifos.forEach(glyph => {
-      const exists = updatedHeroGlyphs.glifos.some(g => g.nombre === glyph.nombre);
-      if (!exists) {
+      const existingIndex = updatedHeroGlyphs.glifos.findIndex(g => g.nombre === glyph.nombre);
+      
+      if (existingIndex >= 0) {
+        // Actualizar glifo existente, preservando su ID
+        updatedHeroGlyphs.glifos[existingIndex] = {
+          ...glyph,
+          id: updatedHeroGlyphs.glifos[existingIndex].id
+        };
+      } else {
+        // Agregar nuevo glifo con ID generado
         const glyphWithId = {
           ...glyph,
           id: glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -113,20 +124,35 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     await WorkspaceService.saveHeroGlyphs(personaje.clase, updatedHeroGlyphs);
     setAvailableGlyphs(updatedHeroGlyphs.glifos);
 
-    // Ahora agregar referencias al personaje
-    const newRefs = data.glifos.map(glyph => {
+    // Ahora actualizar referencias del personaje (actualizar nivel o agregar nuevos)
+    const updatedRefs = [...glyphsRefs];
+    
+    data.glifos.forEach(glyph => {
       const heroGlyph = updatedHeroGlyphs.glifos.find(g => g.nombre === glyph.nombre);
-      return {
-        id: heroGlyph?.id || glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        nivel_actual: glyph.nivel_actual || 1
-      };
+      if (!heroGlyph?.id) return;
+      
+      const existingRefIndex = updatedRefs.findIndex(ref => ref.id === heroGlyph.id);
+      
+      if (existingRefIndex >= 0) {
+        // Actualizar nivel del glifo existente
+        updatedRefs[existingRefIndex] = {
+          ...updatedRefs[existingRefIndex],
+          nivel_actual: glyph.nivel_actual || updatedRefs[existingRefIndex].nivel_actual
+        };
+      } else {
+        // Agregar nueva referencia
+        updatedRefs.push({
+          id: heroGlyph.id,
+          nivel_actual: glyph.nivel_actual || 1,
+          nivel_maximo: 100
+        });
+      }
     });
 
-    const updatedRefs = [...glyphsRefs, ...newRefs];
     setGlyphsRefs(updatedRefs);
     onChange(updatedRefs);
     
-    alert(`${data.glifos.length} glifos importados correctamente`);
+    modal.showSuccess(`${data.glifos.length} glifos procesados correctamente`);
   };
 
   const handleAddGlyph = (glyph: Glifo) => {
@@ -134,11 +160,11 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     
     const exists = glyphsRefs.some(g => g.id === glyph.id);
     if (exists) {
-      alert('Este glifo ya está en tu personaje');
+      modal.showInfo('Este glifo ya está en tu personaje');
       return;
     }
 
-    const newRefs = [...glyphsRefs, { id: glyph.id, nivel_actual: 1 }];
+    const newRefs = [...glyphsRefs, { id: glyph.id, nivel_actual: 1, nivel_maximo: 100 }];
     setGlyphsRefs(newRefs);
     onChange(newRefs);
     setShowAddModal(false);
@@ -165,7 +191,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } else {
-      alert('Error al copiar al portapapeles');
+      modal.showError('Error al copiar al portapapeles');
     }
   };
 
@@ -255,61 +281,66 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
           <p className="text-xs">No hay glifos equipados</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {characterGlyphsData.map((glyph) => (
-            <div key={glyph.id} className="bg-d4-bg p-2 rounded border border-d4-border hover:border-d4-accent transition-colors">
-              <div className="flex items-start justify-between mb-1">
+            <div key={glyph.id} className="bg-d4-bg p-3 rounded-lg border-2 border-d4-border hover:border-d4-accent transition-all duration-200 hover:shadow-lg">
+              <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-d4-accent text-xs truncate" title={glyph.nombre}>
+                  <h4 className="font-bold text-d4-accent text-base truncate mb-1" title={glyph.nombre}>
                     {glyph.nombre}
                   </h4>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded inline-block mt-0.5 ${
-                    glyph.rareza === 'Legendario' ? 'badge-legendario' : 'badge-raro'
-                  }`}>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded inline-block ${
+                    glyph.rareza === 'Legendario' 
+                      ? 'bg-orange-900/60 text-orange-200 border border-orange-600/50' 
+                      : 'bg-blue-900/60 text-blue-200 border border-blue-600/50'
+                  } font-semibold uppercase`}>
                     {glyph.rareza}
                   </span>
                 </div>
                 <button
                   onClick={() => handleRemoveGlyph(glyph.id!)}
-                  className="p-0.5 hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+                  className="p-1 hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
                   title="Eliminar"
                 >
-                  <Trash2 className="w-3 h-3 text-red-500" />
+                  <Trash2 className="w-4 h-4 text-red-400" />
                 </button>
               </div>
 
-              <div className="mt-1.5">
-                <label className="block text-[10px] text-d4-text-dim mb-0.5">Nivel</label>
-                <input
-                  type="number"
-                  value={glyph.nivel_actual || 1}
-                  onChange={(e) => handleLevelChange(glyph.id!, parseInt(e.target.value) || 1)}
-                  className="input w-full text-xs py-0.5 px-1.5"
-                  min="1"
-                  max="100"
-                />
+              <div className="mt-2 mb-3">
+                <label className="block text-xs text-d4-text-dim mb-1 font-semibold">Nivel</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={glyph.nivel_actual || 1}
+                    onChange={(e) => handleLevelChange(glyph.id!, parseInt(e.target.value) || 1)}
+                    className="input w-full text-sm py-1 px-2"
+                    min="1"
+                    max="100"
+                  />
+                  <span className="text-xs text-d4-text-dim flex-shrink-0 font-semibold">/ 100</span>
+                </div>
               </div>
 
               {glyph.atributo_escalado && (
-                <div className="mt-1.5 pt-1.5 border-t border-d4-border/30">
-                  <p className="text-[10px] text-d4-text-dim">
-                    <span className="text-d4-accent font-medium">{glyph.atributo_escalado.atributo}</span>
+                <div className="mt-3 pt-3 border-t border-d4-border/50">
+                  <p className="text-sm text-d4-text leading-relaxed">
+                    <span className="text-d4-accent font-bold">{glyph.atributo_escalado.atributo}</span>
                     <br />
-                    {glyph.atributo_escalado.bonificacion}
+                    <span className="text-d4-text-dim">{glyph.atributo_escalado.bonificacion}</span>
                   </p>
                 </div>
               )}
 
               {glyph.efecto_base && (
-                <div className="mt-1.5 pt-1.5 border-t border-d4-border/30">
-                  <p className="text-[10px] text-d4-text-dim">
+                <div className="mt-3 pt-3 border-t border-d4-border/50">
+                  <p className="text-sm text-d4-text leading-relaxed">
                     {glyph.efecto_base.descripcion}
                   </p>
                 </div>
               )}
 
               {glyph.tamano_radio && (
-                <p className="text-[10px] text-d4-text-dim mt-1">
+                <p className="text-xs text-d4-text-dim mt-2 font-semibold">
                   Radio: {glyph.tamano_radio}
                 </p>
               )}
@@ -363,6 +394,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
           </div>
         </div>
       )}
+      <Modal {...modal} />
     </>
   );
 };

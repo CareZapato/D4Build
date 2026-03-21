@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Shield, Swords, Zap, Heart, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Aspecto, AspectosHeroe } from '../../types';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 interface HeroAspectsProps {
   heroClass: string;
@@ -31,6 +33,7 @@ interface HeroAspectsProps {
   };
 
 const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate }) => {
+  const modal = useModal();
   const [aspectsList, setAspectsList] = useState<Aspecto[]>(
     (aspects.aspectos || []).map(normalizeAspect)
   );
@@ -87,7 +90,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
 
   const handleSave = async () => {
     if (!editForm.name || !editForm.effect) {
-      alert('Por favor completa al menos el nombre y efecto');
+      modal.showWarning('Por favor completa al menos el nombre y efecto');
       return;
     }
 
@@ -104,12 +107,13 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
       handleCancel();
     } catch (error) {
       console.error('Error guardando aspecto:', error);
-      alert('Error al guardar el aspecto');
+      modal.showError('Error al guardar el aspecto');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este aspecto?')) return;
+    const confirmed = await modal.showConfirm('¿Estás seguro de eliminar este aspecto?');
+    if (!confirmed) return;
 
     const updatedList = aspectsList.filter(a => a.id !== id);
     try {
@@ -117,7 +121,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
       setAspectsList(updatedList);
     } catch (error) {
       console.error('Error eliminando aspecto:', error);
-      alert('Error al eliminar el aspecto');
+      modal.showError('Error al eliminar el aspecto');
     }
   };
 
@@ -161,12 +165,6 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedAspects = filteredAspects.slice(startIndex, endIndex);
-
-  // Group paginated aspects by category for display
-  const aspectsByCategory = categories.map(cat => ({
-    ...cat,
-    aspects: paginatedAspects.filter(a => a.category === cat.value)
-  })).filter(cat => cat.aspects.length > 0); // Only show categories with aspects
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -362,34 +360,34 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
         </div>
       )}
 
-      {/* Aspects List by Category */}
+      {/* Aspects List */}
       <div className="space-y-4">
-        {aspectsByCategory.length > 0 ? (
-          aspectsByCategory.map(cat => (
-            <div key={cat.value} className="card">
-              <div className="flex items-center gap-2 mb-3">
-                <cat.icon className={`w-5 h-5 ${cat.color}`} />
-                <h4 className={`font-bold ${cat.color}`}>
-                  {cat.label} ({cat.aspects.length})
-                </h4>
-              </div>
-
-              <div className="space-y-2">
-                {cat.aspects.map(aspect => (
+        {paginatedAspects.length > 0 ? (
+          <div className="card">
+            <div className="space-y-2">
+              {paginatedAspects.map(aspect => {
+                const cat = categories.find(c => c.value === aspect.category) || categories[0];
+                return (
                   <div
                     key={aspect.id}
-                    className={`${cat.bg} border ${cat.border} rounded p-3 hover:opacity-80 transition-opacity`}
+                    className="bg-d4-bg border border-d4-border rounded p-3 hover:border-d4-accent/50 transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      {/* Category Icon */}
+                      <div className={`flex-shrink-0 p-2 rounded ${cat.bg} border ${cat.border}`} title={cat.label}>
+                        <cat.icon className={`w-4 h-4 ${cat.color}`} />
+                      </div>
+
+                      {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h5 className={`font-bold ${cat.color} truncate`}>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h5 className={`font-bold ${cat.color}`}>
                             {aspect.name}
                           </h5>
                           <span className="text-xs text-d4-text-dim">
                             ({aspect.shortName})
                           </span>
-                          <span className="text-xs badge-normal px-2 py-0.5">
+                          <span className="text-xs px-2 py-0.5 bg-d4-surface border border-d4-border rounded">
                             {aspect.level}
                           </span>
                         </div>
@@ -399,7 +397,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
                         {aspect.keywords.length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-1">
                             {aspect.keywords.map((kw, idx) => (
-                              <span key={idx} className="text-xs px-1.5 py-0.5 bg-d4-bg rounded text-d4-text-dim">
+                              <span key={idx} className="text-xs px-1.5 py-0.5 bg-d4-surface/50 rounded text-d4-text-dim border border-d4-border/50">
                                 {kw}
                               </span>
                             ))}
@@ -409,7 +407,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
                         {aspect.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {aspect.tags.map((tag, idx) => (
-                              <span key={idx} className="text-xs px-1.5 py-0.5 bg-d4-surface rounded text-d4-accent">
+                              <span key={idx} className="text-xs px-1.5 py-0.5 bg-d4-accent/20 rounded text-d4-accent border border-d4-accent/30">
                                 #{tag}
                               </span>
                             ))}
@@ -417,6 +415,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
                         )}
                       </div>
 
+                      {/* Actions */}
                       <div className="flex gap-1 flex-shrink-0">
                         <button
                           onClick={() => handleEdit(aspect)}
@@ -437,10 +436,10 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          ))
+          </div>
         ) : (
           <div className="card text-center py-8">
             <p className="text-d4-text-dim">
@@ -523,6 +522,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
           </div>
         </div>
       )}
+      <Modal {...modal} />
     </div>
   );
 };

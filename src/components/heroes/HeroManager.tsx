@@ -6,8 +6,11 @@ import { ImageExtractionPromptService } from '../../services/ImageExtractionProm
 import HeroSkills from './HeroSkills';
 import HeroGlyphs from './HeroGlyphs';
 import HeroAspects from './HeroAspects';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 const HeroManager: React.FC = () => {
+  const modal = useModal();
   const [selectedClass, setSelectedClass] = useState('Paladín');
   const [currentView, setCurrentView] = useState<'import' | 'manage'>('import');
   const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos'>('habilidades');
@@ -75,7 +78,7 @@ const HeroManager: React.FC = () => {
       await processJSONImport(content);
     } catch (error) {
       console.error('Error importando JSON:', error);
-      alert('Error al importar el archivo JSON');
+      modal.showError('Error al importar el archivo JSON');
     } finally {
       setImporting(false);
       event.target.value = '';
@@ -84,7 +87,7 @@ const HeroManager: React.FC = () => {
 
   const handleImportFromText = async () => {
     if (!jsonText.trim()) {
-      alert('Por favor ingresa un JSON válido');
+      modal.showWarning('Por favor ingresa un JSON válido');
       return;
     }
 
@@ -95,7 +98,7 @@ const HeroManager: React.FC = () => {
       setShowTextInput(false);
     } catch (error) {
       console.error('Error importando JSON:', error);
-      alert('Error al procesar el JSON. Verifica el formato.');
+      modal.showError('Error al procesar el JSON. Verifica el formato.');
     } finally {
       setImporting(false);
     }
@@ -107,30 +110,52 @@ const HeroManager: React.FC = () => {
     if (importType === 'habilidades') {
       // Validar que tenga la estructura correcta
       if (!data.habilidades_activas || !data.habilidades_pasivas) {
-        alert('El archivo no tiene el formato correcto de habilidades');
+        modal.showError('El archivo no tiene el formato correcto de habilidades');
         return;
       }
-      await WorkspaceService.saveHeroSkills(selectedClass, data as HabilidadesPersonaje);
-      setHeroSkills(data as HabilidadesPersonaje);
-      alert(`Habilidades de ${selectedClass} importadas correctamente`);
+      
+      // Asignar IDs a habilidades que no los tengan
+      const dataWithIds: HabilidadesPersonaje = {
+        habilidades_activas: data.habilidades_activas.map((hab: any) => ({
+          ...hab,
+          id: hab.id || `skill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        })),
+        habilidades_pasivas: data.habilidades_pasivas.map((hab: any) => ({
+          ...hab,
+          id: hab.id || `passive_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        }))
+      };
+      
+      await WorkspaceService.saveHeroSkills(selectedClass, dataWithIds);
+      setHeroSkills(dataWithIds);
+      modal.showSuccess(`Habilidades de ${selectedClass} importadas correctamente`);
     } else if (importType === 'glifos') {
       // Validar que tenga la estructura correcta
       if (!data.glifos) {
-        alert('El archivo no tiene el formato correcto de glifos');
+        modal.showError('El archivo no tiene el formato correcto de glifos');
         return;
       }
-      await WorkspaceService.saveHeroGlyphs(selectedClass, data as GlifosHeroe);
-      setHeroGlyphs(data as GlifosHeroe);
-      alert(`Glifos de ${selectedClass} importados correctamente`);
+      
+      // Asignar IDs a glifos que no los tengan
+      const dataWithIds: GlifosHeroe = {
+        glifos: data.glifos.map((glifo: any) => ({
+          ...glifo,
+          id: glifo.id || `glyph_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        }))
+      };
+      
+      await WorkspaceService.saveHeroGlyphs(selectedClass, dataWithIds);
+      setHeroGlyphs(dataWithIds);
+      modal.showSuccess(`Glifos de ${selectedClass} importados correctamente`);
     } else if (importType === 'aspectos') {
       // Validar que tenga la estructura correcta
       if (!data.aspectos) {
-        alert('El archivo no tiene el formato correcto de aspectos');
+        modal.showError('El archivo no tiene el formato correcto de aspectos');
         return;
       }
       await WorkspaceService.saveHeroAspects(selectedClass, data as AspectosHeroe);
       setHeroAspects(data as AspectosHeroe);
-      alert(`Aspectos de ${selectedClass} importados correctamente`);
+      modal.showSuccess(`Aspectos de ${selectedClass} importados correctamente`);
     }
   };
 
@@ -139,28 +164,28 @@ const HeroManager: React.FC = () => {
       if (importType === 'habilidades') {
         const data = await WorkspaceService.loadHeroSkills(selectedClass);
         if (!data) {
-          alert('No hay datos de habilidades para exportar');
+          modal.showWarning('No hay datos de habilidades para exportar');
           return;
         }
         downloadJSON(data, `${selectedClass}_habilidades.json`);
       } else if (importType === 'glifos') {
         const data = await WorkspaceService.loadHeroGlyphs(selectedClass);
         if (!data) {
-          alert('No hay datos de glifos para exportar');
+          modal.showWarning('No hay datos de glifos para exportar');
           return;
         }
         downloadJSON(data, `${selectedClass}_glifos.json`);
       } else if (importType === 'aspectos') {
         const data = await WorkspaceService.loadHeroAspects(selectedClass);
         if (!data) {
-          alert('No hay datos de aspectos para exportar');
+          modal.showWarning('No hay datos de aspectos para exportar');
           return;
         }
         downloadJSON(data, `${selectedClass}_aspectos.json`);
       }
     } catch (error) {
       console.error('Error exportando datos:', error);
-      alert('Error al exportar los datos');
+      modal.showError('Error al exportar los datos');
     }
   };
 
@@ -191,7 +216,7 @@ const HeroManager: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } else {
-      alert('Error al copiar al portapapeles');
+      modal.showError('Error al copiar al portapapeles');
     }
   };
 
@@ -524,6 +549,7 @@ const HeroManager: React.FC = () => {
           )}
         </div>
       )}
+      <Modal {...modal} />
     </div>
   );
 };
