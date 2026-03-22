@@ -1,106 +1,207 @@
 export class ImageExtractionPromptService {
-  // Generar prompt para extraer habilidades activas de imágenes
+  // Generar prompt para extraer habilidades activas de imágenes (V2 con tags estructurados)
   static generateActiveSkillsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae la información de las habilidades activas de Diablo 4.
 
+**⚠️ IMPORTANTE - TAGS ESTRUCTURADOS:**
+
+Los tags son palabras clave del juego (conceptos de mecánicas, habilidades, efectos).
+- **SOLO** captura palabras que aparezcan en BLANCO/SUBRAYADAS en la imagen
+- Cada tag debe tener: tag (normalizado), texto_original, significado (si disponible), categoría
+- Los tags se guardan de forma global y se referencian por ID
+
 **Instrucciones:**
 1. Identifica cada habilidad activa visible en la imagen
-2. Extrae todos los datos relevantes (nombre, descripción, tipo, rama, nivel, etc.)
-3. Para cada modificador equipado, incluye nombre y descripción completa
+2. Extrae todos los datos: nombre, tipo, rama, nivel_actual, nivel_maximo, descripción
+3. Para cada modificador: nombre, descripción, y sus propios tags
+4. Identifica palabras en BLANCO/SUBRAYADAS y crea tags estructurados
 
-**Devuélveme la información en el siguiente formato JSON:**
+**Formato JSON esperado:**
 
 \`\`\`json
 {
   "habilidades_activas": [
     {
       "id": "skill_activa_[genera_id_unico]",
-      "nombre": "Nombre de la habilidad",
-      "tipo_habilidad": "skill|modificador",
-      "tipo": "Básica|Principal|Defensiva|Movilidad|Definitiva|Arma de Arsenal",
-      "rama": "Nombre de la rama (ej: Ira, Arma de Arsenal, etc.)",
-      "nivel": 1,
+      "nombre": "Luz Sagrada",
+      "tipo_habilidad": "skill",
+      "tipo": "Básica",
+      "rama": "Invocación",
+      "nivel": 5,
       "nivel_maximo": 5,
-      "descripcion": "Descripción completa de la habilidad",
-      "tipo_danio": "Físico|Fuego|Hielo|Rayo|Veneno|Sombra|null",
+      "descripcion": "Invocas una columna de luz...",
+      "tipo_danio": "Sagrado",
+      "costo_recurso": {
+        "tipo": "Fe",
+        "cantidad": 20
+      },
+      "recuperacion_segundos": null,
       "modificadores": [
         {
-          "nombre": "Nombre del modificador",
-          "descripcion": "Descripción completa del modificador"
+          "nombre": "Luz Sagrada Potenciada",
+          "descripcion": "Luz Sagrada se encadena 2 veces más y hace que tus aliados y tú se fortifiquen por un 4% de su Vida máxima.",
+          "tags": []
         }
       ],
-      "palabras_clave": ["palabra1", "palabra2"]
+      "tags": []
     }
   ],
   "palabras_clave": [
     {
-      "palabra": "Palabra marcada en blanco/subrayada",
-      "descripcion": "Descripción del término según el tooltip o contexto",
-      "categoria": "atributo|efecto|condicion|recurso|otro"
+      "tag": "fortificar",
+      "texto_original": "fortifiquen",
+      "significado": "Fortificar es una reserva adicional de Vida que se drena para sanarte con el tiempo.",
+      "categoria": "mecanica",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "daño_sagrado",
+      "texto_original": "Sagrado",
+      "significado": null,
+      "categoria": "tipo_de_danio",
+      "fuente": "estadistica"
     }
   ]
 }
 \`\`\`
 
-**Notas importantes:**
-- Cada habil idad debe tener un ID único (ej: skill_activa_12345)
-- tipo_habilidad: "skill" para habilidades base, "modificador" para mejoras seleccionables
-- El tipo debe ser exactamente uno de: Básica, Principal, Defensiva, Movilidad, Definitiva, Arma de Arsenal
-- nivel_maximo es típicamente 5 para skills, 1 para modificadores
-- Si no tiene tipo de daño específico, usa null
-- Incluye TODOS los modificadores visibles con sus descripciones completas
-- **⚠️ CRÍTICO - PALABRAS CLAVE:** Lista SOLO las palabras que aparecen en BLANCO/SUBRAYADAS en la imagen. NO inventes tags con palabras que no estén coloreadas en blanco. Ejemplo: si dice "Aumenta el daño abrumador" y solo "abrumador" está en blanco, guarda SOLO "abrumador" (NO "daño abrumador").
-- En la sección palabras_clave global, incluye descripción detallada de cada término si está disponible en tooltips
-- Si un campo no está visible, usa null o un array vacío según corresponda`;
+**REGLAS CRÍTICAS:**
+
+1. **Tags solo palabras blancas/subrayadas**: NO inventar tags de palabras normales
+   - ✅ "fortificar" (si fortificar está en blanco)
+   - ❌ "columna de luz" (si no están resaltadas)
+
+2. **Estructura de tag**:
+   - tag: versión normalizada en snake_case: "golpe_critico", "fortificar"
+   - texto_original: como aparece: "golpe crítico", "fortificar"
+   - significado: definición del tooltip (null si no disponible)
+   - categoria: atributo, efecto, condicion, recurso, mecanica, tipo_de_danio, defensivo, otro
+   - fuente: tooltip, estadistica, habilidad
+
+3. **Niveles**:
+   - nivel: nivel actual de la skill (1-5 típicamente)
+   - nivel_maximo: nivel máximo posible (5 para skills, 1 para modificadores)
+
+4. **Tipo de habilidad**:
+   - "skill": habilidad base
+   - "modificador": para potenciadas/mejoradas
+
+5. **Tags en modificadores**:
+   - Cada modificador puede tener su propio array de tags
+   - Si el modificador menciona "fortifiquen" en blanco → agregar tag de fortificar
+
+6. **Sección palabras_clave global**:
+   - Recopila TODOS los tags detectados (de skills y modificadores)
+   - Incluir significado si está disponible en tooltip
+   - pendiente_revision: true si significado es null
+
+**Campos opcionales**:
+- Si un campo no aplica: usa null
+- Si un array está vacío: usa []
+- tipo_danio: "Físico", "Fuego", "Hielo", "Rayo", "Veneno", "Sombra", "Sagrado", "Corrupción", null
+
+**NO uses**: "palabras_clave" en los objetos de skill, solo "tags"`;
   }
 
-  // Generar prompt para extraer habilidades pasivas de imágenes
+  // Generar prompt para extraer habilidades pasivas de imágenes (V2 con tags estructurados)
   static generatePassiveSkillsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae la información de las habilidades pasivas de Diablo 4.
 
-**Instrucciones:**
-1. Identifica cada habilidad pasiva visible en la imagen
-2. Extrae todos los datos relevantes (nombre, descripción, efecto, nivel, etc.)
-3. Incluye información sobre puntos asignados si está visible
+**⚠️ IMPORTANTE - TAGS ESTRUCTURADOS:**
 
-**Devuélveme la información en el siguiente formato JSON:**
+Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADAS.
+
+**Instrucciones:**
+1. Identifica cada habilidad pasiva visible
+2. Extrae: nombre, tipo, nivel_actual, nivel_maximo, efecto, puntos asignados
+3. Identifica tags (palabras blancas/subrayadas) y crea objetos estructurados
+
+**Formato JSON esperado:**
 
 \`\`\`json
 {
   "habilidades_pasivas": [
     {
       "id": "skill_pasiva_[genera_id_unico]",
-      "nombre": "Nombre de la pasiva",
+      "nombre": "Longevidad",
       "tipo_habilidad": "pasiva",
-      "tipo": "Pasiva Clave|Pasiva|Nodo del tablero Paragon",
-      "nivel": 1,
+      "tipo": "Pasiva",
+      "rama": "Sagrado",
+      "nivel": 3,
       "nivel_maximo": 3,
-      "rama": "Nombre de la rama o tablero",
-      "efecto": "Descripción completa del efecto de la pasiva",
-      "requisitos": "Requisitos si los hay, null si no",
-      "puntos_asignados": 1,
-      "palabras_clave": ["palabra1", "palabra2"]
+      "efecto": "Obtienes un 30% de la sanación recibida.",
+      "puntos_asignados": 3,
+      "tags": []
+    },
+    {
+      "id": "skill_pasiva_potenciada_12346",
+      "nombre": "Aura de Rebeldía Potenciada",
+      "tipo_habilidad": "pasiva",
+      "tipo": "Pasiva Potenciada",
+      "rama": "Leviatán",
+      "nivel": 1,
+      "nivel_maximo": 1,
+      "efecto": "Tu presencia te refuerza a ti y a tus aliados, lo que otorga un 42% de armadura y una bonificación de un 42% a todas las resistencias. Además te vuelves imparable durante 2 segundos.",
+      "descripcion": "La pasiva de Aura de Rebeldía también otorga 939 de Espinas y aumenta todo tu daño de Espinas y el de tus aliados un 105%. Ahora la activa de Aura de Rebeldía, en cambio, libera una nova que inflige un 500% de tu daño de Espinas.",
+      "tags": [],
+      "skill_padre": "aura_de_rebeldia_id"
     }
   ],
   "palabras_clave": [
     {
-      "palabra": "Palabra marcada en blanco/subrayada",
-      "descripcion": "Descripción del término",
-      "categoria": "atributo|efecto|condicion|recurso|otro"
+      "tag": "imparable",
+      "texto_original": "imparable",
+      "significado": "Estado que impide ser detenido o controlado",
+      "categoria": "condicion",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "espinas",
+      "texto_original": "Espinas",
+      "significado": "Daño devuelto a los atacantes",
+      "categoria": "mecanica",
+      "fuente": "tooltip"
     }
   ]
 }
 \`\`\`
 
-**Notas importantes:**
-- Cada pasiva debe tener un ID único (ej: skill_pasiva_12345)
-- tipo_habilidad siempre debe ser "pasiva"
-- El tipo debe ser: Pasiva Clave, Pasiva, o Nodo del tablero Paragon
-- nivel_maximo es típicamente 3 para pasivas normales, 1 para pasivas clave
-- **⚠️ CRÍTICO - PALABRAS CLAVE:** Lista SOLO las palabras que aparecen en BLANCO/SUBRAYADAS en la imagen. NO inventes tags con palabras que no estén coloreadas en blanco. La mayoría vienen subrayadas.
-- En la sección palabras_clave global, incluye descripción de cada término si está disponible
-- Si un campo no está visible, usa null
-- puntos_asignados indica cuántos puntos tiene invertidos el personaje`;
+**REGLAS CRÍTICAS:**
+
+1. **Tags solo palabras blancas/subrayadas**: ✅ "imparable", ✅ "Espinas", ❌ "presencia refuerza"
+
+2. **Niveles**:
+   - nivel: nivel actual (1-3 típico para pasivas, 1 para potenciadas)
+   - nivel_maximo: máximo posible
+   - puntos_asignados: puntos invertidos por el jugador
+
+3. **Tipo de habilidad**:
+   - "pasiva": para pasivas normales y claves
+   - tipo: "Pasiva", "Pasiva Clave", "Pasiva Potenciada", "Nodo del tablero Paragon"
+
+4. **Pasivas Potenciadas**:
+   - Tienen skill_padre (ID de la skill que potencian)
+   - nivel_maximo normalmente es 1
+   - tipo: "Pasiva Potenciada"
+
+5. **Estructura de tag**:
+   - tag: snake_case normalizado
+   - texto_original: como aparece
+   - significado: definición (null si no disponible)
+   - categoria: mecanica, condicion, efecto, recurso, etc.
+   - fuente: tooltip, habilidad, manual
+
+6. **Sección palabras_clave global**:
+   - Todos los tags detectados
+   - Con significado si está en tooltip
+   - Sin duplicados por nombre
+
+**Campos opcionales**:
+- descripcion: detalles adicionales si los hay
+- requisitos: null si no hay
+- bonificaciones: array de strings con bonificaciones adicionales
+
+**NO uses**: "palabras_clave" en objetos de skill, solo "tags"`;
   }
 
   // Generar prompt para extraer glifos de imágenes
@@ -228,69 +329,105 @@ Los aspectos se identifican por su color de fondo:
   static generateFullSkillsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae la información completa de las habilidades (activas y pasivas) de Diablo 4.
 
+**⚠️ IMPORTANTE - TAGS ESTRUCTURADOS:**
+
+Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADAS.
+
 **Instrucciones:**
 1. Identifica tanto habilidades activas como pasivas
-2. Extrae todos los datos relevantes de cada tipo
-3. Organiza la información en las dos categorías
+2. Extrae: nombre, tipo, niveles, efectos, modificadores
+3. Identifica tags (palabras blancas/subrayadas) y crea objetos estructurados
+4. Organiza en dos categorías: activas y pasivas
 
-**Devuélveme la información en el siguiente formato JSON:**
+**Formato JSON esperado:**
 
 \`\`\`json
 {
   "habilidades_activas": [
     {
       "id": "skill_activa_[genera_id_unico]",
-      "nombre": "Nombre de la habilidad",
-      "tipo_habilidad": "skill|modificador",
-      "tipo": "Básica|Principal|Defensiva|Movilidad|Definitiva|Arma de Arsenal",
-      "rama": "Nombre de la rama",
-      "nivel": 1,
+      "nombre": "Luz Sagrada",
+      "tipo_habilidad": "skill",
+      "tipo": "Principal",
+      "rama": "Sagrado",
+      "nivel_actual": 3,
       "nivel_maximo": 5,
-      "descripcion": "Descripción completa",
-      "tipo_danio": "Físico|Fuego|Hielo|Rayo|Veneno|Sombra|null",
+      "descripcion": "Asestas un golpe contra los enemigos frente a ti con tu arma...",
+      "tipo_danio": "Sagrado",
+      "tags": [],
       "modificadores": [
         {
-          "nombre": "Nombre del modificador",
-          "descripcion": "Descripción completa"
+          "nombre": "Luz Sagrada Mejorada",
+          "descripcion": "Luz sagrada ahora penetra en los enemigos y activa contra todos los enemigos situados en su trayectoria.",
+          "tags": []
+        },
+        {
+          "nombre": "Luz Sagrada Santificada",
+          "descripcion": "Luz sagrada inflige un 30% más de daño y lanza una nova que inflige un 20% de su daño.",
+          "tags": ["fortificar"]
         }
-      ],
-      "palabras_clave": ["palabra1", "palabra2"]
+      ]
     }
   ],
   "habilidades_pasivas": [
     {
-      "id": "skill_pasiva_[genera_id_unico]",
-      "nombre": "Nombre de la pasiva",
+      "id": "skill_pasiva_12345",
+      "nombre": "Longevidad",
       "tipo_habilidad": "pasiva",
-      "tipo": "Pasiva Clave|Pasiva|Nodo del tablero Paragon",
-      "nivel": 1,
+      "tipo": "Pasiva",
+      "rama": "Sagrado",
+      "nivel": 3,
       "nivel_maximo": 3,
-      "rama": "Nombre de la rama",
-      "efecto": "Descripción del efecto",
-      "requisitos": "null si no hay",
-      "puntos_asignados": 1,
-      "palabras_clave": ["palabra1", "palabra2"]
+      "efecto": "Obtienes un 30% de la sanación recibida.",
+      "puntos_asignados": 3,
+      "tags": []
     }
   ],
   "palabras_clave": [
     {
-      "palabra": "Palabra marcada en blanco/subrayada",
-      "descripcion": "Descripción del término",
-      "categoria": "atributo|efecto|condicion|recurso|otro"
+      "tag": "fortificar",
+      "texto_original": "fortificar",
+      "significado": "Fortificar es una reserva adicional de Vida...",
+      "categoria": "mecanica",
+      "fuente": "tooltip"
     }
   ]
 }
 \`\`\`
 
-**Notas importantes:**
-- Cada habilidad debe tener un ID único
-- tipo_habilidad: "skill"/"modificador" para activas, "pasiva" para pasivas
-- nivel_maximo: típicamente 5 para skills, 1 para modificadores, 3 para pasivas
-- **⚠️ CRÍTICO - PALABRAS CLAVE:** Lista SOLO las palabras que aparecen en BLANCO/SUBRAYADAS en la imagen. NO inventes tags con palabras que no estén coloreadas en blanco.
-- En la sección palabras_clave global, incluye descripción de cada término si está disponible
-- Usa los valores exactos especificados para tipo, rareza, etc.
-- Si un campo no está visible, usa null o array vacío según corresponda
-- Incluye TODAS las habilidades visibles en la imagen`;
+**REGLAS CRÍTICAS:**
+
+1. **Tags solo palabras blancas/subrayadas**: ✅ "fortificar", ✅ "imparable", ❌ "asestas golpe"
+
+2. **Tags en modificadores**: Cada modificador puede tener su propio array tags
+
+3. **Niveles**:
+   - Activas: nivel_actual, nivel_maximo
+   - Pasivas: nivel, nivel_maximo, puntos_asignados
+
+4. **Tipo de habilidad**:
+   - Activas: "skill" o "modificador"
+   - Pasivas: "pasiva"
+
+5. **Tipo**:
+   - Activas: "Básica", "Principal", "Defensiva", "Movilidad", "Definitiva", "Arma de Arsenal"
+   - Pasivas: "Pasiva", "Pasiva Clave", "Pasiva Potenciada", "Nodo del tablero Paragon"
+
+6. **Estructura de tag**:
+   - tag: snake_case normalizado
+   - texto_original: como aparece en imagen
+   - significado: definición (null si no disponible)
+   - categoria: mecanica, condicion, efecto, danio, recurso, etc.
+   - fuente: tooltip, habilidad, manual
+
+7. **Sección palabras_clave global**:
+   - Todos los tags detectados (activas + pasivas)
+   - Con significado si está en tooltip
+   - Sin duplicados por nombre
+
+**NO uses**: "palabras_clave" en objetos de skill/pasiva, solo "tags"
+
+**Incluye TODAS las habilidades visibles en la imagen**`;
   }
 
   // Generar prompt para extraer estadísticas de imágenes (v0.3.1)

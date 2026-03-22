@@ -53,6 +53,7 @@ export interface Modificador {
   nombre: string;
   descripcion: string;
   efectos?: string[];
+  tags?: string[]; // IDs de tags del repositorio global
 }
 
 export interface EfectoGenerado {
@@ -60,14 +61,17 @@ export interface EfectoGenerado {
   duracion_segundos?: number;
   descripcion?: string;
   efectos?: string[];
+  tags?: string[]; // IDs de tags del repositorio global
 }
 
 export interface EfectoPasivo {
   efectos: string[];
+  tags?: string[]; // IDs de tags del repositorio global
 }
 
 export interface EfectoActivo {
   efecto: string;
+  tags?: string[]; // IDs de tags del repositorio global
 }
 
 export interface HabilidadActiva {
@@ -91,7 +95,7 @@ export interface HabilidadActiva {
   efectos_generados?: EfectoGenerado[];
   pasiva?: EfectoPasivo;
   activa?: EfectoActivo;
-  palabras_clave?: string[]; // IDs de palabras clave
+  tags?: string[]; // IDs de tags del repositorio global
   skill_padre?: string; // ID de la skill base (solo para modificadores)
 }
 
@@ -108,7 +112,7 @@ export interface HabilidadPasiva {
   bonificaciones?: string[];
   bonificacion_danio_actual?: string;
   siguiente_rango?: SiguienteRango;
-  palabras_clave?: string[]; // IDs de palabras clave
+  tags?: string[]; // IDs de tags del repositorio global
   skill_padre?: string; // ID de la skill base (solo para modificadores)
 }
 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Upload, Plus, Trash2, Zap, Shield, Copy, Check } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Upload, Plus, Trash2, Zap, Shield, Copy, Check, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { Personaje, HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje, Tag } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagService } from '../../services/TagService';
@@ -30,6 +30,12 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<HabilidadesPersonaje | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary>({});
+  
+  // Estados para filtros y ordenamiento
+  const [filterText, setFilterText] = useState('');
+  const [filterTipo, setFilterTipo] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'nombre' | 'tipo' | 'nivel'>('nombre');
+  const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadHeroSkills();
@@ -63,6 +69,87 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
 
     setActiveSkillsData(activasData);
     setPassiveSkillsData(pasivasData);
+  };
+
+  // Filtrar y ordenar habilidades activas
+  const filteredAndSortedActives = useMemo(() => {
+    let filtered = [...activeSkillsData];
+
+    // Filtrar por texto
+    if (filterText) {
+      const searchLower = filterText.toLowerCase();
+      filtered = filtered.filter(skill => 
+        skill.nombre.toLowerCase().includes(searchLower) ||
+        skill.descripcion?.toLowerCase().includes(searchLower) ||
+        skill.rama?.toLowerCase().includes(searchLower) ||
+        skill.modificadores?.some(mod => mod.nombre.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Filtrar por tipo
+    if (filterTipo) {
+      filtered = filtered.filter(skill => skill.tipo === filterTipo);
+    }
+
+    // Ordenar
+    filtered.sort((a, b) => {
+      if (sortBy === 'nombre') return a.nombre.localeCompare(b.nombre);
+      if (sortBy === 'tipo') return (a.tipo || '').localeCompare(b.tipo || '');
+      if (sortBy === 'nivel') return (b.nivel || 0) - (a.nivel || 0);
+      return 0;
+    });
+
+    return filtered;
+  }, [activeSkillsData, filterText, filterTipo, sortBy]);
+
+  // Filtrar y ordenar habilidades pasivas
+  const filteredAndSortedPassives = useMemo(() => {
+    let filtered = [...passiveSkillsData];
+
+    // Filtrar por texto
+    if (filterText) {
+      const searchLower = filterText.toLowerCase();
+      filtered = filtered.filter(skill => 
+        skill.nombre.toLowerCase().includes(searchLower) ||
+        skill.efecto?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filtrar por tipo
+    if (filterTipo) {
+      filtered = filtered.filter(skill => skill.tipo === filterTipo);
+    }
+
+    // Ordenar
+    filtered.sort((a, b) => {
+      if (sortBy === 'nombre') return a.nombre.localeCompare(b.nombre);
+      if (sortBy === 'tipo') return (a.tipo || '').localeCompare(b.tipo || '');
+      if (sortBy === 'nivel') return (b.nivel || 0) - (a.nivel || 0);
+      return 0;
+    });
+
+    return filtered;
+  }, [passiveSkillsData, filterText, filterTipo, sortBy]);
+
+  // Obtener tipos únicos para el filtro
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    activeSkillsData.forEach(s => s.tipo && types.add(s.tipo));
+    passiveSkillsData.forEach(s => s.tipo && types.add(s.tipo));
+    return Array.from(types).sort();
+  }, [activeSkillsData, passiveSkillsData]);
+
+  // Toggle expandir/colapsar skill
+  const toggleSkillExpanded = (skillId: string) => {
+    setExpandedSkills(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(skillId)) {
+        newSet.delete(skillId);
+      } else {
+        newSet.add(skillId);
+      }
+      return newSet;
+    });
   };
 
   const handleImportJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,7 +210,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
         combinedData.habilidades_pasivas.push(...data.habilidades_pasivas);
       }
       
-      // Contar keywords
+      // Contar keywords (tags en formato V2)
       if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
         totalKeywords += (data as any).palabras_clave.length;
       }
@@ -299,19 +386,23 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       return;
     }
 
-    // Procesar tags globalmente si existen
+    // Procesar tags desde sección global palabras_clave (formato V2 de IA)
     let allTags: Tag[] = [];
     if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
       allTags = (data as any).palabras_clave;
     }
 
-    // Recolectar tags de cada habilidad individual
-    [...data.habilidades_activas, ...data.habilidades_pasivas].forEach((skill: any) => {
-      if (skill.palabras_clave && Array.isArray(skill.palabras_clave)) {
-        // Si las palabras_clave son objetos Tag
-        skill.palabras_clave.forEach((kw: any) => {
-          if (typeof kw === 'object' && kw.tag) {
-            allTags.push(kw);
+    // Recolectar tags de modificadores si tienen tags individuales
+    data.habilidades_activas.forEach((skill: any) => {
+      if (skill.modificadores && Array.isArray(skill.modificadores)) {
+        skill.modificadores.forEach((mod: any) => {
+          if (mod.tags && Array.isArray(mod.tags)) {
+            // Si los tags del modificador son objetos Tag completos
+            mod.tags.forEach((tag: any) => {
+              if (typeof tag === 'object' && tag.tag) {
+                allTags.push(tag);
+              }
+            });
           }
         });
       }
@@ -556,60 +647,145 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
         </div>
       )}
 
+      {/* Filtros y Ordenamiento */}
+      {(activeSkillsData.length > 0 || passiveSkillsData.length > 0) && (
+        <div className="bg-d4-bg/50 p-3 rounded border border-d4-border mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {/* Buscar por texto */}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-d4-text-dim" />
+              <input
+                type="text"
+                placeholder="Buscar habilidad..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="input w-full pl-8 text-xs"
+              />
+            </div>
+
+            {/* Filtrar por tipo */}
+            <select
+              value={filterTipo}
+              onChange={(e) => setFilterTipo(e.target.value)}
+              className="input text-xs"
+            >
+              <option value="">Todos los tipos</option>
+              {availableTypes.map(tipo => (
+                <option key={tipo} value={tipo}>{tipo}</option>
+              ))}
+            </select>
+
+            {/* Ordenar por */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="input text-xs"
+            >
+              <option value="nombre">Ordenar: Nombre</option>
+              <option value="tipo">Ordenar: Tipo</option>
+              <option value="nivel">Ordenar: Nivel</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Habilidades Activas */}
       <div className="mb-4">
         <h4 className="text-sm font-semibold text-d4-accent mb-2 flex items-center gap-1.5">
           <Zap className="w-4 h-4" />
-          Activas ({activeSkillsData.length})
+          Activas ({filteredAndSortedActives.length}{filterText || filterTipo ? ` de ${activeSkillsData.length}` : ''})
         </h4>
-        {activeSkillsData.length === 0 ? (
+        {filteredAndSortedActives.length === 0 ? (
           <div className="text-center py-4 text-d4-text-dim bg-d4-bg/50 rounded">
-            <p className="text-xs">No hay habilidades activas</p>
+            <p className="text-xs">
+              {filterText || filterTipo ? 'No se encontraron habilidades con esos filtros' : 'No hay habilidades activas'}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {activeSkillsData.map((skill) => (
-              <div key={skill.id} className="bg-d4-bg p-3 rounded-lg border-2 border-d4-border hover:border-d4-accent transition-all duration-200 hover:shadow-lg">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
-                    <h5 className="font-bold text-d4-accent text-base truncate mb-1" title={skill.nombre}>
-                      {skill.nombre} <span className="text-sm text-d4-text-dim">({skill.nivel})</span>
-                    </h5>
-                    <div className="flex gap-1 flex-wrap">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-200 border border-blue-600/50 font-semibold uppercase">
-                        {skill.tipo}
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase">
-                        {skill.rama}
-                      </span>
+          <div className="space-y-2">
+            {filteredAndSortedActives.map((skill) => {
+              const isExpanded = expandedSkills.has(skill.id!);
+              const hasModifiers = skill.modificadores && skill.modificadores.length > 0;
+
+              return (
+                <div 
+                  key={skill.id} 
+                  className="bg-d4-bg rounded-lg border-2 border-d4-border hover:border-d4-accent/50 transition-all duration-200"
+                >
+                  {/* Header de la skill */}
+                  <div className="p-3">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h5 className="font-bold text-d4-accent text-base" title={skill.nombre}>
+                            {skill.nombre}
+                          </h5>
+                          <span className="text-sm text-d4-text-dim">Nv. {skill.nivel}/{skill.nivel_maximo || 5}</span>
+                        </div>
+                        <div className="flex gap-1 flex-wrap">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-200 border border-blue-600/50 font-semibold uppercase">
+                            {skill.tipo}
+                          </span>
+                          {skill.rama && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase">
+                              {skill.rama}
+                            </span>
+                          )}
+                          {skill.tipo_danio && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-200 border border-red-600/50 font-semibold uppercase">
+                              {skill.tipo_danio}
+                            </span>
+                          )}
+                          {hasModifiers && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 border border-purple-600/50 font-semibold">
+                              {skill.modificadores!.length} modificador{skill.modificadores!.length > 1 ? 'es' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        {hasModifiers && (
+                          <button
+                            onClick={() => toggleSkillExpanded(skill.id!)}
+                            className="p-1 hover:bg-d4-accent/20 rounded transition-colors"
+                            title={isExpanded ? 'Ocultar modificadores' : 'Mostrar modificadores'}
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-d4-accent" /> : <ChevronDown className="w-4 h-4 text-d4-accent" />}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleRemoveSkill(skill.id!, 'activa')}
+                          className="p-1 hover:bg-red-900/30 rounded transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Descripción de la skill */}
+                    <p className="text-sm text-d4-text leading-relaxed">
+                      {skill.descripcion}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => handleRemoveSkill(skill.id!, 'activa')}
-                    className="p-1 hover:bg-red-900/30 rounded transition-colors flex-shrink-0"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-400" />
-                  </button>
+
+                  {/* Modificadores (colapsable) */}
+                  {hasModifiers && isExpanded && (
+                    <div className="border-t border-d4-border/50 bg-d4-bg-secondary/30 p-3">
+                      <h6 className="text-xs font-semibold text-d4-accent mb-2 uppercase">Modificadores</h6>
+                      <div className="space-y-2">
+                        {skill.modificadores!.map((mod, idx) => (
+                          <div key={idx} className="bg-d4-bg/80 p-2 rounded border border-d4-border/30">
+                            <div className="font-semibold text-sm text-purple-300 mb-1">{mod.nombre}</div>
+                            <p className="text-xs text-d4-text-dim leading-relaxed">{mod.descripcion}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-d4-text leading-relaxed mt-3">
-                  {skill.descripcion}
-                </p>
-                {skill.palabras_clave && skill.palabras_clave.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {skill.palabras_clave.map((palabra, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
-                        title="Palabra clave del juego"
-                      >
-                        {palabra}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -618,26 +794,35 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       <div>
         <h4 className="text-sm font-semibold text-d4-accent mb-2 flex items-center gap-1.5">
           <Shield className="w-4 h-4" />
-          Pasivas ({passiveSkillsData.length})
+          Pasivas ({filteredAndSortedPassives.length}{filterText || filterTipo ? ` de ${passiveSkillsData.length}` : ''})
         </h4>
-        {passiveSkillsData.length === 0 ? (
+        {filteredAndSortedPassives.length === 0 ? (
           <div className="text-center py-4 text-d4-text-dim bg-d4-bg/50 rounded">
-            <p className="text-xs">No hay habilidades pasivas</p>
+            <p className="text-xs">
+              {filterText || filterTipo ? 'No se encontraron habilidades con esos filtros' : 'No hay habilidades pasivas'}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {passiveSkillsData.map((skill) => (
-              <div key={skill.id} className="bg-d4-bg p-3 rounded-lg border-2 border-d4-border hover:border-d4-accent transition-all duration-200 hover:shadow-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {filteredAndSortedPassives.map((skill) => (
+              <div key={skill.id} className="bg-d4-bg p-3 rounded-lg border-2 border-d4-border hover:border-d4-accent/50 transition-all duration-200">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <h5 className="font-bold text-d4-accent text-base truncate mb-1" title={skill.nombre}>
-                      {skill.nombre} {skill.nivel && <span className="text-sm text-d4-text-dim">({skill.nivel})</span>}
-                    </h5>
-                    {skill.tipo && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase inline-block">
-                        {skill.tipo}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 mb-1">
+                      <h5 className="font-bold text-d4-accent text-base" title={skill.nombre}>
+                        {skill.nombre}
+                      </h5>
+                      {skill.nivel && (
+                        <span className="text-sm text-d4-text-dim">Nv. {skill.nivel}/{skill.nivel_maximo || 3}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {skill.tipo && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase">
+                          {skill.tipo}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => handleRemoveSkill(skill.id!, 'pasiva')}
@@ -647,22 +832,9 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                     <Trash2 className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
-                <p className="text-sm text-d4-text leading-relaxed mt-3">
+                <p className="text-sm text-d4-text leading-relaxed">
                   {skill.descripcion || skill.efecto}
                 </p>
-                {skill.palabras_clave && skill.palabras_clave.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {skill.palabras_clave.map((palabra, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
-                        title="Palabra clave del juego"
-                      >
-                        {palabra}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
           </div>

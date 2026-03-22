@@ -408,19 +408,6 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                       Modificadores: {skill.modificadores.length}
                     </p>
                   )}
-                  {skill.palabras_clave && skill.palabras_clave.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {skill.palabras_clave.map((palabra, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
-                          title="Palabra clave del juego"
-                        >
-                          {palabra}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex gap-1 flex-shrink-0">
@@ -477,19 +464,6 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                     )}
                   </div>
                   <p className="text-sm text-d4-text">{skill.efecto}</p>
-                  {skill.palabras_clave && skill.palabras_clave.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {skill.palabras_clave.map((palabra, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
-                          title="Palabra clave del juego"
-                        >
-                          {palabra}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex gap-1 flex-shrink-0">
