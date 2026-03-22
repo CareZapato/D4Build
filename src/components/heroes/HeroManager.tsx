@@ -228,6 +228,17 @@ const HeroManager: React.FC = () => {
         return;
       }
       
+      // Recolectar tags de glifos individuales si tienen tags
+      data.glifos.forEach((glifo: any) => {
+        if (glifo.tags && Array.isArray(glifo.tags)) {
+          glifo.tags.forEach((tag: any) => {
+            if (typeof tag === 'object' && tag.tag) {
+              allTags.push(tag);
+            }
+          });
+        }
+      });
+      
       // Cargar datos existentes
       const existingData = await WorkspaceService.loadHeroGlyphs(selectedClass);
       const existing: GlifosHeroe = existingData || { glifos: [] };
@@ -267,6 +278,17 @@ const HeroManager: React.FC = () => {
         modal.showError('El archivo no tiene el formato correcto de aspectos');
         return;
       }
+
+      // Recolectar tags de aspectos individuales si tienen tags
+      data.aspectos.forEach((aspecto: any) => {
+        if (aspecto.tags && Array.isArray(aspecto.tags)) {
+          aspecto.tags.forEach((tag: any) => {
+            if (typeof tag === 'object' && tag.tag) {
+              allTags.push(tag);
+            }
+          });
+        }
+      });
 
       // Cargar datos existentes
       const existingData = await WorkspaceService.loadHeroAspects(selectedClass);

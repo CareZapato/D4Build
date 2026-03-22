@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Upload, Plus, Trash2, Zap, Shield, Copy, Check, Search, ChevronDown, ChevronUp } from 'lucide-react';
-import { Personaje, HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje, Tag } from '../../types';
+import { Personaje, HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje, Tag, TipoHabilidad } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagService } from '../../services/TagService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
@@ -10,7 +10,10 @@ import { useModal } from '../../hooks/useModal';
 
 interface Props {
   personaje: Personaje;
-  onChange: (skillsRefs: { activas: string[]; pasivas: string[] }) => void;
+  onChange: (skillsRefs: { 
+    activas: Array<{ skill_id: string; modificadores_ids: string[] }>; 
+    pasivas: string[] 
+  }) => void;
 }
 
 const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
@@ -19,7 +22,10 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const [availableSkills, setAvailableSkills] = useState<HabilidadesPersonaje | null>(null);
   const [activeSkillsData, setActiveSkillsData] = useState<HabilidadActiva[]>([]);
   const [passiveSkillsData, setPassiveSkillsData] = useState<HabilidadPasiva[]>([]);
-  const [skillsRefs, setSkillsRefs] = useState<{ activas: string[]; pasivas: string[] }>(
+  const [skillsRefs, setSkillsRefs] = useState<{ 
+    activas: Array<{ skill_id: string; modificadores_ids: string[] }>; 
+    pasivas: string[] 
+  }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
   );
   const [showAddModal, setShowAddModal] = useState(false);
@@ -29,7 +35,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const [copied, setCopied] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<HabilidadesPersonaje | null>(null);
-  const [importSummary, setImportSummary] = useState<ImportSummary>({});
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   
   // Estados para filtros y ordenamiento
   const [filterText, setFilterText] = useState('');
@@ -59,8 +65,20 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const loadCharacterSkillsData = () => {
     if (!availableSkills) return;
 
-    const activasData = skillsRefs.activas.map(id => {
-      return availableSkills.habilidades_activas.find(s => s.id === id);
+    // Cargar habilidades activas con modificadores equipados filtrados
+    const activasData = skillsRefs.activas.map(ref => {
+      const skill = availableSkills.habilidades_activas.find(s => s.id === ref.skill_id);
+      if (!skill) return null;
+      
+      // Filtrar solo los modificadores que el personaje tiene equipados
+      const modificadoresEquipados = skill.modificadores?.filter(mod => 
+        ref.modificadores_ids.includes(mod.id || '')
+      ) || [];
+
+      return {
+        ...skill,
+        modificadores: modificadoresEquipados
+      };
     }).filter(Boolean) as HabilidadActiva[];
 
     const pasivasData = skillsRefs.pasivas.map(id => {
@@ -159,7 +177,10 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     setImporting(true);
     try {
       const content = await file.text();
-      await processJSONImport(content);
+      // Usar el mismo flujo de confirmación que importación de texto
+      const summary = await analyzeImportChanges(content);
+      setImportSummary(summary);
+      setShowConfirmModal(true);
     } catch (error) {
       console.error('Error importando habilidades:', error);
       modal.showError('Error al importar el archivo JSON. Verifica el formato.');
@@ -198,7 +219,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       habilidades_pasivas: []
     };
 
-    let totalKeywords = 0;
+    let allTags: Tag[] = [];
 
     for (const jsonStr of JSONObjects) {
       const data = JSON.parse(jsonStr) as HabilidadesPersonaje;
@@ -210,10 +231,30 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
         combinedData.habilidades_pasivas.push(...data.habilidades_pasivas);
       }
       
-      // Contar keywords (tags en formato V2)
+      // Recolectar tags desde sección global palabras_clave (formato V2 de IA)
       if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
-        totalKeywords += (data as any).palabras_clave.length;
+        allTags.push(...(data as any).palabras_clave);
       }
+
+      // Recolectar tags de modificadores si tienen tags individuales
+      data.habilidades_activas?.forEach((skill: any) => {
+        if (skill.modificadores && Array.isArray(skill.modificadores)) {
+          skill.modificadores.forEach((mod: any) => {
+            if (mod.tags && Array.isArray(mod.tags)) {
+              mod.tags.forEach((tag: any) => {
+                if (typeof tag === 'object' && tag.tag) {
+                  allTags.push(tag);
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Procesar y guardar tags globalmente antes de calcular el summary
+    if (allTags.length > 0) {
+      await TagService.processAndSaveTagsV2(allTags, 'habilidad');
     }
 
     setPendingImportData(combinedData);
@@ -258,7 +299,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
         actualizadas: pasivasActualizadas,
         agregadas: pasivasAgregadas
       },
-      palabrasClave: totalKeywords
+      palabrasClave: allTags.length
     };
   };
 
@@ -292,20 +333,44 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     if (!pendingImportData) return;
 
     setImporting(true);
+    setShowConfirmModal(false);
+    
     try {
-      // Importar keywords globales si existen en el JSON original
       // Aplicar cambios
       await applyImportChanges(pendingImportData);
       
+      // Generar mensaje detallado basado en el summary
+      const mensajes = [];
+      if (importSummary) {
+        const { habilidadesActivas, habilidadesPasivas, palabrasClave } = importSummary;
+        
+        if (habilidadesActivas?.actualizadas) {
+          mensajes.push(`${habilidadesActivas.actualizadas} activas actualizadas`);
+        }
+        if (habilidadesActivas?.agregadas) {
+          mensajes.push(`${habilidadesActivas.agregadas} activas nuevas`);
+        }
+        if (habilidadesPasivas?.actualizadas) {
+          mensajes.push(`${habilidadesPasivas.actualizadas} pasivas actualizadas`);
+        }
+        if (habilidadesPasivas?.agregadas) {
+          mensajes.push(`${habilidadesPasivas.agregadas} pasivas nuevas`);
+        }
+        if (palabrasClave) {
+          mensajes.push(`${palabrasClave} tags procesados`);
+        }
+      }
+      
       setJsonText('');
       setShowTextInput(false);
-      modal.showSuccess('Habilidades importadas correctamente');
+      modal.showSuccess(`Habilidades procesadas: ${mensajes.join(', ')}`);
     } catch (error) {
       console.error('Error aplicando importación:', error);
       modal.showError('Error al aplicar los cambios');
     } finally {
       setImporting(false);
       setPendingImportData(null);
+      setImportSummary(null);
     }
   };
 
@@ -317,18 +382,39 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       habilidades_pasivas: []
     };
 
-    // Actualizar o agregar habilidades activas
+    // Actualizar o agregar habilidades activas con IDs para modificadores
     data.habilidades_activas.forEach(skill => {
       const existingIndex = updatedHeroSkills.habilidades_activas.findIndex(s => s.nombre === skill.nombre);
       if (existingIndex >= 0) {
+        // Actualizar existente - asignar IDs a modificadores
+        const existingSkill = updatedHeroSkills.habilidades_activas[existingIndex];
+        const modificadoresConIds = (skill.modificadores || []).map(mod => {
+          const existingMod = existingSkill.modificadores?.find(m => m.nombre === mod.nombre);
+          return {
+            ...mod,
+            id: mod.id || existingMod?.id || `mod_${skill.nombre}_${mod.nombre}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`.replace(/\s+/g, '_').toLowerCase(),
+            tipo_habilidad: 'modificador' as TipoHabilidad
+          };
+        });
+        
         updatedHeroSkills.habilidades_activas[existingIndex] = {
           ...skill,
-          id: updatedHeroSkills.habilidades_activas[existingIndex].id
+          id: existingSkill.id,
+          modificadores: modificadoresConIds
         };
       } else {
+        // Agregar nueva - asignar IDs a modificadores
+        const skillId = skill.id || `skill_activa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const modificadoresConIds = (skill.modificadores || []).map(mod => ({
+          ...mod,
+          id: mod.id || `mod_${skill.nombre}_${mod.nombre}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`.replace(/\s+/g, '_').toLowerCase(),
+          tipo_habilidad: 'modificador' as TipoHabilidad
+        }));
+        
         const skillWithId = {
           ...skill,
-          id: skill.id || `skill_activa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          id: skillId,
+          modificadores: modificadoresConIds
         };
         updatedHeroSkills.habilidades_activas.push(skillWithId);
       }
@@ -354,20 +440,37 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     // Guardar en el héroe
     await WorkspaceService.saveHeroSkills(personaje.clase, updatedHeroSkills);
 
-    // Actualizar referencias del personaje (agregar todas las skills importadas)
-    const newActiveIds = data.habilidades_activas.map(skill => {
-      const found = updatedHeroSkills.habilidades_activas.find(s => s.nombre === skill.nombre);
-      return found?.id;
-    }).filter((id): id is string => Boolean(id));
+    // Actualizar referencias del personaje con TODOS los modificadores del JSON
+    const newActiveRefs: Array<{ skill_id: string; modificadores_ids: string[] }> = [];
+    data.habilidades_activas.forEach(skill => {
+      const heroSkill = updatedHeroSkills.habilidades_activas.find(s => s.nombre === skill.nombre);
+      if (heroSkill?.id) {
+        // Extraer IDs de TODOS los modificadores del JSON (todos están activos)
+        const modificadoresIds = (skill.modificadores || [])
+          .map(mod => {
+            const heroMod = heroSkill.modificadores?.find(m => m.nombre === mod.nombre);
+            return heroMod?.id || null;
+          })
+          .filter((id): id is string => id !== null);
+
+        newActiveRefs.push({ 
+          skill_id: heroSkill.id, 
+          modificadores_ids: modificadoresIds 
+        });
+      }
+    });
 
     const newPassiveIds = data.habilidades_pasivas.map(skill => {
       const found = updatedHeroSkills.habilidades_pasivas.find(s => s.nombre === skill.nombre);
       return found?.id;
     }).filter((id): id is string => Boolean(id));
 
-    // Combinar con IDs existentes (sin duplicar)
+    // Combinar con IDs existentes (sin duplicar por skill_id)
+    const existingActiveIds = new Set(skillsRefs.activas.map(ref => ref.skill_id));
+    const newUniqueActiveRefs = newActiveRefs.filter(ref => !existingActiveIds.has(ref.skill_id));
+    
     const updatedRefs = {
-      activas: Array.from(new Set([...skillsRefs.activas, ...newActiveIds])),
+      activas: [...skillsRefs.activas, ...newUniqueActiveRefs],
       pasivas: Array.from(new Set([...skillsRefs.pasivas, ...newPassiveIds]))
     };
 
@@ -378,138 +481,20 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     await loadHeroSkills();
   };
 
-  const processJSONImport = async (content: string) => {
-    const data = JSON.parse(content) as HabilidadesPersonaje;
-
-    if (!data.habilidades_activas || !data.habilidades_pasivas) {
-      modal.showError('El archivo no tiene el formato correcto de habilidades');
-      return;
-    }
-
-    // Procesar tags desde sección global palabras_clave (formato V2 de IA)
-    let allTags: Tag[] = [];
-    if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
-      allTags = (data as any).palabras_clave;
-    }
-
-    // Recolectar tags de modificadores si tienen tags individuales
-    data.habilidades_activas.forEach((skill: any) => {
-      if (skill.modificadores && Array.isArray(skill.modificadores)) {
-        skill.modificadores.forEach((mod: any) => {
-          if (mod.tags && Array.isArray(mod.tags)) {
-            // Si los tags del modificador son objetos Tag completos
-            mod.tags.forEach((tag: any) => {
-              if (typeof tag === 'object' && tag.tag) {
-                allTags.push(tag);
-              }
-            });
-          }
-        });
-      }
-    });
-
-    // Guardar tags globalmente y obtener IDs
-    const tagIds = await TagService.processAndSaveTagsV2(allTags, 'habilidad');
-    console.log('Tags de habilidades guardados con IDs:', tagIds);
-
-    // Primero sincronizar con el héroe
-    const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
-    const updatedHeroSkills: HabilidadesPersonaje = heroSkills || {
-      habilidades_activas: [],
-      habilidades_pasivas: []
-    };
-
-    let activasActualizadas = 0;
-    let activasAgregadas = 0;
-
-    // Actualizar o agregar habilidades activas
-    data.habilidades_activas.forEach(skill => {
-      const existingIndex = updatedHeroSkills.habilidades_activas.findIndex(s => s.nombre === skill.nombre);
-      if (existingIndex >= 0) {
-        // Actualizar la existente manteniendo el ID
-        updatedHeroSkills.habilidades_activas[existingIndex] = {
-          ...skill,
-          id: updatedHeroSkills.habilidades_activas[existingIndex].id
-        };
-        activasActualizadas++;
-      } else {
-        // Agregar nueva
-        const skillWithId = {
-          ...skill,
-          id: skill.id || `skill_activa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        };
-        updatedHeroSkills.habilidades_activas.push(skillWithId);
-        activasAgregadas++;
-      }
-    });
-
-    let pasivasActualizadas = 0;
-    let pasivasAgregadas = 0;
-
-    // Actualizar o agregar habilidades pasivas
-    data.habilidades_pasivas.forEach(skill => {
-      const existingIndex = updatedHeroSkills.habilidades_pasivas.findIndex(s => s.nombre === skill.nombre);
-      if (existingIndex >= 0) {
-        // Actualizar la existente manteniendo el ID
-        updatedHeroSkills.habilidades_pasivas[existingIndex] = {
-          ...skill,
-          id: updatedHeroSkills.habilidades_pasivas[existingIndex].id
-        };
-        pasivasActualizadas++;
-      } else {
-        // Agregar nueva
-        const skillWithId = {
-          ...skill,
-          id: skill.id || `skill_pasiva_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        };
-        updatedHeroSkills.habilidades_pasivas.push(skillWithId);
-        pasivasAgregadas++;
-      }
-    });
-
-    await WorkspaceService.saveHeroSkills(personaje.clase, updatedHeroSkills);
-    setAvailableSkills(updatedHeroSkills);
-
-    // Ahora agregar referencias al personaje (solo las que no existan)
-    const newActivasIds = data.habilidades_activas.map(skill => {
-      const heroSkill = updatedHeroSkills.habilidades_activas.find(s => s.nombre === skill.nombre);
-      return heroSkill?.id || '';
-    }).filter(id => id && !skillsRefs.activas.includes(id));
-
-    const newPasivasIds = data.habilidades_pasivas.map(skill => {
-      const heroSkill = updatedHeroSkills.habilidades_pasivas.find(s => s.nombre === skill.nombre);
-      return heroSkill?.id || '';
-    }).filter(id => id && !skillsRefs.pasivas.includes(id));
-
-    const updatedRefs = {
-      activas: [...skillsRefs.activas, ...newActivasIds],
-      pasivas: [...skillsRefs.pasivas, ...newPasivasIds]
-    };
-    
-    setSkillsRefs(updatedRefs);
-    onChange(updatedRefs);
-    
-    // Mensaje detallado
-    const mensajes = [];
-    if (activasActualizadas > 0) mensajes.push(`${activasActualizadas} activas actualizadas`);
-    if (activasAgregadas > 0) mensajes.push(`${activasAgregadas} activas nuevas`);
-    if (pasivasActualizadas > 0) mensajes.push(`${pasivasActualizadas} pasivas actualizadas`);
-    if (pasivasAgregadas > 0) mensajes.push(`${pasivasAgregadas} pasivas nuevas`);
-    
-    modal.showSuccess(`Habilidades procesadas: ${mensajes.join(', ')}`);
-  };
-
   const handleAddSkill = (skill: HabilidadActiva | HabilidadPasiva, type: 'activa' | 'pasiva') => {
     if (!skill.id) return;
 
     if (type === 'activa') {
-      if (skillsRefs.activas.includes(skill.id)) {
+      // Verificar si ya existe
+      if (skillsRefs.activas.some(ref => ref.skill_id === skill.id)) {
         modal.showInfo('Esta habilidad ya está en tu personaje');
         return;
       }
+      
+      // Agregar skill sin modificadores inicialmente
       const updatedRefs = {
         ...skillsRefs,
-        activas: [...skillsRefs.activas, skill.id]
+        activas: [...skillsRefs.activas, { skill_id: skill.id, modificadores_ids: [] }]
       };
       setSkillsRefs(updatedRefs);
       onChange(updatedRefs);
@@ -527,13 +512,14 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     }
     
     setShowAddModal(false);
+    modal.showSuccess(`${skill.nombre} agregada`);
   };
 
   const handleRemoveSkill = (skillId: string, type: 'activa' | 'pasiva') => {
     if (type === 'activa') {
       const updatedRefs = {
         ...skillsRefs,
-        activas: skillsRefs.activas.filter(id => id !== skillId)
+        activas: skillsRefs.activas.filter(ref => ref.skill_id !== skillId)
       };
       setSkillsRefs(updatedRefs);
       onChange(updatedRefs);
@@ -547,6 +533,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     }
   };
 
+  // Gestión de modificadores
   const handleCopyPrompt = async () => {
     const prompt = ImageExtractionPromptService.generateFullSkillsPrompt();
     const success = await ImageExtractionPromptService.copyToClipboard(prompt);
@@ -705,7 +692,9 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="space-y-2">
             {filteredAndSortedActives.map((skill) => {
               const isExpanded = expandedSkills.has(skill.id!);
-              const hasModifiers = skill.modificadores && skill.modificadores.length > 0;
+              // Obtener modificadores del personaje
+              const modificadoresPersonaje = skill.modificadores || [];
+              const hasModifiers = modificadoresPersonaje.length > 0;
 
               return (
                 <div 
@@ -738,7 +727,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                           )}
                           {hasModifiers && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 border border-purple-600/50 font-semibold">
-                              {skill.modificadores!.length} modificador{skill.modificadores!.length > 1 ? 'es' : ''}
+                              {modificadoresPersonaje.length} modificador{modificadoresPersonaje.length !== 1 ? 'es' : ''}
                             </span>
                           )}
                         </div>
@@ -770,17 +759,45 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                   </div>
 
                   {/* Modificadores (colapsable) */}
-                  {hasModifiers && isExpanded && (
+                  {isExpanded && (
                     <div className="border-t border-d4-border/50 bg-d4-bg-secondary/30 p-3">
-                      <h6 className="text-xs font-semibold text-d4-accent mb-2 uppercase">Modificadores</h6>
-                      <div className="space-y-2">
-                        {skill.modificadores!.map((mod, idx) => (
-                          <div key={idx} className="bg-d4-bg/80 p-2 rounded border border-d4-border/30">
-                            <div className="font-semibold text-sm text-purple-300 mb-1">{mod.nombre}</div>
-                            <p className="text-xs text-d4-text-dim leading-relaxed">{mod.descripcion}</p>
+                      <h6 className="text-xs font-semibold text-d4-accent mb-2 uppercase">
+                        Modificadores
+                      </h6>
+                      {(() => {
+                        // Mostrar TODOS los modificadores que tiene el personaje (todos activos)
+                        const modificadoresPersonaje = skill.modificadores || [];
+
+                        if (modificadoresPersonaje.length === 0) {
+                          return (
+                            <p className="text-xs text-d4-text-dim italic">
+                              Esta habilidad no tiene modificadores
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-2">
+                            {modificadoresPersonaje.map((mod, idx) => (
+                              <div 
+                                key={idx} 
+                                className="bg-purple-900/20 border border-purple-500/70 p-2 rounded"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-sm text-purple-300 mb-1">
+                                      {mod.nombre}
+                                    </div>
+                                    <p className="text-xs text-d4-text-dim leading-relaxed">
+                                      {mod.descripcion}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -861,7 +878,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                       key={idx}
                       onClick={() => handleAddSkill(skill, 'activa')}
                       className="bg-d4-bg p-2 rounded border border-d4-border hover:border-d4-accent transition-colors text-left"
-                      disabled={skillsRefs.activas.includes(skill.id || '')}
+                      disabled={skillsRefs.activas.some(ref => ref.skill_id === (skill.id || ''))}
                     >
                       <h4 className="font-bold text-d4-accent text-xs">{skill.nombre}</h4>
                       <div className="flex gap-1 mt-1">
@@ -870,7 +887,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                         <span className="text-[10px] badge-normal px-1 py-0.5">Nv. {skill.nivel}</span>
                       </div>
                       <p className="text-[10px] text-d4-text-dim mt-1 line-clamp-2">{skill.descripcion}</p>
-                      {skillsRefs.activas.includes(skill.id || '') && (
+                      {skillsRefs.activas.some(ref => ref.skill_id === (skill.id || '')) && (
                         <p className="text-[10px] text-d4-accent mt-1">✓ Ya equipada</p>
                       )}
                     </button>
@@ -910,13 +927,15 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       
       <Modal {...modal} />
       
-      <ConfirmImportModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={confirmAndApplyImport}
-        summary={importSummary}
-        type="habilidades"
-      />
+      {importSummary && (
+        <ConfirmImportModal
+          isOpen={showConfirmModal}
+          onClose={() => setShowConfirmModal(false)}
+          onConfirm={confirmAndApplyImport}
+          summary={importSummary}
+          type="habilidades"
+        />
+      )}
     </>
   );
 };

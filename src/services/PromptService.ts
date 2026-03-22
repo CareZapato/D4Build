@@ -31,7 +31,7 @@ export class PromptService {
         if (heroSkills) {
           // Resolver habilidades activas
           const activeSkills: HabilidadActiva[] = personaje.habilidades_refs.activas
-            .map(skillId => heroSkills.habilidades_activas.find(s => s.id === skillId))
+            .map(ref => heroSkills.habilidades_activas.find(s => s.id === ref.skill_id))
             .filter((skill): skill is HabilidadActiva => skill !== undefined);
 
           if (activeSkills.length > 0) {

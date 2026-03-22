@@ -25,7 +25,6 @@ interface HeroAspectsProps {
       effect: aspect.descripcion || aspect.effect || 'Sin descripción',
       level: aspect.level || '1/21',
       category: (aspect.categoria || aspect.category || 'ofensivo').toLowerCase(),
-      keywords: aspect.keywords || [],
       tags: aspect.tags || []
     };
 
@@ -50,7 +49,6 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
     effect: '',
     level: '1/21',
     category: 'ofensivo',
-    keywords: [],
     tags: []
   });
 
@@ -75,7 +73,6 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
       effect: '',
       level: '1/21',
       category: 'ofensivo',
-      keywords: [],
       tags: []
     });
     setIsAddingNew(true);
@@ -105,6 +102,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
       await onUpdate({ aspectos: updatedList });
       setAspectsList(updatedList);
       handleCancel();
+      modal.showSuccess(isAddingNew ? 'Aspecto agregado' : 'Aspecto actualizado');
     } catch (error) {
       console.error('Error guardando aspecto:', error);
       modal.showError('Error al guardar el aspecto');
@@ -119,6 +117,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
     try {
       await onUpdate({ aspectos: updatedList });
       setAspectsList(updatedList);
+      modal.showSuccess('Aspecto eliminado');
     } catch (error) {
       console.error('Error eliminando aspecto:', error);
       modal.showError('Error al eliminar el aspecto');
@@ -135,7 +134,6 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
       effect: '',
       level: '1/21',
       category: 'ofensivo',
-      keywords: [],
       tags: []
     });
   };
@@ -154,8 +152,7 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
     const matchesSearch = !searchTerm || 
       aspect.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       aspect.shortName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      aspect.effect.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      aspect.keywords.some(k => k.toLowerCase().includes(searchTerm.toLowerCase()));
+      aspect.effect.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -326,21 +323,10 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
             </div>
 
             <div>
-              <label className="block text-sm text-d4-text mb-1">Keywords (separadas por coma)</label>
-              <input
-                type="text"
-                value={editForm.keywords.join(', ')}
-                onChange={(e) => updateArrayField('keywords', e.target.value)}
-                className="input w-full"
-                placeholder="critico, velocidad ataque"
-              />
-            </div>
-
-            <div>
               <label className="block text-sm text-d4-text mb-1">Tags (separadas por coma)</label>
               <input
                 type="text"
-                value={editForm.tags.join(', ')}
+                value={editForm.tags?.join(', ') || ''}
                 onChange={(e) => updateArrayField('tags', e.target.value)}
                 className="input w-full"
                 placeholder="damage, attack speed"
@@ -394,35 +380,11 @@ const HeroAspects: React.FC<HeroAspectsProps> = ({ heroClass, aspects, onUpdate 
                         
                         <p className="text-sm text-d4-text mb-2">{aspect.effect}</p>
                         
-                        {aspect.keywords.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-1">
-                            {aspect.keywords.map((kw, idx) => (
-                              <span key={idx} className="text-xs px-1.5 py-0.5 bg-d4-surface/50 rounded text-d4-text-dim border border-d4-border/50">
-                                {kw}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {aspect.tags.length > 0 && (
+                        {aspect.tags && aspect.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {aspect.tags.map((tag, idx) => (
                               <span key={idx} className="text-xs px-1.5 py-0.5 bg-d4-accent/20 rounded text-d4-accent border border-d4-accent/30">
                                 #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {aspect.palabras_clave && aspect.palabras_clave.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-d4-border/50 flex flex-wrap gap-1">
-                            {aspect.palabras_clave.map((palabra, idx) => (
-                              <span
-                                key={idx}
-                                className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
-                                title="Palabra clave del juego"
-                              >
-                                {palabra}
                               </span>
                             ))}
                           </div>

@@ -50,7 +50,9 @@ export interface SiguienteRango {
 }
 
 export interface Modificador {
+  id?: string;                    // ID único del modificador
   nombre: string;
+  tipo_habilidad?: TipoHabilidad; // Debe ser 'modificador' típicamente
   descripcion: string;
   efectos?: string[];
   tags?: string[]; // IDs de tags del repositorio global
@@ -172,7 +174,7 @@ export interface Glifo {
   bonificacion_adicional?: BonificacionAdicional;
   bonificacion_legendaria?: BonificacionLegendaria;
   texto_referencia?: TextoReferencia;
-  palabras_clave?: string[]; // IDs de palabras clave
+  tags?: string[]; // IDs de tags globales
 }
 
 export interface GlifosHeroe {
@@ -187,9 +189,7 @@ export interface Aspecto {
   effect: string;
   level: string; // e.g., "3/21"
   category: 'ofensivo' | 'defensivo' | 'movilidad' | 'recurso' | 'utilidad';
-  keywords: string[]; // Palabras simples para búsqueda rápida
-  tags: string[];
-  palabras_clave?: string[]; // IDs de palabras clave detalladas
+  tags?: string[]; // IDs de tags globales
 }
 
 export interface AspectosHeroe {
@@ -211,9 +211,12 @@ export interface Personaje {
   clase: string;
   nivel: number;
   nivel_paragon?: number;
-  // Solo referencias a habilidades del héroe
+  // Referencias a habilidades del héroe con modificadores equipados
   habilidades_refs?: {
-    activas: string[];  // IDs de habilidades activas del héroe
+    activas: Array<{
+      skill_id: string;           // ID de la habilidad activa del héroe
+      modificadores_ids: string[]; // IDs de modificadores equipados para esta skill
+    }>;
     pasivas: string[];  // IDs de habilidades pasivas del héroe
   };
   // Solo referencias a glifos del héroe con su nivel

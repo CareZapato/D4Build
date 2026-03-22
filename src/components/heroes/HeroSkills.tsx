@@ -112,6 +112,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
       setActiveSkills(updatedActiveSkills);
       setPassiveSkills(updatedPassiveSkills);
       handleCancel();
+      modal.showSuccess(isAddingNew ? 'Habilidad agregada' : 'Habilidad actualizada');
     } catch (error) {
       console.error('Error guardando habilidad:', error);
       modal.showError('Error al guardar la habilidad');
@@ -139,6 +140,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
 
       setActiveSkills(updatedActiveSkills);
       setPassiveSkills(updatedPassiveSkills);
+      modal.showSuccess('Habilidad eliminada');
     } catch (error) {
       console.error('Error eliminando habilidad:', error);
       modal.showError('Error al eliminar la habilidad');

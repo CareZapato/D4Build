@@ -26,7 +26,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [pendingGlyphs, setPendingGlyphs] = useState<Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>>(
     personaje.glifos_refs || []
   );
-  const [pendingSkills, setPendingSkills] = useState<{ activas: string[]; pasivas: string[] }>(
+  const [pendingSkills, setPendingSkills] = useState<{ activas: Array<{ skill_id: string; modificadores_ids: string[] }>; pasivas: string[] }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
   );
   const [hasChanges, setHasChanges] = useState(false);
@@ -96,7 +96,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     setHasChanges(true);
   };
 
-  const handleSkillsChange = (skillsRefs: { activas: string[]; pasivas: string[] }) => {
+  const handleSkillsChange = (skillsRefs: { activas: Array<{ skill_id: string; modificadores_ids: string[] }>; pasivas: string[] }) => {
     setPendingSkills(skillsRefs);
     setHasChanges(true);
   };

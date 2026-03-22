@@ -64,6 +64,7 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
       await onUpdate({ glifos: updatedList });
       setGlyphsList(updatedList);
       handleCancel();
+      modal.showSuccess(isAddingNew ? 'Glifo agregado' : 'Glifo actualizado');
     } catch (error) {
       console.error('Error guardando glifo:', error);
       modal.showError('Error al guardar el glifo');
@@ -78,6 +79,7 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
     try {
       await onUpdate({ glifos: updatedList });
       setGlyphsList(updatedList);
+      modal.showSuccess('Glifo eliminado');
     } catch (error) {
       console.error('Error eliminando glifo:', error);
       modal.showError('Error al eliminar el glifo');
@@ -366,20 +368,6 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
                 <p className="text-xs text-d4-text-dim">
                   {glyph.efecto_base.descripcion}
                 </p>
-              )}
-              
-              {glyph.palabras_clave && glyph.palabras_clave.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-d4-border/50 flex flex-wrap gap-1">
-                  {glyph.palabras_clave.map((palabra, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 border border-amber-600/50 font-semibold"
-                      title="Palabra clave del juego"
-                    >
-                      {palabra}
-                    </span>
-                  ))}
-                </div>
               )}
             </div>
           ))}
