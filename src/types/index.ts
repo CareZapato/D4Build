@@ -140,7 +140,8 @@ export interface Requisito {
 
 export interface BonificacionAdicional {
   descripcion: string;
-  requisito?: Requisito;
+  requisito?: Requisito | string; // Puede ser objeto Requisito o string directo
+  requisito_texto?: string; // Almacena el texto original si se parsea desde string
 }
 
 export interface RequiereMejora {
@@ -167,12 +168,15 @@ export interface Glifo {
   rareza: string;
   estado: string;
   bloqueado?: boolean;
-  tamano_radio: number;
+  tamano_radio: number | string; // Puede ser número o string como "4 nodos"
   nivel_actual?: number;
-  atributo_escalado?: AtributoEscalado;
-  efecto_base?: EfectoBase;
-  bonificacion_adicional?: BonificacionAdicional;
-  bonificacion_legendaria?: BonificacionLegendaria;
+  nivel_requerido?: number;
+  nivel_maximo?: number;
+  requisitos_especiales?: string | null;
+  atributo_escalado?: AtributoEscalado | null;
+  efecto_base?: EfectoBase | string | null; // Puede ser objeto o string directo
+  bonificacion_adicional?: BonificacionAdicional | null;
+  bonificacion_legendaria?: BonificacionLegendaria | null;
   texto_referencia?: TextoReferencia;
   tags?: string[]; // IDs de tags globales
 }
@@ -196,12 +200,33 @@ export interface AspectosHeroe {
   aspectos: Aspecto[];
 }
 
-// Interface para detalles de estadísticas (v0.3.1)
+// Tipos para Estadísticas del Héroe (v0.3.7) - Modelo de Referencias
+export interface EstadisticaHeroe {
+  id: string;                   // ID único (ej: "stat_fuerza", "stat_aguante")
+  nombre: string;               // Nombre mostrado (ej: "Fuerza", "Aguante")
+  categoria: 'personaje' | 'atributosBase' | 'defensivo' | 'ofensivo' | 'utilidad' | 'jcj' | 'moneda' | 'atributosPrincipales' | 'armaduraYResistencias';
+  tipo_valor: 'numero' | 'porcentaje' | 'texto';  // Tipo de dato del valor
+  descripcion?: string;         // Descripción de la estadística (del tooltip)
+  unidad?: string;              // Unidad de medida (ej: "%", "seg", "puntos", etc.)
+  detalles?: DetalleEstadistica[];  // Detalles enriquecidos del tooltip (v0.3.7)
+  palabras_clave?: string[];    // Keywords específicas (deprecated - usar tags)
+  tags?: string[];              // IDs de tags globales del sistema
+  subcategoria?: string;        // Subcategoría opcional (ej: "resistencias", "recursos")
+}
+
+export interface EstadisticasHeroe {
+  estadisticas: EstadisticaHeroe[];
+}
+
+// Interface para detalles de estadísticas (v0.3.1, actualizado v0.3.7)
 export interface DetalleEstadistica {
   texto: string;               // Texto descriptivo del detalle
-  valor?: string | number;     // Valor específico si aplica
-  contribucion?: string;       // De dónde viene (ej: "Contribución de objetos: 0")
-  palabras_clave?: string[];   // Keywords específicas de este detalle
+  tipo?: 'contribucion' | 'bonificacion' | 'aclaracion' | 'mecanica' | 'efecto';  // Tipo de detalle (v0.3.7)
+  valor?: string | number | null;     // Valor específico si aplica
+  unidad?: string | null;      // Unidad del valor (v0.3.7)
+  contribucion?: string | null;       // De dónde viene (ej: "objetos", "pasivas") (v0.3.7)
+  palabras_clave?: string[];   // Keywords específicas de este detalle (deprecated)
+  tags?: string[];             // IDs de tags globales (v0.3.7)
 }
 
 // Tipos para Personajes
@@ -216,8 +241,12 @@ export interface Personaje {
     activas: Array<{
       skill_id: string;           // ID de la habilidad activa del héroe
       modificadores_ids: string[]; // IDs de modificadores equipados para esta skill
+      nivel_actual?: number;       // Nivel específico del personaje (1-5)
     }>;
-    pasivas: string[];  // IDs de habilidades pasivas del héroe
+    pasivas: Array<{
+      skill_id: string;            // ID de la habilidad pasiva del héroe
+      puntos_asignados?: number;   // Puntos asignados por el personaje (0-3)
+    }>;
   };
   // Solo referencias a glifos del héroe con su nivel
   glifos_refs?: Array<{
@@ -227,6 +256,12 @@ export interface Personaje {
   }>;
   // Referencias a aspectos del héroe
   aspectos_refs?: string[]; // IDs de aspectos equipados
+  // Referencias a estadísticas del héroe con valores específicos (v0.3.7)
+  estadisticas_refs?: Array<{
+    stat_id: string;           // ID de la estadística en el héroe
+    valor: string | number;    // Valor específico del personaje
+  }>;
+  // @deprecated (v0.3.7) - Usar estadisticas_refs en su lugar
   estadisticas?: Estadisticas;
   notas?: string;
   fecha_creacion: string;

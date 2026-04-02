@@ -1,15 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Upload, TrendingUp, Copy, Check } from 'lucide-react';
-import { Personaje, Estadisticas, Tag } from '../../types';
+import { Personaje, Estadisticas, Tag, EstadisticaHeroe } from '../../types';
 import { TagService } from '../../services/TagService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import { StatsConversionService } from '../../services/StatsConversionService';
+import { WorkspaceService } from '../../services/WorkspaceService';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 import ConfirmImportModal, { ImportSummary } from '../common/ConfirmImportModal';
+import StatField from '../common/StatField';
 
 interface Props {
   personaje: Personaje;
-  onChange: (stats: Estadisticas, nivel?: number, nivelParagon?: number) => void;
+  onChange: (
+    stats: Estadisticas, 
+    nivel?: number, 
+    nivelParagon?: number,
+    statsRefs?: Array<{stat_id: string; valor: string | number}>
+  ) => void;
 }
 
 const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
@@ -17,7 +25,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [importing, setImporting] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [jsonText, setJsonText] = useState('');
-  const [activeTab, setActiveTab] = useState<string>('personaje');
+  const [activeTab, setActiveTab] = useState<string>('principal');
   const [copied, setCopied] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<any>(null);
@@ -25,6 +33,28 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [estadisticas, setEstadisticas] = useState<Estadisticas>(
     personaje.estadisticas || {}
   );
+  const [heroStats, setHeroStats] = useState<Map<string, EstadisticaHeroe>>(new Map());  // v0.3.7: Mapa de estadísticas del héroe
+
+  // Cargar estadísticas del héroe para tooltips (v0.3.7)
+  useEffect(() => {
+    const loadHeroStats = async () => {
+      try {
+        const stats = await WorkspaceService.loadHeroStats(personaje.clase);
+        if (stats && stats.estadisticas) {
+          const statsMap = new Map<string, EstadisticaHeroe>();
+          stats.estadisticas.forEach(stat => {
+            // Crear índice por nombre normalizado para búsqueda rápida
+            const key = stat.nombre.toLowerCase();
+            statsMap.set(key, stat);
+          });
+          setHeroStats(statsMap);
+        }
+      } catch (error) {
+        console.log('No se pudieron cargar estadísticas del héroe (normal si no existen aún)');
+      }
+    };
+    loadHeroStats();
+  }, [personaje.clase]);
 
   // Convertir formato V2 a V1 (formato interno actual)
   const convertV2ToV1 = (v2Data: any): { stats: Estadisticas; nivel?: number; nivelParagon?: number } => {
@@ -332,9 +362,11 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       let extractedNivel: number | undefined;
       let extractedNivelParagon: number | undefined;
       let allTags: Tag[] = [];
+      const parsedV2Array: any[] = [];  // v0.3.7: Guardar JSONs V2 originales para extraer detalles
 
       for (const jsonStr of JSONObjects) {
         const parsed = JSON.parse(jsonStr);
+        parsedV2Array.push(parsed);  // v0.3.7: Guardar JSON V2 original
         
         // Recolectar todos los tags del JSON V2
         if (parsed.palabras_clave && Array.isArray(parsed.palabras_clave)) {
@@ -365,15 +397,30 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       const tagIds = await TagService.processAndSaveTagsV2(allTags, 'estadistica');
       console.log('Tags guardados con IDs:', tagIds);
 
-      // TODO: Agregar campo tag_ids a Estadisticas para guardar las referencias
-      // Por ahora solo guardamos los tags globalmente
+      // v0.3.7: Guardar estadísticas en héroe y crear referencias (con detalles del JSON V2)
+      let statsRefs: Array<{stat_id: string; valor: string | number}> | undefined;
+      try {
+        statsRefs = await StatsConversionService.saveAndCreateRefs(
+          personaje.clase, 
+          mergedStats,
+          parsedV2Array  // v0.3.7: Pasar JSONs V2 originales para extraer detalles
+        );
+        console.log(`Estadísticas guardadas en héroe: ${statsRefs.length} referencias creadas`);
+      } catch (error) {
+        console.error('Error creando referencias de estadísticas:', error);
+        // Continuar sin referencias si hay error (backward compatibility)
+      }
 
       setEstadisticas(mergedStats);
-      onChange(mergedStats, extractedNivel, extractedNivelParagon);
+      onChange(mergedStats, extractedNivel, extractedNivelParagon, statsRefs);
       
       setJsonText('');
       setShowTextInput(false);
-      modal.showSuccess(`Estadísticas importadas correctamente (${tagIds.length} tags procesados)`);
+      
+      const successMessage = statsRefs 
+        ? `Estadísticas importadas correctamente (${tagIds.length} tags procesados, ${statsRefs.length} estadísticas guardadas en héroe)`
+        : `Estadísticas importadas correctamente (${tagIds.length} tags procesados)`;
+      modal.showSuccess(successMessage);
     } catch (error) {
       console.error('Error aplicando importación:', error);
       modal.showError('Error al aplicar los cambios');
@@ -400,36 +447,14 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   };
 
   const tabs = [
-    { id: 'personaje', label: 'Personaje' },
-    { id: 'atributos', label: 'Atributos' },
-    { id: 'defensivo', label: 'Defensivo' },
-    { id: 'ofensivo', label: 'Ofensivo' },
-    { id: 'armadura', label: 'Armadura' },
-    { id: 'utilidad', label: 'Utilidad' },
     { id: 'principal', label: 'Principal' },
-    { id: 'jcj', label: 'JcJ' },
     { id: 'moneda', label: 'Moneda' },
+    { id: 'armadura', label: 'Armaduras' },
+    { id: 'ofensivo', label: 'Ofensivo' },
+    { id: 'defensivo', label: 'Defensivo' },
+    { id: 'utilidad', label: 'Utilidad' },
+    { id: 'jcj', label: 'JcJ' },
   ];
-
-  const updatePersonaje = (field: string, value: number | string) => {
-    setEstadisticas(prev => ({
-      ...prev,
-      personaje: {
-        ...prev.personaje,
-        [field]: typeof value === 'string' ? parseFloat(value) || 0 : value
-      }
-    }));
-  };
-
-  const updateAtributosBase = (field: string, value: number | string) => {
-    setEstadisticas(prev => ({
-      ...prev,
-      atributosBase: {
-        ...prev.atributosBase,
-        [field]: typeof value === 'string' ? parseFloat(value) || 0 : value
-      }
-    }));
-  };
 
   const updateDefensivo = (field: string, value: number | string) => {
     setEstadisticas(prev => ({
@@ -592,110 +617,486 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       </div>
 
       <div className="mt-3">
-        {activeTab === 'personaje' && (
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Daño Arma</label><input type="number" value={estadisticas.personaje?.danioArma || ''} onChange={(e) => updatePersonaje('danioArma', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Aguante</label><input type="number" value={estadisticas.personaje?.aguante || ''} onChange={(e) => updatePersonaje('aguante', e.target.value)} className="input w-full text-xs py-1" /></div>
-          </div>
-        )}
-
-        {activeTab === 'atributos' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Fuerza</label><input type="number" value={estadisticas.atributosBase?.fuerza || ''} onChange={(e) => updateAtributosBase('fuerza', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Inteligencia</label><input type="number" value={estadisticas.atributosBase?.inteligencia || ''} onChange={(e) => updateAtributosBase('inteligencia', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Voluntad</label><input type="number" value={estadisticas.atributosBase?.voluntad || ''} onChange={(e) => updateAtributosBase('voluntad', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Destreza</label><input type="number" value={estadisticas.atributosBase?.destreza || ''} onChange={(e) => updateAtributosBase('destreza', e.target.value)} className="input w-full text-xs py-1" /></div>
-          </div>
-        )}
-
         {activeTab === 'defensivo' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Vida Máxima</label><input type="number" value={estadisticas.defensivo?.vidaMaxima || ''} onChange={(e) => updateDefensivo('vidaMaxima', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Cant. Pociones</label><input type="number" value={estadisticas.defensivo?.cantidadPociones || ''} onChange={(e) => updateDefensivo('cantidadPociones', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Sanación %</label><input type="number" step="0.1" value={estadisticas.defensivo?.sanacionRecibida || ''} onChange={(e) => updateDefensivo('sanacionRecibida', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Vida/Elim</label><input type="number" value={estadisticas.defensivo?.vidaPorEliminacion || ''} onChange={(e) => updateDefensivo('vidaPorEliminacion', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Vida/5s</label><input type="number" value={estadisticas.defensivo?.vidaCada5Segundos || ''} onChange={(e) => updateDefensivo('vidaCada5Segundos', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Prob. Bloqueo %</label><input type="number" step="0.1" value={estadisticas.defensivo?.probabilidadBloqueo || ''} onChange={(e) => updateDefensivo('probabilidadBloqueo', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Red. Bloqueo %</label><input type="number" step="0.1" value={estadisticas.defensivo?.reduccionBloqueo || ''} onChange={(e) => updateDefensivo('reduccionBloqueo', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Bonif. Fortif. %</label><input type="number" step="0.1" value={estadisticas.defensivo?.bonificacionFortificacion || ''} onChange={(e) => updateDefensivo('bonificacionFortificacion', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Bonif. Barrera %</label><input type="number" step="0.1" value={estadisticas.defensivo?.bonificacionBarrera || ''} onChange={(e) => updateDefensivo('bonificacionBarrera', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Prob. Esquivar %</label><input type="number" step="0.1" value={estadisticas.defensivo?.probabilidadEsquivar || ''} onChange={(e) => updateDefensivo('probabilidadEsquivar', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Vida Máxima" 
+              value={estadisticas.defensivo?.vidaMaxima || ''} 
+              onChange={(v) => updateDefensivo('vidaMaxima', v)}
+              descripcion={heroStats.get('vida máxima')?.descripcion}
+              detalles={heroStats.get('vida máxima')?.detalles}
+            />
+            <StatField 
+              label="Cant. Pociones" 
+              value={estadisticas.defensivo?.cantidadPociones || ''} 
+              onChange={(v) => updateDefensivo('cantidadPociones', v)}
+              descripcion={heroStats.get('cantidad pociones')?.descripcion}
+              detalles={heroStats.get('cantidad pociones')?.detalles}
+            />
+            <StatField 
+              label="Sanación %" 
+              value={estadisticas.defensivo?.sanacionRecibida || ''} 
+              onChange={(v) => updateDefensivo('sanacionRecibida', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('sanación recibida')?.descripcion}
+              detalles={heroStats.get('sanación recibida')?.detalles}
+            />
+            <StatField 
+              label="Vida/Elim" 
+              value={estadisticas.defensivo?.vidaPorEliminacion || ''} 
+              onChange={(v) => updateDefensivo('vidaPorEliminacion', v)}
+              descripcion={heroStats.get('vida por eliminación')?.descripcion}
+              detalles={heroStats.get('vida por eliminación')?.detalles}
+            />
+            <StatField 
+              label="Vida/5s" 
+              value={estadisticas.defensivo?.vidaCada5Segundos || ''} 
+              onChange={(v) => updateDefensivo('vidaCada5Segundos', v)}
+              descripcion={heroStats.get('vida cada 5 segundos')?.descripcion}
+              detalles={heroStats.get('vida cada 5 segundos')?.detalles}
+            />
+            <StatField 
+              label="Prob. Bloqueo %" 
+              value={estadisticas.defensivo?.probabilidadBloqueo || ''} 
+              onChange={(v) => updateDefensivo('probabilidadBloqueo', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('probabilidad bloqueo')?.descripcion}
+              detalles={heroStats.get('probabilidad bloqueo')?.detalles}
+            />
+            <StatField 
+              label="Red. Bloqueo %" 
+              value={estadisticas.defensivo?.reduccionBloqueo || ''} 
+              onChange={(v) => updateDefensivo('reduccionBloqueo', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('reducción bloqueo')?.descripcion}
+              detalles={heroStats.get('reducción bloqueo')?.detalles}
+            />
+            <StatField 
+              label="Bonif. Fortif. %" 
+              value={estadisticas.defensivo?.bonificacionFortificacion || ''} 
+              onChange={(v) => updateDefensivo('bonificacionFortificacion', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('bonificación fortificación')?.descripcion}
+              detalles={heroStats.get('bonificación fortificación')?.detalles}
+            />
+            <StatField 
+              label="Bonif. Barrera %" 
+              value={estadisticas.defensivo?.bonificacionBarrera || ''} 
+              onChange={(v) => updateDefensivo('bonificacionBarrera', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('bonificación barrera')?.descripcion}
+              detalles={heroStats.get('bonificación barrera')?.detalles}
+            />
+            <StatField 
+              label="Prob. Esquivar %" 
+              value={estadisticas.defensivo?.probabilidadEsquivar || ''} 
+              onChange={(v) => updateDefensivo('probabilidadEsquivar', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('probabilidad esquivar')?.descripcion}
+              detalles={heroStats.get('probabilidad esquivar')?.detalles}
+            />
           </div>
         )}
 
         {activeTab === 'ofensivo' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Daño Base Arma</label><input type="number" value={estadisticas.ofensivo?.danioBaseArma || ''} onChange={(e) => updateOfensivo('danioBaseArma', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Vel. Arma</label><input type="number" step="0.1" value={estadisticas.ofensivo?.velocidadArma || ''} onChange={(e) => updateOfensivo('velocidadArma', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Vel. Ataque %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.bonificacionVelocidadAtaque || ''} onChange={(e) => updateOfensivo('bonificacionVelocidadAtaque', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Prob. Crítico %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.probabilidadGolpeCritico || ''} onChange={(e) => updateOfensivo('probabilidadGolpeCritico', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Daño Crítico %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioGolpeCritico || ''} onChange={(e) => updateOfensivo('danioGolpeCritico', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Prob. Abrumar %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.probabilidadAbrumar || ''} onChange={(e) => updateOfensivo('probabilidadAbrumar', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Daño Abrumador %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioAbrumador || ''} onChange={(e) => updateOfensivo('danioAbrumador', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Daño vs Vuln. %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioContraEnemigosVulnerables || ''} onChange={(e) => updateOfensivo('danioContraEnemigosVulnerables', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Todo Daño %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.todoElDanio || ''} onChange={(e) => updateOfensivo('todoElDanio', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Sangrado %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioConSangrado || ''} onChange={(e) => updateOfensivo('danioConSangrado', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Quemadura %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioConQuemadura || ''} onChange={(e) => updateOfensivo('danioConQuemadura', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Veneno %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioConVeneno || ''} onChange={(e) => updateOfensivo('danioConVeneno', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Corrupción %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioConCorrupcion || ''} onChange={(e) => updateOfensivo('danioConCorrupcion', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">vs Elite %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioVsEnemigosElite || ''} onChange={(e) => updateOfensivo('danioVsEnemigosElite', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">vs Saludables %</label><input type="number" step="0.1" value={estadisticas.ofensivo?.danioVsEnemigosSaludables || ''} onChange={(e) => updateOfensivo('danioVsEnemigosSaludables', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Espinas</label><input type="number" value={estadisticas.ofensivo?.espinas || ''} onChange={(e) => updateOfensivo('espinas', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Daño Base Arma" 
+              value={estadisticas.ofensivo?.danioBaseArma || ''} 
+              onChange={(v) => updateOfensivo('danioBaseArma', v)}
+              descripcion={heroStats.get('daño base arma')?.descripcion}
+              detalles={heroStats.get('daño base arma')?.detalles}
+            />
+            <StatField 
+              label="Vel. Arma" 
+              value={estadisticas.ofensivo?.velocidadArma || ''} 
+              onChange={(v) => updateOfensivo('velocidadArma', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('velocidad arma')?.descripcion}
+              detalles={heroStats.get('velocidad arma')?.detalles}
+            />
+            <StatField 
+              label="Vel. Ataque %" 
+              value={estadisticas.ofensivo?.bonificacionVelocidadAtaque || ''} 
+              onChange={(v) => updateOfensivo('bonificacionVelocidadAtaque', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('bonificación velocidad ataque')?.descripcion}
+              detalles={heroStats.get('bonificación velocidad ataque')?.detalles}
+            />
+            <StatField 
+              label="Prob. Crítico %" 
+              value={estadisticas.ofensivo?.probabilidadGolpeCritico || ''} 
+              onChange={(v) => updateOfensivo('probabilidadGolpeCritico', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('probabilidad golpe crítico')?.descripcion}
+              detalles={heroStats.get('probabilidad golpe crítico')?.detalles}
+            />
+            <StatField 
+              label="Daño Crítico %" 
+              value={estadisticas.ofensivo?.danioGolpeCritico || ''} 
+              onChange={(v) => updateOfensivo('danioGolpeCritico', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño golpe crítico')?.descripcion}
+              detalles={heroStats.get('daño golpe crítico')?.detalles}
+            />
+            <StatField 
+              label="Prob. Abrumar %" 
+              value={estadisticas.ofensivo?.probabilidadAbrumar || ''} 
+              onChange={(v) => updateOfensivo('probabilidadAbrumar', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('probabilidad abrumar')?.descripcion}
+              detalles={heroStats.get('probabilidad abrumar')?.detalles}
+            />
+            <StatField 
+              label="Daño Abrumador %" 
+              value={estadisticas.ofensivo?.danioAbrumador || ''} 
+              onChange={(v) => updateOfensivo('danioAbrumador', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño abrumador')?.descripcion}
+              detalles={heroStats.get('daño abrumador')?.detalles}
+            />
+            <StatField 
+              label="Daño vs Vuln. %" 
+              value={estadisticas.ofensivo?.danioContraEnemigosVulnerables || ''} 
+              onChange={(v) => updateOfensivo('danioContraEnemigosVulnerables', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño contra enemigos vulnerables')?.descripcion}
+              detalles={heroStats.get('daño contra enemigos vulnerables')?.detalles}
+            />
+            <StatField 
+              label="Todo Daño %" 
+              value={estadisticas.ofensivo?.todoElDanio || ''} 
+              onChange={(v) => updateOfensivo('todoElDanio', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('todo el daño')?.descripcion}
+              detalles={heroStats.get('todo el daño')?.detalles}
+            />
+            <StatField 
+              label="Sangrado %" 
+              value={estadisticas.ofensivo?.danioConSangrado || ''} 
+              onChange={(v) => updateOfensivo('danioConSangrado', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño con sangrado')?.descripcion}
+              detalles={heroStats.get('daño con sangrado')?.detalles}
+            />
+            <StatField 
+              label="Quemadura %" 
+              value={estadisticas.ofensivo?.danioConQuemadura || ''} 
+              onChange={(v) => updateOfensivo('danioConQuemadura', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño con quemadura')?.descripcion}
+              detalles={heroStats.get('daño con quemadura')?.detalles}
+            />
+            <StatField 
+              label="Veneno %" 
+              value={estadisticas.ofensivo?.danioConVeneno || ''} 
+              onChange={(v) => updateOfensivo('danioConVeneno', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño con veneno')?.descripcion}
+              detalles={heroStats.get('daño con veneno')?.detalles}
+            />
+            <StatField 
+              label="Corrupción %" 
+              value={estadisticas.ofensivo?.danioConCorrupcion || ''} 
+              onChange={(v) => updateOfensivo('danioConCorrupcion', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño con corrupción')?.descripcion}
+              detalles={heroStats.get('daño con corrupción')?.detalles}
+            />
+            <StatField 
+              label="vs Elite %" 
+              value={estadisticas.ofensivo?.danioVsEnemigosElite || ''} 
+              onChange={(v) => updateOfensivo('danioVsEnemigosElite', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño vs enemigos elite')?.descripcion}
+              detalles={heroStats.get('daño vs enemigos elite')?.detalles}
+            />
+            <StatField 
+              label="vs Saludables %" 
+              value={estadisticas.ofensivo?.danioVsEnemigosSaludables || ''} 
+              onChange={(v) => updateOfensivo('danioVsEnemigosSaludables', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('daño vs enemigos saludables')?.descripcion}
+              detalles={heroStats.get('daño vs enemigos saludables')?.detalles}
+            />
+            <StatField 
+              label="Espinas" 
+              value={estadisticas.ofensivo?.espinas || ''} 
+              onChange={(v) => updateOfensivo('espinas', v)}
+              descripcion={heroStats.get('espinas')?.descripcion}
+              detalles={heroStats.get('espinas')?.detalles}
+            />
           </div>
         )}
 
         {activeTab === 'armadura' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Aguante</label><input type="number" value={estadisticas.armaduraYResistencias?.aguante || ''} onChange={(e) => updateArmaduraYResistencias('aguante', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Armadura</label><input type="number" value={estadisticas.armaduraYResistencias?.armadura || ''} onChange={(e) => updateArmaduraYResistencias('armadura', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Res. Físico</label><input type="number" value={estadisticas.armaduraYResistencias?.resistenciaDanioFisico || ''} onChange={(e) => updateArmaduraYResistencias('resistenciaDanioFisico', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Res. Fuego</label><input type="number" value={estadisticas.armaduraYResistencias?.resistenciaFuego || ''} onChange={(e) => updateArmaduraYResistencias('resistenciaFuego', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Res. Rayo</label><input type="number" value={estadisticas.armaduraYResistencias?.resistenciaRayo || ''} onChange={(e) => updateArmaduraYResistencias('resistenciaRayo', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Res. Frío</label><input type="number" value={estadisticas.armaduraYResistencias?.resistenciaFrio || ''} onChange={(e) => updateArmaduraYResistencias('resistenciaFrio', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Res. Veneno</label><input type="number" value={estadisticas.armaduraYResistencias?.resistenciaVeneno || ''} onChange={(e) => updateArmaduraYResistencias('resistenciaVeneno', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Res. Sombra</label><input type="number" value={estadisticas.armaduraYResistencias?.resistenciaSombra || ''} onChange={(e) => updateArmaduraYResistencias('resistenciaSombra', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Aguante" 
+              value={estadisticas.armaduraYResistencias?.aguante || ''} 
+              onChange={(v) => updateArmaduraYResistencias('aguante', v)}
+              descripcion={heroStats.get('aguante')?.descripcion}
+              detalles={heroStats.get('aguante')?.detalles}
+            />
+            <StatField 
+              label="Armadura" 
+              value={estadisticas.armaduraYResistencias?.armadura || ''} 
+              onChange={(v) => updateArmaduraYResistencias('armadura', v)}
+              descripcion={heroStats.get('armadura')?.descripcion}
+              detalles={heroStats.get('armadura')?.detalles}
+            />
+            <StatField 
+              label="Res. Físico" 
+              value={estadisticas.armaduraYResistencias?.resistenciaDanioFisico || ''} 
+              onChange={(v) => updateArmaduraYResistencias('resistenciaDanioFisico', v)}
+              descripcion={heroStats.get('resistencia al daño físico')?.descripcion}
+              detalles={heroStats.get('resistencia al daño físico')?.detalles}
+            />
+            <StatField 
+              label="Res. Fuego" 
+              value={estadisticas.armaduraYResistencias?.resistenciaFuego || ''} 
+              onChange={(v) => updateArmaduraYResistencias('resistenciaFuego', v)}
+              descripcion={heroStats.get('resistencia al fuego')?.descripcion}
+              detalles={heroStats.get('resistencia al fuego')?.detalles}
+            />
+            <StatField 
+              label="Res. Rayo" 
+              value={estadisticas.armaduraYResistencias?.resistenciaRayo || ''} 
+              onChange={(v) => updateArmaduraYResistencias('resistenciaRayo', v)}
+              descripcion={heroStats.get('resistencia al rayo')?.descripcion}
+              detalles={heroStats.get('resistencia al rayo')?.detalles}
+            />
+            <StatField 
+              label="Res. Frío" 
+              value={estadisticas.armaduraYResistencias?.resistenciaFrio || ''} 
+              onChange={(v) => updateArmaduraYResistencias('resistenciaFrio', v)}
+              descripcion={heroStats.get('resistencia al frío')?.descripcion}
+              detalles={heroStats.get('resistencia al frío')?.detalles}
+            />
+            <StatField 
+              label="Res. Veneno" 
+              value={estadisticas.armaduraYResistencias?.resistenciaVeneno || ''} 
+              onChange={(v) => updateArmaduraYResistencias('resistenciaVeneno', v)}
+              descripcion={heroStats.get('resistencia al veneno')?.descripcion}
+              detalles={heroStats.get('resistencia al veneno')?.detalles}
+            />
+            <StatField 
+              label="Res. Sombra" 
+              value={estadisticas.armaduraYResistencias?.resistenciaSombra || ''} 
+              onChange={(v) => updateArmaduraYResistencias('resistenciaSombra', v)}
+              descripcion={heroStats.get('resistencia a la sombra')?.descripcion}
+              detalles={heroStats.get('resistencia a la sombra')?.detalles}
+            />
           </div>
         )}
 
         {activeTab === 'utilidad' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Máximo Fe</label><input type="number" value={estadisticas.utilidad?.maximoFe || ''} onChange={(e) => updateUtilidad('maximoFe', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Red. Costo Fe %</label><input type="number" step="0.1" value={estadisticas.utilidad?.reduccionCostoFe || ''} onChange={(e) => updateUtilidad('reduccionCostoFe', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Regen. Fe</label><input type="number" step="0.1" value={estadisticas.utilidad?.regeneracionFe || ''} onChange={(e) => updateUtilidad('regeneracionFe', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Fe/Elim</label><input type="number" value={estadisticas.utilidad?.feConCadaEliminacion || ''} onChange={(e) => updateUtilidad('feConCadaEliminacion', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Vel. Movimiento %</label><input type="number" step="0.1" value={estadisticas.utilidad?.velocidadMovimiento || ''} onChange={(e) => updateUtilidad('velocidadMovimiento', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Red. Recup. %</label><input type="number" step="0.1" value={estadisticas.utilidad?.reduccionRecuperacion || ''} onChange={(e) => updateUtilidad('reduccionRecuperacion', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Golpe Afort. %</label><input type="number" step="0.1" value={estadisticas.utilidad?.bonificacionProbabilidadGolpeAfortunado || ''} onChange={(e) => updateUtilidad('bonificacionProbabilidadGolpeAfortunado', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Bonif. Exp. %</label><input type="number" step="0.1" value={estadisticas.utilidad?.bonificacionExperiencia || ''} onChange={(e) => updateUtilidad('bonificacionExperiencia', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Máximo Fe" 
+              value={estadisticas.utilidad?.maximoFe || ''} 
+              onChange={(v) => updateUtilidad('maximoFe', v)}
+              descripcion={heroStats.get('máximo fe')?.descripcion}
+              detalles={heroStats.get('máximo fe')?.detalles}
+            />
+            <StatField 
+              label="Red. Costo Fe %" 
+              value={estadisticas.utilidad?.reduccionCostoFe || ''} 
+              onChange={(v) => updateUtilidad('reduccionCostoFe', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('reducción costo fe')?.descripcion}
+              detalles={heroStats.get('reducción costo fe')?.detalles}
+            />
+            <StatField 
+              label="Regen. Fe" 
+              value={estadisticas.utilidad?.regeneracionFe || ''} 
+              onChange={(v) => updateUtilidad('regeneracionFe', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('regeneración fe')?.descripcion}
+              detalles={heroStats.get('regeneración fe')?.detalles}
+            />
+            <StatField 
+              label="Fe/Elim" 
+              value={estadisticas.utilidad?.feConCadaEliminacion || ''} 
+              onChange={(v) => updateUtilidad('feConCadaEliminacion', v)}
+              descripcion={heroStats.get('fe con cada eliminación')?.descripcion}
+              detalles={heroStats.get('fe con cada eliminación')?.detalles}
+            />
+            <StatField 
+              label="Vel. Movimiento %" 
+              value={estadisticas.utilidad?.velocidadMovimiento || ''} 
+              onChange={(v) => updateUtilidad('velocidadMovimiento', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('velocidad movimiento')?.descripcion}
+              detalles={heroStats.get('velocidad movimiento')?.detalles}
+            />
+            <StatField 
+              label="Red. Recup. %" 
+              value={estadisticas.utilidad?.reduccionRecuperacion || ''} 
+              onChange={(v) => updateUtilidad('reduccionRecuperacion', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('reducción recuperación')?.descripcion}
+              detalles={heroStats.get('reducción recuperación')?.detalles}
+            />
+            <StatField 
+              label="Golpe Afort. %" 
+              value={estadisticas.utilidad?.bonificacionProbabilidadGolpeAfortunado || ''} 
+              onChange={(v) => updateUtilidad('bonificacionProbabilidadGolpeAfortunado', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('golpe afortunado')?.descripcion}
+              detalles={heroStats.get('golpe afortunado')?.detalles}
+            />
+            <StatField 
+              label="Bonif. Exp. %" 
+              value={estadisticas.utilidad?.bonificacionExperiencia || ''} 
+              onChange={(v) => updateUtilidad('bonificacionExperiencia', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('bonificación experiencia')?.descripcion}
+              detalles={heroStats.get('bonificación experiencia')?.detalles}
+            />
           </div>
         )}
 
         {activeTab === 'principal' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Nivel</label><input type="number" value={estadisticas.atributosPrincipales?.nivel || ''} onChange={(e) => updateAtributosPrincipales('nivel', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Fuerza</label><input type="number" value={estadisticas.atributosPrincipales?.fuerza || ''} onChange={(e) => updateAtributosPrincipales('fuerza', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Inteligencia</label><input type="number" value={estadisticas.atributosPrincipales?.inteligencia || ''} onChange={(e) => updateAtributosPrincipales('inteligencia', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Voluntad</label><input type="number" value={estadisticas.atributosPrincipales?.voluntad || ''} onChange={(e) => updateAtributosPrincipales('voluntad', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Destreza</label><input type="number" value={estadisticas.atributosPrincipales?.destreza || ''} onChange={(e) => updateAtributosPrincipales('destreza', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Nivel" 
+              value={estadisticas.atributosPrincipales?.nivel || ''} 
+              onChange={(v) => updateAtributosPrincipales('nivel', v)}
+              descripcion={heroStats.get('nivel')?.descripcion}
+              detalles={heroStats.get('nivel')?.detalles}
+            />
+            <StatField 
+              label="Fuerza" 
+              value={estadisticas.atributosPrincipales?.fuerza || ''} 
+              onChange={(v) => updateAtributosPrincipales('fuerza', v)}
+              descripcion={heroStats.get('fuerza')?.descripcion}
+              detalles={heroStats.get('fuerza')?.detalles}
+            />
+            <StatField 
+              label="Inteligencia" 
+              value={estadisticas.atributosPrincipales?.inteligencia || ''} 
+              onChange={(v) => updateAtributosPrincipales('inteligencia', v)}
+              descripcion={heroStats.get('inteligencia')?.descripcion}
+              detalles={heroStats.get('inteligencia')?.detalles}
+            />
+            <StatField 
+              label="Voluntad" 
+              value={estadisticas.atributosPrincipales?.voluntad || ''} 
+              onChange={(v) => updateAtributosPrincipales('voluntad', v)}
+              descripcion={heroStats.get('voluntad')?.descripcion}
+              detalles={heroStats.get('voluntad')?.detalles}
+            />
+            <StatField 
+              label="Destreza" 
+              value={estadisticas.atributosPrincipales?.destreza || ''} 
+              onChange={(v) => updateAtributosPrincipales('destreza', v)}
+              descripcion={heroStats.get('destreza')?.descripcion}
+              detalles={heroStats.get('destreza')?.detalles}
+            />
           </div>
         )}
 
         {activeTab === 'jcj' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Reducción Daño %</label><input type="number" step="0.1" value={estadisticas.jcj?.reduccionDanio || ''} onChange={(e) => updateJcJ('reduccionDanio', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Reducción Daño %" 
+              value={estadisticas.jcj?.reduccionDanio || ''} 
+              onChange={(v) => updateJcJ('reduccionDanio', v)}
+              type="number"
+              step="0.1"
+              descripcion={heroStats.get('reducción daño')?.descripcion}
+              detalles={heroStats.get('reducción daño')?.detalles}
+            />
           </div>
         )}
 
         {activeTab === 'moneda' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Oro</label><input type="text" value={estadisticas.moneda?.oro || ''} onChange={(e) => updateMoneda('oro', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Obolos Actual</label><input type="number" value={estadisticas.moneda?.obolos?.actual || ''} onChange={(e) => updateObolos('actual', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Obolos Máximo</label><input type="number" value={estadisticas.moneda?.obolos?.maximo || ''} onChange={(e) => updateObolos('maximo', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Polvo Rojo</label><input type="number" value={estadisticas.moneda?.polvoRojo || ''} onChange={(e) => updateMoneda('polvoRojo', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Marcas Pálidas</label><input type="number" value={estadisticas.moneda?.marcasPalidas || ''} onChange={(e) => updateMoneda('marcasPalidas', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Monedas Alcázar</label><input type="number" value={estadisticas.moneda?.monedasDelAlcazar || ''} onChange={(e) => updateMoneda('monedasDelAlcazar', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Favor</label><input type="number" value={estadisticas.moneda?.favor || ''} onChange={(e) => updateMoneda('favor', e.target.value)} className="input w-full text-xs py-1" /></div>
-            <div><label className="block text-[10px] text-d4-text-dim mb-0.5">Carne Fresca</label><input type="text" value={estadisticas.moneda?.carneFresca || ''} onChange={(e) => updateMoneda('carneFresca', e.target.value)} className="input w-full text-xs py-1" /></div>
+            <StatField 
+              label="Oro" 
+              value={estadisticas.moneda?.oro || ''} 
+              onChange={(v) => updateMoneda('oro', v)}
+              type="text"
+              descripcion={heroStats.get('oro')?.descripcion}
+              detalles={heroStats.get('oro')?.detalles}
+            />
+            <StatField 
+              label="Obolos Actual" 
+              value={estadisticas.moneda?.obolos?.actual || ''} 
+              onChange={(v) => updateObolos('actual', v)}
+              descripcion={heroStats.get('obolos')?.descripcion}
+              detalles={heroStats.get('obolos')?.detalles}
+            />
+            <StatField 
+              label="Obolos Máximo" 
+              value={estadisticas.moneda?.obolos?.maximo || ''} 
+              onChange={(v) => updateObolos('maximo', v)}
+              descripcion={heroStats.get('obolos')?.descripcion}
+              detalles={heroStats.get('obolos')?.detalles}
+            />
+            <StatField 
+              label="Polvo Rojo" 
+              value={estadisticas.moneda?.polvoRojo || ''} 
+              onChange={(v) => updateMoneda('polvoRojo', v)}
+              descripcion={heroStats.get('polvo rojo')?.descripcion}
+              detalles={heroStats.get('polvo rojo')?.detalles}
+            />
+            <StatField 
+              label="Marcas Pálidas" 
+              value={estadisticas.moneda?.marcasPalidas || ''} 
+              onChange={(v) => updateMoneda('marcasPalidas', v)}
+              descripcion={heroStats.get('marcas pálidas')?.descripcion}
+              detalles={heroStats.get('marcas pálidas')?.detalles}
+            />
+            <StatField 
+              label="Monedas Alcázar" 
+              value={estadisticas.moneda?.monedasDelAlcazar || ''} 
+              onChange={(v) => updateMoneda('monedasDelAlcazar', v)}
+              descripcion={heroStats.get('monedas alcázar')?.descripcion}
+              detalles={heroStats.get('monedas alcázar')?.detalles}
+            />
+            <StatField 
+              label="Favor" 
+              value={estadisticas.moneda?.favor || ''} 
+              onChange={(v) => updateMoneda('favor', v)}
+              descripcion={heroStats.get('favor')?.descripcion}
+              detalles={heroStats.get('favor')?.detalles}
+            />
+            <StatField 
+              label="Carne Fresca" 
+              value={estadisticas.moneda?.carneFresca || ''} 
+              onChange={(v) => updateMoneda('carneFresca', v)}
+              type="text"
+              descripcion={heroStats.get('carne fresca')?.descripcion}
+              detalles={heroStats.get('carne fresca')?.detalles}
+            />
           </div>
         )}
       </div>

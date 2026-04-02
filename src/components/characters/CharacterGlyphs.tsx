@@ -127,7 +127,52 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     let actualizados = 0;
     let agregados = 0;
 
-    data.glifos.forEach(glyph => {
+    // Normalizar estructura de glifos
+    const normalizedGlyphs = data.glifos.map((glyph: any) => {
+      const normalized: any = { ...glyph };
+      
+      // Normalizar efecto_base: si es string, convertir a objeto
+      if (typeof glyph.efecto_base === 'string') {
+        normalized.efecto_base = { descripcion: glyph.efecto_base };
+      }
+      
+      // Normalizar atributo_escalado: si tiene "cada" como número, mantenerlo
+      if (glyph.atributo_escalado && !glyph.atributo_escalado.cada) {
+        normalized.atributo_escalado = {
+          ...glyph.atributo_escalado,
+          cada: 5 // valor por defecto
+        };
+      }
+      
+      // Normalizar bonificacion_adicional
+      if (glyph.bonificacion_adicional && typeof glyph.bonificacion_adicional === 'object') {
+        // Si requisito es string, parsearlo
+        if (typeof glyph.bonificacion_adicional.requisito === 'string') {
+          // Intentar extraer valores del formato "15 / +40 de Fuerza"
+          const match = glyph.bonificacion_adicional.requisito.match(/(\d+)\s*\/\s*\+(\d+)\s*de\s*(\w+)/);
+          if (match) {
+            normalized.bonificacion_adicional = {
+              ...glyph.bonificacion_adicional,
+              requisito: {
+                atributo: match[3],
+                valor_actual: parseInt(match[1]),
+                valor_requerido: parseInt(match[2])
+              }
+            };
+          } else {
+            // Mantener como string si no coincide el patrón
+            normalized.bonificacion_adicional = {
+              descripcion: glyph.bonificacion_adicional.descripcion,
+              requisito_texto: glyph.bonificacion_adicional.requisito
+            };
+          }
+        }
+      }
+      
+      return normalized;
+    });
+
+    normalizedGlyphs.forEach(glyph => {
       const existingIndex = updatedHeroGlyphs.glifos.findIndex(g => g.nombre === glyph.nombre);
       
       if (existingIndex >= 0) {
@@ -354,29 +399,96 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
                 </div>
               </div>
 
+              {/* Efecto Base */}
+              {glyph.efecto_base && (
+                <div className="bg-d4-surface/50 p-2 rounded border border-d4-border/30 mb-2">
+                  <p className="text-xs text-d4-text-dim font-semibold mb-1">Efecto Base:</p>
+                  <p className="text-sm text-d4-text leading-relaxed">
+                    {typeof glyph.efecto_base === 'string' 
+                      ? glyph.efecto_base 
+                      : (glyph.efecto_base as any).descripcion}
+                  </p>
+                </div>
+              )}
+
+              {/* Atributo Escalado */}
               {glyph.atributo_escalado && (
-                <div className="mt-3 pt-3 border-t border-d4-border/50">
+                <div className="bg-blue-900/30 p-2 rounded border border-blue-600/30 mb-2">
+                  <p className="text-xs text-d4-text-dim font-semibold mb-1">Escalado:</p>
                   <p className="text-sm text-d4-text leading-relaxed">
                     <span className="text-d4-accent font-bold">{glyph.atributo_escalado.atributo}</span>
+                    {glyph.atributo_escalado.cada && <span className="text-d4-text-dim"> cada {glyph.atributo_escalado.cada}</span>}
                     <br />
                     <span className="text-d4-text-dim">{glyph.atributo_escalado.bonificacion}</span>
                   </p>
                 </div>
               )}
 
-              {glyph.efecto_base && (
-                <div className="mt-3 pt-3 border-t border-d4-border/50">
-                  <p className="text-sm text-d4-text leading-relaxed">
-                    {glyph.efecto_base.descripcion}
+              {/* Bonificación Adicional */}
+              {glyph.bonificacion_adicional && (
+                <div className="bg-green-900/30 p-2 rounded border border-green-600/30 mb-2">
+                  <p className="text-xs text-d4-text-dim font-semibold mb-1">
+                    Bonificación Adicional:
+                    {(glyph.bonificacion_adicional as any).requisito && (
+                      <span className="ml-1 text-yellow-300">
+                        {typeof (glyph.bonificacion_adicional as any).requisito === 'string'
+                          ? ` (${(glyph.bonificacion_adicional as any).requisito})`
+                          : (glyph.bonificacion_adicional as any).requisito.atributo
+                            ? ` (${(glyph.bonificacion_adicional as any).requisito.atributo}: ${(glyph.bonificacion_adicional as any).requisito.valor_actual || 0} / +${(glyph.bonificacion_adicional as any).requisito.valor_requerido})`
+                            : ''}
+                      </span>
+                    )}
+                    {(glyph.bonificacion_adicional as any).requisito_texto && (
+                      <span className="ml-1 text-yellow-300">
+                        ({(glyph.bonificacion_adicional as any).requisito_texto})
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm text-green-200 leading-relaxed">
+                    {glyph.bonificacion_adicional.descripcion}
                   </p>
                 </div>
               )}
 
-              {glyph.tamano_radio && (
-                <p className="text-xs text-d4-text-dim mt-2 font-semibold">
-                  Radio: {glyph.tamano_radio}
-                </p>
+              {/* Bonificación Legendaria */}
+              {glyph.bonificacion_legendaria && (
+                <div className="bg-orange-900/30 p-2 rounded border border-orange-600/30 mb-2">
+                  <p className="text-xs text-d4-text-dim font-semibold mb-1">Bonificación Legendaria:</p>
+                  <p className="text-sm text-orange-200 leading-relaxed">
+                    {glyph.bonificacion_legendaria.descripcion}
+                  </p>
+                  {glyph.bonificacion_legendaria.requiere_mejora && (
+                    <p className="text-xs text-orange-300/70 mt-1">
+                      {typeof glyph.bonificacion_legendaria.requiere_mejora === 'string'
+                        ? glyph.bonificacion_legendaria.requiere_mejora
+                        : `Requiere mejora: ${(glyph.bonificacion_legendaria.requiere_mejora as any).rareza}`}
+                    </p>
+                  )}
+                </div>
               )}
+
+              {/* Información adicional */}
+              <div className="flex flex-wrap gap-2 text-xs text-d4-text-dim mt-2">
+                {glyph.tamano_radio && (
+                  <span className="bg-d4-surface px-2 py-0.5 rounded font-semibold">
+                    Radio: {glyph.tamano_radio}
+                  </span>
+                )}
+                {(glyph as any).nivel_requerido && (
+                  <span className="bg-d4-surface px-2 py-0.5 rounded font-semibold">
+                    Nv. Req: {(glyph as any).nivel_requerido}
+                  </span>
+                )}
+                {(glyph as any).estado && (
+                  <span className={`px-2 py-0.5 rounded font-semibold ${
+                    (glyph as any).estado === 'Encontrado' 
+                      ? 'bg-green-900/50 text-green-200' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}>
+                    {(glyph as any).estado}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>

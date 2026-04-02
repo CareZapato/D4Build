@@ -11,8 +11,8 @@ import { useModal } from '../../hooks/useModal';
 interface Props {
   personaje: Personaje;
   onChange: (skillsRefs: { 
-    activas: Array<{ skill_id: string; modificadores_ids: string[] }>; 
-    pasivas: string[] 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    pasivas: Array<{ skill_id: string; puntos_asignados?: number }>;
   }) => void;
 }
 
@@ -23,8 +23,8 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const [activeSkillsData, setActiveSkillsData] = useState<HabilidadActiva[]>([]);
   const [passiveSkillsData, setPassiveSkillsData] = useState<HabilidadPasiva[]>([]);
   const [skillsRefs, setSkillsRefs] = useState<{ 
-    activas: Array<{ skill_id: string; modificadores_ids: string[] }>; 
-    pasivas: string[] 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    pasivas: Array<{ skill_id: string; puntos_asignados?: number }> 
   }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
   );
@@ -77,12 +77,28 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
 
       return {
         ...skill,
-        modificadores: modificadoresEquipados
+        modificadores: modificadoresEquipados,
+        // El nivel_actual viene del ref del personaje, no del héroe
+        nivel: ref.nivel_actual ?? skill.nivel
       };
     }).filter(Boolean) as HabilidadActiva[];
 
-    const pasivasData = skillsRefs.pasivas.map(id => {
-      return availableSkills.habilidades_pasivas.find(s => s.id === id);
+    // Compatibilidad hacia atrás: pasivas puede ser string[] o array de objetos
+    const pasivasData = skillsRefs.pasivas.map(pasiva => {
+      // Si es string (formato viejo), convertir
+      const skillId = typeof pasiva === 'string' ? pasiva : pasiva.skill_id;
+      const skill = availableSkills.habilidades_pasivas.find(s => s.id === skillId);
+      if (!skill) return null;
+      
+      // Si tiene puntos_asignados, usarlo
+      if (typeof pasiva !== 'string' && pasiva.puntos_asignados !== undefined) {
+        return {
+          ...skill,
+          nivel: pasiva.puntos_asignados
+        };
+      }
+      
+      return skill;
     }).filter(Boolean) as HabilidadPasiva[];
 
     setActiveSkillsData(activasData);
@@ -441,7 +457,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     await WorkspaceService.saveHeroSkills(personaje.clase, updatedHeroSkills);
 
     // Actualizar referencias del personaje con TODOS los modificadores del JSON
-    const newActiveRefs: Array<{ skill_id: string; modificadores_ids: string[] }> = [];
+    const newActiveRefs: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }> = [];
     data.habilidades_activas.forEach(skill => {
       const heroSkill = updatedHeroSkills.habilidades_activas.find(s => s.nombre === skill.nombre);
       if (heroSkill?.id) {
@@ -455,23 +471,33 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
 
         newActiveRefs.push({ 
           skill_id: heroSkill.id, 
-          modificadores_ids: modificadoresIds 
+          modificadores_ids: modificadoresIds,
+          nivel_actual: (skill as any).nivel_actual ?? (skill as any).nivel ?? 1  // Capturar nivel del JSON
         });
       }
     });
 
-    const newPassiveIds = data.habilidades_pasivas.map(skill => {
+    const newPassiveRefs = data.habilidades_pasivas.map(skill => {
       const found = updatedHeroSkills.habilidades_pasivas.find(s => s.nombre === skill.nombre);
-      return found?.id;
-    }).filter((id): id is string => Boolean(id));
+      if (!found?.id) return null;
+      return {
+        skill_id: found.id,
+        puntos_asignados: (skill as any).puntos_asignados ?? (skill as any).nivel ?? 0
+      };
+    }).filter((ref): ref is { skill_id: string; puntos_asignados: number } => ref !== null);
 
     // Combinar con IDs existentes (sin duplicar por skill_id)
     const existingActiveIds = new Set(skillsRefs.activas.map(ref => ref.skill_id));
     const newUniqueActiveRefs = newActiveRefs.filter(ref => !existingActiveIds.has(ref.skill_id));
     
+    const existingPassiveIds = new Set(skillsRefs.pasivas.map(ref => 
+      typeof ref === 'string' ? ref : ref.skill_id
+    ));
+    const newUniquePassiveRefs = newPassiveRefs.filter(ref => !existingPassiveIds.has(ref.skill_id));
+    
     const updatedRefs = {
       activas: [...skillsRefs.activas, ...newUniqueActiveRefs],
-      pasivas: Array.from(new Set([...skillsRefs.pasivas, ...newPassiveIds]))
+      pasivas: [...skillsRefs.pasivas, ...newUniquePassiveRefs]
     };
 
     setSkillsRefs(updatedRefs);
@@ -494,18 +520,29 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       // Agregar skill sin modificadores inicialmente
       const updatedRefs = {
         ...skillsRefs,
-        activas: [...skillsRefs.activas, { skill_id: skill.id, modificadores_ids: [] }]
+        activas: [...skillsRefs.activas, { 
+          skill_id: skill.id, 
+          modificadores_ids: [],
+          nivel_actual: (skill as HabilidadActiva).nivel ?? 1
+        }]
       };
       setSkillsRefs(updatedRefs);
       onChange(updatedRefs);
     } else {
-      if (skillsRefs.pasivas.includes(skill.id)) {
+      // Verificar si ya existe (compatibilidad con formato viejo)
+      const exists = skillsRefs.pasivas.some(ref => 
+        typeof ref === 'string' ? ref === skill.id : ref.skill_id === skill.id
+      );
+      if (exists) {
         modal.showInfo('Esta habilidad ya está en tu personaje');
         return;
       }
       const updatedRefs = {
         ...skillsRefs,
-        pasivas: [...skillsRefs.pasivas, skill.id]
+        pasivas: [...skillsRefs.pasivas, { 
+          skill_id: skill.id,
+          puntos_asignados: (skill as HabilidadPasiva).nivel ?? 0
+        }]
       };
       setSkillsRefs(updatedRefs);
       onChange(updatedRefs);
@@ -526,7 +563,9 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     } else {
       const updatedRefs = {
         ...skillsRefs,
-        pasivas: skillsRefs.pasivas.filter(id => id !== skillId)
+        pasivas: skillsRefs.pasivas.filter(ref => 
+          typeof ref === 'string' ? ref !== skillId : ref.skill_id !== skillId
+        )
       };
       setSkillsRefs(updatedRefs);
       onChange(updatedRefs);
@@ -893,25 +932,30 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                     </button>
                   ))
                 ) : (
-                  availableSkills.habilidades_pasivas.map((skill, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleAddSkill(skill, 'pasiva')}
-                      className="bg-d4-bg p-2 rounded border border-d4-border hover:border-d4-accent transition-colors text-left"
-                      disabled={skillsRefs.pasivas.includes(skill.id || '')}
-                    >
-                      <h4 className="font-bold text-d4-accent text-xs">{skill.nombre}</h4>
-                      {skill.nivel && (
-                        <span className="text-[10px] badge-normal px-1 py-0.5 mt-0.5 inline-block">
-                          Nv. {skill.nivel}
-                        </span>
-                      )}
-                      <p className="text-[10px] text-d4-text-dim mt-1 line-clamp-2">{skill.efecto}</p>
-                      {skillsRefs.pasivas.includes(skill.id || '') && (
-                        <p className="text-[10px] text-d4-accent mt-1">✓ Ya equipada</p>
-                      )}
-                    </button>
-                  ))
+                  availableSkills.habilidades_pasivas.map((skill, idx) => {
+                    const isEquipped = skillsRefs.pasivas.some(ref => 
+                      (typeof ref === 'string' ? ref : ref.skill_id) === skill.id
+                    );
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleAddSkill(skill, 'pasiva')}
+                        className="bg-d4-bg p-2 rounded border border-d4-border hover:border-d4-accent transition-colors text-left"
+                        disabled={isEquipped}
+                      >
+                        <h4 className="font-bold text-d4-accent text-xs">{skill.nombre}</h4>
+                        {skill.nivel && (
+                          <span className="text-[10px] badge-normal px-1 py-0.5 mt-0.5 inline-block">
+                            Nv. {skill.nivel}
+                          </span>
+                        )}
+                        <p className="text-[10px] text-d4-text-dim mt-1 line-clamp-2">{skill.efecto}</p>
+                        {isEquipped && (
+                          <p className="text-[10px] text-d4-accent mt-1">✓ Ya equipada</p>
+                        )}
+                      </button>
+                    );
+                  })
                 )}
               </div>
             )}

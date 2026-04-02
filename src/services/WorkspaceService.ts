@@ -1,4 +1,4 @@
-import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe } from '../types';
+import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, EstadisticasHeroe } from '../types';
 import { TagService } from './TagService';
 
 export class WorkspaceService {
@@ -267,6 +267,38 @@ export class WorkspaceService {
       return JSON.parse(content);
     } catch (error) {
       console.error('Error cargando aspectos:', error);
+      return null;
+    }
+  }
+
+  // Guardar estadísticas de héroe (v0.3.7)
+  static async saveHeroStats(clase: string, estadisticas: EstadisticasHeroe): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_estadisticas.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(estadisticas, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando estadísticas de héroe:', error);
+      throw error;
+    }
+  }
+
+  // Cargar estadísticas de héroe (v0.3.7)
+  static async loadHeroStats(clase: string): Promise<EstadisticasHeroe | null> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_estadisticas.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('Error cargando estadísticas de héroe:', error);
       return null;
     }
   }

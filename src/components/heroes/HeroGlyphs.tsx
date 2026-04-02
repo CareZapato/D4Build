@@ -104,10 +104,13 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
 
   const filteredGlyphs = glyphsList.filter(glyph => {
     const matchesRarity = filterRarity === 'all' || glyph.rareza === filterRarity;
+    const efectoBaseText = typeof glyph.efecto_base === 'string' 
+      ? glyph.efecto_base 
+      : (glyph.efecto_base?.descripcion || '');
     const matchesSearch = !searchTerm ||
       glyph.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (glyph.atributo_escalado?.atributo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (glyph.efecto_base?.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase());
+      efectoBaseText.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesRarity && matchesSearch;
   });
 
@@ -281,7 +284,9 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
             <div className="md:col-span-2">
               <label className="block text-sm text-d4-text mb-1">Efecto Base (opcional)</label>
               <textarea
-                value={editForm.efecto_base?.descripcion || ''}
+                value={typeof editForm.efecto_base === 'string' 
+                  ? editForm.efecto_base 
+                  : (editForm.efecto_base?.descripcion || '')}
                 onChange={(e) => updateFormField('efecto_base', { descripcion: e.target.value })}
                 className="input w-full"
                 rows={2}
@@ -366,7 +371,9 @@ const HeroGlyphs: React.FC<HeroGlyphsProps> = ({ heroClass, glyphs, onUpdate }) 
 
               {glyph.efecto_base && (
                 <p className="text-xs text-d4-text-dim">
-                  {glyph.efecto_base.descripcion}
+                  {typeof glyph.efecto_base === 'string' 
+                    ? glyph.efecto_base 
+                    : glyph.efecto_base.descripcion}
                 </p>
               )}
             </div>

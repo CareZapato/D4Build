@@ -68,6 +68,87 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.3.7 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.7</h3>
+            <span className="text-xs text-d4-text-dim bg-purple-600/20 text-purple-400 px-2 py-1 rounded">Modelo de Referencias para Estadísticas</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Sistema de Referencias para Estadísticas */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📊 Estadísticas como Datos Maestros del Héroe</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Modelo centralizado:</strong> Las estadísticas ahora se guardan en el héroe (heroes/{`{clase}_estadisticas.json`})</li>
+                <li>• <strong>Referencias en personajes:</strong> El personaje solo guarda IDs y valores (`estadisticas_refs`)</li>
+                <li>• <strong>Sin duplicación:</strong> Igual que skills y glifos, evita repetir definiciones</li>
+                <li>• <strong>Actualización centralizada:</strong> Cambios en el héroe se reflejan en todos los personajes</li>
+                <li>• <strong>Menor tamaño de archivos:</strong> JSON de personajes más ligeros</li>
+              </ul>
+            </div>
+
+            {/* EstadisticaHeroe & Conversión Automática */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔄 Conversión Automática al Importar</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>StatsConversionService:</strong> Convierte automáticamente estadísticas anidadas a individuales con IDs</li>
+                <li>• <strong>EstadisticaHeroe:</strong> Cada estadística tiene `id`, `nombre`, `categoria`, `tipo_valor`, `tags`</li>
+                <li>• <strong>Auto-guardado doble:</strong> Mantiene formato viejo (`estadisticas`) + nuevo (`estadisticas_refs`)</li>
+                <li>• <strong>Compatibilidad hacia atrás:</strong> El formato antiguo sigue funcionando</li>
+                <li>• <strong>Merge inteligente:</strong> Solo agrega estadísticas nuevas sin duplicar</li>
+              </ul>
+            </div>
+
+            {/* WorkspaceService Actualizado */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💾 API de Workspace para Estadísticas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>saveHeroStats(clase, estadisticas):</strong> Guarda estadísticas en archivo del héroe</li>
+                <li>• <strong>loadHeroStats(clase):</strong> Carga estadísticas desde archivo del héroe</li>
+                <li>• <strong>Formato:</strong> `heroes/{`{clase}_estadisticas.json`}`</li>
+                <li>• <strong>Estructura:</strong> {`{estadisticas: EstadisticaHeroe[]}`}</li>
+              </ul>
+            </div>
+
+            {/* Flujo de Importación Actualizado */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">⚡ Mejoras en CharacterStats</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Importación mejora da:</strong> Al importar JSON, crea referencias automáticamente</li>
+                <li>• <strong>onChange ampliado:</strong> Acepta cuarto parámetro `statsRefs` opcional</li>
+                <li>• <strong>Mensaje detallado:</strong> "X tags procesados, Y estadísticas guardadas en héroe"</li>
+                <li>• <strong>handleStatsChange:</strong> Guarda tanto `estadisticas` como `estadisticas_refs`</li>
+                <li>• <strong>Auto-save mejorado:</strong> Persiste referencias inmediatamente al importar</li>
+              </ul>
+            </div>
+
+            {/* Tipos Actualizados */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📝 Nuevos Tipos TypeScript</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>EstadisticaHeroe:</strong> {`{id, nombre, categoria, tipo_valor, descripcion?, unidad?, tags?, subcategoria?}`}</li>
+                <li>• <strong>EstadisticasHeroe:</strong> {`{estadisticas: EstadisticaHeroe[]}`}</li>
+                <li>• <strong>Personaje.estadisticas_refs:</strong> {`Array<{stat_id, valor}>`}</li>
+                <li>• <strong>@deprecated:</strong> `Personaje.estadisticas` marcado como deprecated (seguirá funcionando)</li>
+                <li>• <strong>Categorías:</strong> personaje | atributosBase | defensivo | ofensivo | utilidad | jcj | moneda | armaduraYResistencias</li>
+              </ul>
+            </div>
+
+            {/* Migración Gradual */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔄 Estrategia de Migración</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Fase actual (0.3.7):</strong> Ambos formatos coexisten - datos se guardan en ambos</li>
+                <li>• <strong>Compatibilidad total:</strong> Personajes viejos funcionan sin modificación</li>
+                <li>• <strong>Referencias automáticas:</strong> Al importar/editar, se crean referencias</li>
+                <li>• <strong>Sin ruptura:</strong> La UI actual de CharacterStats sigue funcionando igual</li>
+                <li>• <strong>Próxima fase (0.3.8):</strong> Refactorizar UI para trabajar solo con referencias</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.3.4 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">

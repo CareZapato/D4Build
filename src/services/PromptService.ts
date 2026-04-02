@@ -56,7 +56,10 @@ export class PromptService {
 
           // Resolver habilidades pasivas
           const passiveSkills: HabilidadPasiva[] = personaje.habilidades_refs.pasivas
-            .map(skillId => heroSkills.habilidades_pasivas.find(s => s.id === skillId))
+            .map(ref => {
+              const skillId = typeof ref === 'string' ? ref : ref.skill_id;
+              return heroSkills.habilidades_pasivas.find(s => s.id === skillId);
+            })
             .filter((skill): skill is HabilidadPasiva => skill !== undefined);
 
           if (passiveSkills.length > 0) {

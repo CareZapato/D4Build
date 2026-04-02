@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, ChevronDown, ChevronUp } from 'lucide-react';
 import { Personaje, Estadisticas } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
@@ -26,7 +26,10 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [pendingGlyphs, setPendingGlyphs] = useState<Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>>(
     personaje.glifos_refs || []
   );
-  const [pendingSkills, setPendingSkills] = useState<{ activas: Array<{ skill_id: string; modificadores_ids: string[] }>; pasivas: string[] }>(
+  const [pendingSkills, setPendingSkills] = useState<{ 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    pasivas: Array<{ skill_id: string; puntos_asignados?: number }>
+  }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
   );
   const [hasChanges, setHasChanges] = useState(false);
@@ -36,6 +39,14 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [glyphsCollapsed, setGlyphsCollapsed] = useState(false);
   const [promptsCollapsed, setPromptsCollapsed] = useState(false);
+
+  // Sincronizar estados cuando cambie el personaje prop
+  useEffect(() => {
+    setEditedPersonaje({ ...personaje });
+    setPendingStats(personaje.estadisticas);
+    setPendingGlyphs(personaje.glifos_refs || []);
+    setPendingSkills(personaje.habilidades_refs || { activas: [], pasivas: [] });
+  }, [personaje]);
 
   const handleSaveBasicInfo = async () => {
     setSaving(true);
@@ -78,27 +89,84 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     }
   };
 
-  const handleStatsChange = (stats: Estadisticas, nivel?: number, nivelParagon?: number) => {
+  const handleStatsChange = async (
+    stats: Estadisticas, 
+    nivel?: number, 
+    nivelParagon?: number,
+    statsRefs?: Array<{stat_id: string; valor: string | number}>  // v0.3.7
+  ) => {
     setPendingStats(stats);
-    // Si se proporciona nivel, actualizar también en el personaje
-    if (nivel !== undefined || nivelParagon !== undefined) {
-      setEditedPersonaje(prev => ({
-        ...prev,
-        ...(nivel !== undefined && { nivel }),
-        ...(nivelParagon !== undefined && { nivel_paragon: nivelParagon })
-      }));
+    
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      estadisticas: stats,
+      ...(statsRefs && { estadisticas_refs: statsRefs }), // v0.3.7: Guardar referencias
+      ...(nivel !== undefined && { nivel }),
+      ...(nivelParagon !== undefined && { nivel_paragon: nivelParagon }),
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente
+    try {
+      await WorkspaceService.savePersonaje(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando estadísticas:', error);
+      modal.showError('Error al guardar las estadísticas');
     }
-    setHasChanges(true);
   };
 
-  const handleGlyphsChange = (glifosRefs: Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>) => {
+  const handleGlyphsChange = async (glifosRefs: Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>) => {
     setPendingGlyphs(glifosRefs);
-    setHasChanges(true);
+    
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      glifos_refs: glifosRefs,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente
+    try {
+      await WorkspaceService.savePersonaje(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando glifos:', error);
+      modal.showError('Error al guardar los glifos');
+    }
   };
 
-  const handleSkillsChange = (skillsRefs: { activas: Array<{ skill_id: string; modificadores_ids: string[] }>; pasivas: string[] }) => {
+  const handleSkillsChange = async (skillsRefs: { 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    pasivas: Array<{ skill_id: string; puntos_asignados?: number }>
+  }) => {
     setPendingSkills(skillsRefs);
-    setHasChanges(true);
+    
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      habilidades_refs: skillsRefs,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente
+    try {
+      await WorkspaceService.savePersonaje(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando habilidades:', error);
+      modal.showError('Error al guardar las habilidades');
+    }
   };
 
   const formatLastUpdate = (isoDate: string) => {
@@ -248,33 +316,6 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
           )}
         </div>
 
-        {/* Habilidades */}
-        <div className="lg:col-span-3">
-          <div className="card">
-            <button
-              onClick={() => setSkillsCollapsed(!skillsCollapsed)}
-              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
-            >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Habilidades del Personaje</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
-              </div>
-              {skillsCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
-              ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
-              )}
-            </button>
-            {!skillsCollapsed && (
-              <div className="px-4 pb-4">
-                <CharacterSkills personaje={editedPersonaje} onChange={handleSkillsChange} />
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Estadísticas */}
         <div className="lg:col-span-3">
           <div className="card">
@@ -297,6 +338,33 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             {!statsCollapsed && (
               <div className="px-4 pb-4">
                 <CharacterStats personaje={editedPersonaje} onChange={handleStatsChange} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Habilidades */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setSkillsCollapsed(!skillsCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Habilidades del Personaje</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
+              {skillsCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!skillsCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterSkills personaje={editedPersonaje} onChange={handleSkillsChange} />
               </div>
             )}
           </div>

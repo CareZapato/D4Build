@@ -49,7 +49,18 @@ function AppContent() {
 
   const handlePersonajeUpdate = async () => {
     await loadPersonajes();
-    setSelectedPersonaje(null);
+    // Recargar el personaje seleccionado con los datos actualizados
+    if (selectedPersonaje) {
+      try {
+        const chars = await WorkspaceService.listPersonajes();
+        const updatedPersonaje = chars.find(p => p.id === selectedPersonaje.id);
+        if (updatedPersonaje) {
+          setSelectedPersonaje(updatedPersonaje);
+        }
+      } catch (error) {
+        console.error('Error recargando personaje seleccionado:', error);
+      }
+    }
   };
 
   const renderContent = () => {
