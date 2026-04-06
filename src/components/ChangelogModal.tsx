@@ -68,6 +68,97 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.4.3 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.3</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-300 px-2 py-1 rounded">Importación JSON</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Importación directa de JSON */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                📥 Importación Directa de JSON Resultante
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Ahora puedes pegar el JSON resultado de ChatGPT directamente en el modal de capturas y guardarlo sin salir
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Área de texto integrada</strong>: Panel de importación en el panel de prompts
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Aparece debajo del prompt completo</li>
+                    <li>Acepta el JSON tal como lo devuelve ChatGPT</li>
+                    <li>Con placeholders específicos por categoría</li>
+                  </ul>
+                </li>
+                <li><strong>Guardado inteligente según tipo</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li><strong>Héroe</strong>: Guarda en datos maestros de la clase seleccionada</li>
+                    <li><strong>Personaje</strong>: Agrega al personaje seleccionado (sin sobrescribir)</li>
+                  </ul>
+                </li>
+                <li><strong>Selector de clase/personaje</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Para Héroe: Dropdown con todas las clases disponibles</li>
+                    <li>Para Personaje: Dropdown con personajes creados (arreglado)</li>
+                    <li>Botones más compactos (solo "Héroe" y "Personaje")</li>
+                  </ul>
+                </li>
+                <li><strong>Procesamiento por categoría</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li><strong>Skills</strong>: Procesa habilidades_activas + habilidades_pasivas</li>
+                    <li><strong>Glifos</strong>: Agrega glifos con nivel inicial</li>
+                    <li><strong>Aspectos</strong>: Diferencia entre aspectos generales (Héroe) y equipados (Personaje)</li>
+                    <li><strong>Estadísticas</strong>: Sincroniza nivel y nivel_paragon automáticamente</li>
+                  </ul>
+                </li>
+                <li><strong>Toast notifications</strong>: Confirmación visual de guardado exitoso con cantidad de elementos</li>
+                <li><strong>Validaciones</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Verifica que el JSON sea válido</li>
+                    <li>Requiere selección de clase/personaje antes de guardar</li>
+                    <li>Muestra advertencias claras si falta información</li>
+                  </ul>
+                </li>
+              </ul>
+              <div className="mt-3 p-2 bg-d4-surface rounded border border-green-500/30">
+                <p className="text-xs text-green-300 font-semibold">🚀 Workflow Completo</p>
+                <p className="text-xs text-d4-text-dim mt-1">
+                  1. Captura screenshots → 2. Embebe prompt (opcional) → 3. Copia imagen → 4. Pega en ChatGPT → 5. Copia JSON resultante → 6. Pega en área de importación → 7. ¡Guardado automático!
+                </p>
+              </div>
+            </div>
+
+            {/* Mejoras UX */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                ✨ Mejoras de UX
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Botones compactos</strong>: "Héroe" y "Personaje" en lugar de "Para Héroe (Clase)" y "Para Personaje"
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Más espacio vertical para el área de importación</li>
+                    <li>Interfaz más limpia</li>
+                  </ul>
+                </li>
+                <li><strong>Select de personajes arreglado</strong>: Ahora muestra correctamente los personajes creados
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Validación de personajes disponibles</li>
+                    <li>Mensaje si no hay personajes creados</li>
+                  </ul>
+                </li>
+                <li><strong>Selector de clase para Héroe</strong>: Ya no necesitas ir a la sección Heroes
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Selecciona la clase directamente desde el modal</li>
+                    <li>Lista completa de clases disponibles</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.4.2 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">

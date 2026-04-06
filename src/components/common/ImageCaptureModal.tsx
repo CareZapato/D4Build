@@ -3,6 +3,7 @@ import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Dow
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { useAppContext } from '../../context/AppContext';
+import { WorkspaceService } from '../../services/WorkspaceService';
 
 interface Props {
   isOpen: boolean;
@@ -27,7 +28,7 @@ const CATEGORIES: { value: ImageCategory; label: string }[] = [
 ];
 
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { personajes } = useAppContext();
+  const { personajes, availableClasses } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
@@ -43,6 +44,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
   const [categoryCounts, setCategoryCounts] = useState<Record<ImageCategory, number>>({} as Record<ImageCategory, number>);
+  const [jsonText, setJsonText] = useState<string>('');
+  const [importing, setImporting] = useState(false);
+  const [selectedClase, setSelectedClase] = useState<string>('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -559,6 +563,127 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  // Importar JSON resultante
+  const handleImportJSON = async () => {
+    if (!jsonText.trim()) {
+      showToast('❌ Ingresa un JSON válido', 'error');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const data = JSON.parse(jsonText);
+      
+      if (promptType === 'heroe') {
+        // Guardar en héroe
+        if (!selectedClase) {
+          showToast('❌ Selecciona una clase primero', 'error');
+          setImporting(false);
+          return;
+        }
+
+        const clase = selectedClase;
+        
+        switch (selectedCategory) {
+          case 'skills':
+            if (data.habilidades_activas || data.habilidades_pasivas) {
+              await WorkspaceService.saveHeroSkills(clase, {
+                habilidades_activas: data.habilidades_activas || [],
+                habilidades_pasivas: data.habilidades_pasivas || []
+              });
+              showToast(`✅ ${(data.habilidades_activas?.length || 0) + (data.habilidades_pasivas?.length || 0)} habilidades guardadas en ${clase}`, 'success');
+            }
+            break;
+          case 'glifos':
+            if (data.glifos) {
+              await WorkspaceService.saveHeroGlyphs(clase, { glifos: data.glifos });
+              showToast(`✅ ${data.glifos.length} glifos guardados en ${clase}`, 'success');
+            }
+            break;
+          case 'aspectos':
+            if (data.aspectos) {
+              await WorkspaceService.saveHeroAspects(clase, { aspectos: data.aspectos });
+              showToast(`✅ ${data.aspectos.length} aspectos guardados en ${clase}`, 'success');
+            }
+            break;
+          case 'estadisticas':
+            await WorkspaceService.saveHeroStats(clase, data);
+            showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
+            break;
+        }
+      } else {
+        // Guardar en personaje
+        if (!selectedPersonajeId) {
+          showToast('❌ Selecciona un personaje primero', 'error');
+          setImporting(false);
+          return;
+        }
+
+        const personaje = personajes.find(p => p.id === selectedPersonajeId);
+        if (!personaje) {
+          showToast('❌ Personaje no encontrado', 'error');
+          setImporting(false);
+          return;
+        }
+
+        switch (selectedCategory) {
+          case 'skills':
+            if (data.habilidades_activas || data.habilidades_pasivas) {
+              // Convertir a referencias
+              const activasRefs = (data.habilidades_activas || []).map((h: any) => h.id);
+              const pasivasRefs = (data.habilidades_pasivas || []).map((h: any) => h.id);
+              
+              personaje.habilidades_refs = {
+                activas: [...(personaje.habilidades_refs?.activas || []), ...activasRefs],
+                pasivas: [...(personaje.habilidades_refs?.pasivas || []), ...pasivasRefs]
+              };
+              
+              await WorkspaceService.savePersonaje(personaje);
+              showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades agregadas a ${personaje.nombre}`, 'success');
+            }
+            break;
+          case 'glifos':
+            if (data.glifos) {
+              const nuevosGlifos = data.glifos.map((g: any) => ({ id: g.id, nivel_actual: g.nivel || 1 }));
+              personaje.glifos_refs = [...(personaje.glifos_refs || []), ...nuevosGlifos];
+              
+              await WorkspaceService.savePersonaje(personaje);
+              showToast(`✅ ${nuevosGlifos.length} glifos agregados a ${personaje.nombre}`, 'success');
+            }
+            break;
+          case 'aspectos':
+            if (data.aspectos_equipados) {
+              const aspectosRefs = data.aspectos_equipados.map((a: any) => a.aspecto_id);
+              personaje.aspectos_refs = [...(personaje.aspectos_refs || []), ...aspectosRefs];
+              
+              await WorkspaceService.savePersonaje(personaje);
+              showToast(`✅ ${aspectosRefs.length} aspectos agregados a ${personaje.nombre}`, 'success');
+            }
+            break;
+          case 'estadisticas':
+            personaje.estadisticas = data;
+            if (data.atributosPrincipales?.nivel) {
+              personaje.nivel = data.atributosPrincipales.nivel;
+            }
+            if (data.nivel_paragon) {
+              personaje.nivel_paragon = data.nivel_paragon;
+            }
+            
+            await WorkspaceService.savePersonaje(personaje);
+            showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
+            break;
+        }
+      }
+      
+      setJsonText('');
+    } catch (error) {
+      console.error('Error importando JSON:', error);
+      showToast('❌ Error al procesar el JSON. Verifica el formato.', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -859,25 +984,49 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     <label className="block text-sm font-semibold text-d4-text mb-2">
                       Tipo de extracción:
                     </label>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => setPromptType('heroe')}
-                        className={`px-4 py-2 rounded font-semibold ${
+                        className={`px-3 py-1.5 rounded text-sm font-semibold ${
                           promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
                         }`}
                       >
-                        Para Héroe (Clase)
+                        Héroe
                       </button>
                       <button
                         onClick={() => setPromptType('personaje')}
-                        className={`px-4 py-2 rounded font-semibold ${
+                        className={`px-3 py-1.5 rounded text-sm font-semibold ${
                           promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
                         }`}
                       >
-                        Para Personaje
+                        Personaje
                       </button>
                     </div>
                   </div>
+
+                  {/* Selector de clase (solo si tipo = heroe) */}
+                  {promptType === 'heroe' && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-d4-text mb-2">
+                        Clase del héroe:
+                      </label>
+                      <select
+                        value={selectedClase}
+                        onChange={(e) => setSelectedClase(e.target.value)}
+                        className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                      >
+                        <option value="">Selecciona una clase...</option>
+                        {availableClasses.map(clase => (
+                          <option key={clase} value={clase}>
+                            {clase}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-d4-text-dim mt-1">
+                        Selecciona la clase del héroe para guardar los datos maestros
+                      </p>
+                    </div>
+                  )}
 
                   {/* Selector de personaje (solo si tipo = personaje) */}
                   {promptType === 'personaje' && (
@@ -891,14 +1040,20 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
                       >
                         <option value="">Ninguno (extracción genérica)</option>
-                        {personajes.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
-                          </option>
-                        ))}
+                        {personajes && personajes.length > 0 ? (
+                          personajes.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
+                            </option>
+                          ))
+                        ) : (
+                          <option value="" disabled>No hay personajes creados</option>
+                        )}
                       </select>
                       <p className="text-xs text-d4-text-dim mt-1">
-                        Opcional: Selecciona un personaje para agregar contexto al prompt
+                        {personajes && personajes.length > 0 
+                          ? 'Opcional: Selecciona un personaje para agregar contexto al prompt'
+                          : 'Crea un personaje primero desde la sección Personajes'}
                       </p>
                     </div>
                   )}
@@ -916,6 +1071,59 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     <Copy className="w-4 h-4" />
                     {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
                   </button>
+
+                  {/* Área de importación de JSON */}
+                  <div className="mt-6 pt-6 border-t border-d4-border">
+                    <h4 className="text-sm font-semibold text-d4-accent mb-3">
+                      📥 Importar JSON Resultante
+                    </h4>
+                    <p className="text-xs text-d4-text-dim mb-3">
+                      Pega el JSON resultado de ChatGPT aquí para agregarlo automáticamente a {promptType === 'heroe' ? 'los datos del héroe' : 'tu personaje'}
+                    </p>
+                    <textarea
+                      value={jsonText}
+                      onChange={(e) => setJsonText(e.target.value)}
+                      placeholder={`Pega el JSON aquí...${selectedCategory === 'skills' ? '\nEjemplo: {"habilidades_activas": [...], "habilidades_pasivas": [...]}' : selectedCategory === 'glifos' ? '\nEjemplo: {"glifos": [...]}' : selectedCategory === 'aspectos' ? (promptType === 'heroe' ? '\nEjemplo: {"aspectos": [...]}' : '\nEjemplo: {"aspectos_equipados": [...]}') : '\nEjemplo: {"nivel_paragon": 150, ...}'}`}
+                      className="w-full h-32 p-3 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-xs resize-none"
+                    />
+                    <button
+                      onClick={handleImportJSON}
+                      disabled={!jsonText.trim() || importing || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                      className={`mt-3 w-full px-4 py-2 rounded font-semibold transition-all flex items-center justify-center gap-2 ${
+                        jsonText.trim() && !importing && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {importing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          Importando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          {promptType === 'heroe' 
+                            ? selectedClase 
+                              ? `Guardar en Héroe (${selectedClase})`
+                              : 'Guardar en Héroe (Selecciona clase)'
+                            : selectedPersonajeId 
+                              ? `Guardar en ${personajes.find(p => p.id === selectedPersonajeId)?.nombre || 'Personaje'}`
+                              : 'Selecciona un personaje primero'}
+                        </>
+                      )}
+                    </button>
+                    {promptType === 'personaje' && !selectedPersonajeId && (
+                      <p className="text-xs text-yellow-400 mt-2">
+                        ⚠️ Selecciona un personaje arriba para poder guardar
+                      </p>
+                    )}
+                    {promptType === 'heroe' && !selectedClase && (
+                      <p className="text-xs text-yellow-400 mt-2">
+                        ⚠️ Selecciona una clase arriba para poder guardar
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
