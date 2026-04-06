@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, HelpCircle, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import { useAppContext } from '../../context/AppContext';
 
 interface Props {
   isOpen: boolean;
@@ -26,13 +27,15 @@ const CATEGORIES: { value: ImageCategory; label: string }[] = [
 ];
 
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
+  const { personajes } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string }>>([]);
   const [showGallery, setShowGallery] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('personaje');
+  const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('heroe');
+  const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('new');
   const [lastSavedImageUrl, setLastSavedImageUrl] = useState<string | null>(null);
@@ -370,6 +373,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const getPromptForCategory = (): string => {
     let basePrompt = '';
+    
+    // Determinar qué prompts usar según el tipo (héroe o personaje)
     switch (selectedCategory) {
       case 'skills':
         basePrompt = ImageExtractionPromptService.generateActiveSkillsPrompt() + '\n\n' + 
@@ -379,13 +384,26 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         basePrompt = ImageExtractionPromptService.generateGlyphsPrompt();
         break;
       case 'aspectos':
-        basePrompt = ImageExtractionPromptService.generateAspectsPrompt();
+        // Usar prompt específico según tipo
+        if (promptType === 'personaje') {
+          basePrompt = ImageExtractionPromptService.generateCharacterAspectsPrompt();
+        } else {
+          basePrompt = ImageExtractionPromptService.generateAspectsPrompt();
+        }
         break;
       case 'estadisticas':
         basePrompt = ImageExtractionPromptService.generateStatsPrompt();
         break;
       default:
         basePrompt = 'Analiza esta imagen y extrae la información relevante en formato JSON.';
+    }
+    
+    // Agregar contexto de personaje si está seleccionado
+    if (promptType === 'personaje' && selectedPersonajeId) {
+      const personaje = personajes.find(p => p.id === selectedPersonajeId);
+      if (personaje) {
+        basePrompt = `**CONTEXTO DEL PERSONAJE:**\n- Nombre: ${personaje.nombre}\n- Clase: ${personaje.clase}\n- Nivel: ${personaje.nivel}${personaje.nivel_paragon ? ` (Paragon: ${personaje.nivel_paragon})` : ''}\n\n---\n\n${basePrompt}`;
+      }
     }
     
     // Agregar cantidad de elementos al final del prompt
@@ -808,14 +826,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </label>
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setPromptType('personaje')}
-                    className={`px-4 py-2 rounded font-semibold ${
-                      promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
-                    }`}
-                  >
-                    Para Personaje
-                  </button>
-                  <button
                     onClick={() => setPromptType('heroe')}
                     className={`px-4 py-2 rounded font-semibold ${
                       promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
@@ -823,8 +833,40 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   >
                     Para Héroe (Clase)
                   </button>
+                  <button
+                    onClick={() => setPromptType('personaje')}
+                    className={`px-4 py-2 rounded font-semibold ${
+                      promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                    }`}
+                  >
+                    Para Personaje
+                  </button>
                 </div>
               </div>
+
+              {/* Selector de personaje (solo si tipo = personaje) */}
+              {promptType === 'personaje' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    Personaje específico:
+                  </label>
+                  <select
+                    value={selectedPersonajeId || ''}
+                    onChange={(e) => setSelectedPersonajeId(e.target.value || null)}
+                    className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                  >
+                    <option value="">Ninguno (extracción genérica)</option>
+                    {personajes.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-d4-text-dim mt-1">
+                    Opcional: Selecciona un personaje para agregar contexto al prompt
+                  </p>
+                </div>
+              )}
 
               <div className="bg-d4-surface p-4 rounded border border-d4-border max-h-96 overflow-y-auto">
                 <pre className="text-xs text-d4-text whitespace-pre-wrap font-mono">

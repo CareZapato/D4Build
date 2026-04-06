@@ -68,6 +68,61 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.4.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 px-2 py-1 rounded">Mejora</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Prompts contextuales */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🎯 Prompts Contextuales (Héroe vs Personaje)
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Ahora puedes elegir si el prompt es para extraer datos de <strong>Héroe (clase general)</strong> o <strong>Personaje específico</strong>
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Selector de tipo</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li><strong>Para Héroe (Clase)</strong>: Usa prompts generales para datos maestros de la clase</li>
+                    <li><strong>Para Personaje</strong>: Usa prompts específicos para datos equipados/activos de un personaje</li>
+                  </ul>
+                </li>
+                <li><strong>Selector de personaje</strong> (cuando tipo = Personaje):
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Dropdown con todos tus personajes creados</li>
+                    <li>Muestra: Nombre - Clase (Nivel / Paragon)</li>
+                    <li>Opcional: Si no seleccionas, usa prompt genérico</li>
+                  </ul>
+                </li>
+                <li><strong>Contexto automático</strong>: Si seleccionas un personaje, el prompt incluye su información:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Nombre del personaje</li>
+                    <li>Clase</li>
+                    <li>Nivel y nivel Paragon</li>
+                  </ul>
+                </li>
+                <li><strong>Prompts específicos por tipo</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li><strong>Aspectos de Héroe</strong>: Extrae aspectos generales de la clase (todos los disponibles)</li>
+                    <li><strong>Aspectos de Personaje</strong>: Extrae <em>solo aspectos equipados</em> con valores actuales y slot</li>
+                  </ul>
+                </li>
+                <li><strong>Mantiene contador de elementos</strong>: La concatenación automática de cantidad de elementos se conserva al final</li>
+              </ul>
+              <div className="mt-3 p-2 bg-d4-surface rounded border border-blue-500/30">
+                <p className="text-xs text-blue-300 font-semibold">🎯 Beneficio Principal</p>
+                <p className="text-xs text-d4-text-dim mt-1">
+                  La IA recibe el contexto correcto según si estás trabajando con datos maestros del héroe o con el build específico de un personaje, mejorando la precisión de la extracción.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.4.0 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
