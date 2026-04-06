@@ -452,6 +452,99 @@ export class StatsConversionService {
 
     const stats = jsonV2.estadisticas;
 
+    const normalizeText = (value: string): string => value
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i')
+      .replace(/ó/g, 'o').replace(/ú/g, 'u').replace(/ñ/g, 'n')
+      .replace(/[()%]/g, '')
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+
+    const canonicalStatKey = (raw: string): string => {
+      const snake = normalizeText(raw.replace(/([a-z])([A-Z])/g, '$1_$2'));
+      const compact = snake.replace(/_/g, '');
+
+      const aliases: Record<string, string> = {
+        nivel: 'nivel',
+        fuerza: 'fuerza',
+        inteligencia: 'inteligencia',
+        voluntad: 'voluntad',
+        destreza: 'destreza',
+        aguante: 'aguante',
+        armadura: 'armadura',
+        danioarma: 'danio_arma',
+        daniodearma: 'danio_arma',
+        daniobasearma: 'danio_base_arma',
+        velocidadarma: 'velocidad_arma',
+        bonificacionvelocidadataque: 'bonificacion_velocidad_ataque',
+        probabilidadgolpecritico: 'probabilidad_de_golpe_critico',
+        daniogolpecritico: 'danio_de_golpe_critico',
+        probabilidadabrumar: 'probabilidad_abrumar',
+        danioabrumador: 'danio_abrumador',
+        daniocontraenemigosvulnerables: 'danio_contra_enemigos_vulnerables',
+        todoeldanio: 'todo_el_danio',
+        danioconsangrado: 'danio_con_sangrado',
+        danioconquemadura: 'danio_con_quemadura',
+        danioconveneno: 'danio_con_veneno',
+        danioconcorrupcion: 'danio_con_corrupcion',
+        daniovsenemigoselite: 'danio_vs_enemigos_elite',
+        daniovsenemigossaludables: 'danio_vs_enemigos_saludables',
+        espinas: 'espinas',
+        vidamaxima: 'vida_maxima',
+        cantidadpociones: 'cantidad_pociones',
+        sanacionrecibida: 'sanacion_recibida',
+        vidaporeliminacion: 'vida_por_eliminacion',
+        vidacada5segundos: 'vida_cada_5_segundos',
+        probabilidadbloqueo: 'probabilidad_de_bloqueo',
+        reduccionbloqueo: 'reduccion_bloqueo',
+        bonificacionfortificacion: 'bonificacion_fortificacion',
+        bonificacionbarrera: 'generacion_de_barrera',
+        probabilidadesquivar: 'probabilidad_esquivar',
+        resistenciadaniofisico: 'resistencia_danio_fisico',
+        resistenciafuego: 'resistencia_fuego',
+        resistenciarayo: 'resistencia_rayo',
+        resistenciafrio: 'resistencia_frio',
+        resistenciaveneno: 'resistencia_veneno',
+        resistenciasombra: 'resistencia_sombra',
+        maximofe: 'maximo_de_fe',
+        reduccioncostofe: 'coste_de_reduccion_de_fe',
+        regeneracionfe: 'regeneracion_fe',
+        feconcadaeliminacion: 'fe_con_cada_eliminacion',
+        velocidadmovimiento: 'velocidad_de_movimiento',
+        reduccionrecuperacion: 'reduccion_recuperacion',
+        golpeafortunado: 'bonificacion_probabilidad_golpe_afortunado',
+        bonificacionexperiencia: 'bonificacion_experiencia',
+        reducciondanio: 'reduccion_danio',
+        oro: 'oro',
+        obolos: 'obolos',
+        polvorojo: 'polvo_rojo',
+        marcaspalidas: 'marcas_palidas',
+        monedasdelalcazar: 'monedas_del_alcazar',
+        favor: 'favor',
+        carnefresca: 'carne_fresca'
+      };
+
+      return aliases[compact] || snake;
+    };
+
+    const mergeDetails = (
+      key: string,
+      payload: {descripcion?: string; detalles?: any[]; tags?: string[]}
+    ) => {
+      const existing = detailsMap.get(key) || {};
+      detailsMap.set(key, {
+        descripcion: payload.descripcion || existing.descripcion,
+        detalles: payload.detalles && payload.detalles.length > 0
+          ? [...(existing.detalles || []), ...payload.detalles]
+          : existing.detalles,
+        tags: payload.tags && payload.tags.length > 0
+          ? Array.from(new Set([...(existing.tags || []), ...payload.tags]))
+          : existing.tags
+      });
+    };
+
     // Procesar cada categoría del JSON V2
     const categories = [
       { key: 'atributos_principales', normalizeId: (id: string) => id },
@@ -475,11 +568,75 @@ export class StatsConversionService {
             if (stat.detalles && Array.isArray(stat.detalles)) details.detalles = stat.detalles;
             if (stat.tags && Array.isArray(stat.tags)) details.tags = stat.tags;
             
-            // Guardar con ID normalizado
-            detailsMap.set(normalizeId(stat.id), details);
+            // Guardar con ID normalizado (modelo array original)
+            mergeDetails(canonicalStatKey(normalizeId(stat.id)), details);
           }
         });
       }
+    });
+
+    // Compatibilidad: procesar formato por secciones-objeto (stats.personaje, stats.ofensivo, etc.)
+    const objectSections = [
+      'personaje',
+      'atributosPrincipales',
+      'defensivo',
+      'ofensivo',
+      'armaduraYResistencias',
+      'utilidad',
+      'jcj',
+      'moneda'
+    ];
+
+    objectSections.forEach((sectionKey) => {
+      const section = stats[sectionKey];
+      if (!section || typeof section !== 'object' || Array.isArray(section)) return;
+
+      // Descripción específica conocida de aguante (sección personaje)
+      if (sectionKey === 'personaje' && section.aguante_definicion) {
+        mergeDetails(canonicalStatKey('aguante'), { descripcion: section.aguante_definicion });
+      }
+
+      // Crear entrada base para cada campo numérico/textual visible
+      Object.entries(section).forEach(([field, value]) => {
+        if (['detalles', 'palabras_clave', 'aguante_definicion'].includes(field)) return;
+        if (value === null || value === undefined) return;
+        if (typeof value === 'object') return;
+
+        mergeDetails(canonicalStatKey(field), {});
+      });
+
+      // Distribuir detalles al stat correcto usando atributo_ref / atributo_nombre / texto
+      const sectionDetails = Array.isArray(section.detalles) ? section.detalles : [];
+      const grouped: Record<string, any[]> = {};
+
+      sectionDetails.forEach((detail: any) => {
+        if (!detail || typeof detail !== 'object') return;
+
+        const ref = detail.atributo_ref || detail.stat_key || detail.id || detail.campo;
+        const name = detail.atributo_nombre || detail.nombre_atributo || detail.atributo || detail.stat_name;
+
+        let target = ref ? canonicalStatKey(String(ref)) : '';
+        if (!target && name) {
+          target = canonicalStatKey(String(name));
+        }
+
+        // Fallback por texto: usa el texto antes de ':' como nombre de atributo
+        if (!target && typeof detail.texto === 'string' && detail.texto.includes(':')) {
+          target = canonicalStatKey(detail.texto.split(':')[0].trim());
+        }
+
+        // Si no se pudo inferir, no lo descartamos: lo asociamos a la sección completa
+        if (!target) {
+          target = canonicalStatKey(sectionKey);
+        }
+
+        if (!grouped[target]) grouped[target] = [];
+        grouped[target].push(detail);
+      });
+
+      Object.entries(grouped).forEach(([target, details]) => {
+        mergeDetails(target, { detalles: details });
+      });
     });
 
     // Procesar nivel si existe
@@ -488,7 +645,7 @@ export class StatsConversionService {
       if (jsonV2.nivel.descripcion) nivelDetails.descripcion = jsonV2.nivel.descripcion;
       if (jsonV2.nivel.detalles) nivelDetails.detalles = jsonV2.nivel.detalles;
       if (jsonV2.nivel.tags) nivelDetails.tags = jsonV2.nivel.tags;
-      detailsMap.set('nivel', nivelDetails);
+      mergeDetails('nivel', nivelDetails);
     }
 
     return detailsMap;

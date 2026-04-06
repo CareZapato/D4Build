@@ -834,6 +834,11 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 3. **CRÍTICO:** Extrae TODOS los detalles/subítems debajo de cada estadística
 4. Identifica palabras marcadas en BLANCO/SUBRAYADAS en los detalles (son palabras clave del juego)
 5. Si ves la definición del "Aguante", inclúyela completa
+6. **Para cada detalle agrega SIEMPRE el atributo al que pertenece:**
+  - \`atributo_ref\`: key técnica del campo (ej: \`probabilidadGolpeCritico\`, \`danioContraEnemigosVulnerables\`, \`vidaMaxima\`)
+  - \`atributo_nombre\`: nombre visible (ej: "Probabilidad de golpe crítico", "Daño contra enemigos vulnerables")
+7. Si no hay marco de selección visible, deduce el atributo por el título del tooltip o por el texto del detalle (lado izquierdo)
+8. NO omitas detalles de atributos compartidos (vulnerables, crítico, abrumar, daño con estados, etc.)
 
 **Devuélveme la información en el siguiente formato JSON:**
 
@@ -912,18 +917,26 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
       "danioContraEnemigosVulnerables": 80.0,
       "detalles": [
         {
+          "atributo_ref": "danioContraEnemigosVulnerables",
+          "atributo_nombre": "Daño contra enemigos vulnerables",
           "texto": "Bonificación de daño contra enemigos vulnerables: 80.0%",
           "palabras_clave": ["vulnerables"]
         },
         {
+          "atributo_ref": "danioContraEnemigosVulnerables",
+          "atributo_nombre": "Daño contra enemigos vulnerables",
           "texto": "Tus habilidades infligen más daño contra enemigos vulnerables",
           "palabras_clave": ["vulnerables"]
         },
         {
+          "atributo_ref": "danioContraEnemigosVulnerables",
+          "atributo_nombre": "Daño contra enemigos vulnerables",
           "texto": "Incluye el 100.0 % de daño aumentado inherente que los enemigos vulnerables reciben de todas las fuentes",
           "palabras_clave": ["vulnerables"]
         },
         {
+          "atributo_ref": "danioContraEnemigosVulnerables",
+          "atributo_nombre": "Daño contra enemigos vulnerables",
           "texto": "Tienes +50.0 % de este atributo por objetos y Paragón",
           "contribucion": "objetos y Paragón",
           "valor": "50.0%"
@@ -989,6 +1002,7 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 
 **Notas críticas:**
 - **DETALLES:** Extrae TODOS los sub-items de cada estadística como objetos en el array "detalles"
+- **Vinculación detalle-atributo:** cada detalle DEBE incluir \`atributo_ref\` y \`atributo_nombre\`
 - **Aguante:** Si ves el tooltip, copia la definición completa en aguante_definicion
 - **Palabras blancas/subrayadas:** Identifícalas en los detalles y agrégalas a palabras_clave
 - **Contribución:** Si menciona "de objetos", "por Paragón", etc., usa el campo contribucion
@@ -1131,213 +1145,29 @@ JSON correspondiente:
     }
   }
 
+  // Agregar restricción opcional de cantidad de elementos a extraer
+  static withElementLimit(
+    prompt: string,
+    elementCount?: number,
+    contextLabel: string = 'elementos'
+  ): string {
+    if (!elementCount || Number.isNaN(elementCount) || elementCount <= 0) {
+      return prompt;
+    }
+
+    return `${prompt}
+
+---
+**LÍMITE DE EXTRACCIÓN:**
+- Esta imagen/lote contiene **${elementCount} ${contextLabel} señalados**.
+- Extrae **solo esos ${elementCount} elementos** y omite cualquier otro valor no señalado.
+- Si un atributo aparece listado pero en este lote no trae su detalle contextual, **no lo incluyas**.
+- Cada elemento extraído debe incluir su valor y sus detalles asociados.`;
+  }
+
   // Generar prompt para estadísticas con modelo refactorizado V2 (v0.3.4+)
   static generateStatsPromptV2(): string {
-    return `Analiza la imagen de estadísticas de Diablo 4 y extrae toda la información visible siguiendo el modelo refactorizado.
-
-**⚠️ IMPORTANTE - CAPTURA COMPLETA:**
-
-- **Si la imagen muestra MÚLTIPLES atributos con sus detalles y valores, captura TODOS en un solo JSON**
-- **Cada atributo debe incluir:**
-  - Su valor numérico
-  - Descripción (si está visible en tooltips)
-  - Todos los detalles/viñetas debajo de él
-  - Palabras clave (tags) que aparezcan en BLANCO/SUBRAYADAS
-
-**EJEMPLO:**
-Si la imagen muestra:
-- Nivel: 60 (con sus detalles)
-- Fuerza: 1670 (con sus detalles)
-- Inteligencia: 208 (con sus detalles)
-- Armadura: 20,296 (con sus detalles)
-→ Captura TODOS los atributos con sus detalles completos en estadisticas.atributos_principales, estadisticas.defensivo, etc.
-
-**OBJETIVO:**
-Extraer estadísticas con información estructurada de palabras clave del juego, manteniendo TODO en español.
-
-**REGLAS IMPORTANTES:**
-
-1. **IDIOMA:** Todo en español
-   - Variables del JSON: en español
-   - Tags: en español ("golpe_critico" NO "critical_hit")
-   - Textos originales: tal como aparecen en la imagen
-
-2. **PALABRAS CLAVE (TAGS) - ⚠️ MUY IMPORTANTE:**
-   - **SOLO** extrae palabras que aparezcan en BLANCO/SUBRAYADAS en la imagen
-   - **NO** inventes tags con palabras que NO estén coloreadas en blanco
-   - Ejemplo CORRECTO: Si la imagen muestra "Aumenta el daño abrumador" donde solo "abrumador" está en blanco → guarda SOLO "abrumador"
-   - Ejemplo INCORRECTO: NO guardes "daño abrumador" si "daño" no está en blanco
-   - La mayoría de palabras clave vienen subrayadas o en blanco brillante
-   - Si encuentras el significado (definición del tooltip), guárdalo
-   - Si NO encuentras el significado, usa null
-   - Usa snake_case para el identificador: "golpe_critico", "abrumador", "vulnerable"
-
-3. **ESTRUCTURA DE TAG:**
-   \`\`\`json
-   {
-     "tag": "golpe_critico",
-     "texto_original": "golpe crítico",
-     "significado": "Probabilidad de que una habilidad o ataque inflija daño crítico adicional.",
-     "categoria": "atributo",
-     "fuente": "tooltip"
-   }
-   \`\`\`
-   
-   Si NO hay definición:
-   \`\`\`json
-   {
-     "tag": "corrupcion",
-     "texto_original": "corrupción",
-     "significado": null,
-     "categoria": "tipo_de_danio",
-     "fuente": "estadistica"
-   }
-   \`\`\`
-
-4. **CATEGORÍAS DE TAGS:**
-   - "atributo": Atributos del personaje
-   - "efecto": Efectos de habilidades
-   - "condicion": Estados (vulnerable, quemadura, etc.)
-   - "recurso": Fe, maná, furia, etc.
-   - "mecanica": Mecánicas del juego (bloqueo, crítico, etc.)
-   - "tipo_de_danio": Tipos de daño (físico, sombra, etc.)
-   - "defensivo": Mecánicas defensivas
-
-5. **DETALLES DE ESTADÍSTICAS:**
-   Captura TODOS los subítems visibles debajo de cada estadística.
-   Los tags se extraen como strings simples en el array "palabras_clave" del detalle:
-   \`\`\`json
-   {
-     "texto": "Aumenta el daño de habilidad en 208.8 %",
-     "tipo": "bonificacion",
-     "valor": 208.8,
-     "unidad": "%",
-     "contribucion": null,
-     "palabras_clave": ["danio_de_habilidad"]
-   }
-   \`\`\`
-
-   Tipos de detalle: "bonificacion", "contribucion", "efecto", "aclaracion", "composicion"
-
-6. **SECCIÓN GLOBAL palabras_clave:**
-   Recopila TODAS las palabras detectadas aquí también:
-   \`\`\`json
-   "palabras_clave": [
-     {
-       "tag": "golpe_critico",
-       "texto_original": "golpe crítico",
-       "significado": "Probabilidad de que una habilidad o ataque inflija daño crítico adicional.",
-       "categoria": "atributo",
-       "fuente": "tooltip"
-     },
-     {
-       "tag": "fortificacion",
-       "texto_original": "fortificación",
-       "significado": null,
-       "categoria": "mecanica",
-       "fuente": "tooltip"
-     }
-   ]
-   \`\`\`
-
-**FORMATO JSON ESPERADO:**
-
-**Ejemplo:**
-\`\`\`json
-{
-  "nivel_paragon": 150,
-  "estadisticas": {
-    "personaje": {
-      "danioArma": 496,
-      "aguante": 52619,
-      "aguante_definicion": "El Aguante es una aproximación de tu capacidad de supervivencia...",
-      "detalles": [
-        {
-          "texto": "Armadura: 18,995",
-          "valor": 18995,
-          "contribucion": null,
-          "palabras_clave": []
-        }
-      ],
-      "palabras_clave": ["reduccion_de_danio"]
-    },
-    "atributosPrincipales": {
-      "nivel": 60,
-      "fuerza": 1670,
-      "inteligencia": 208,
-      "detalles": [
-        {
-          "texto": "Aumenta el daño de habilidad en 208.8 %",
-          "palabras_clave": ["danio_de_habilidad"]
-        },
-        {
-          "texto": "Aumenta la probabilidad de golpe crítico en +4.2 %",
-          "palabras_clave": ["golpe_critico"]
-        }
-      ],
-      "palabras_clave": ["danio_de_habilidad", "golpe_critico"]
-    },
-    "defensivo": {
-      "vidaMaxima": 7581,
-      "armadura": 20296,
-      "detalles": [],
-      "palabras_clave": []
-    },
-    "ofensivo": {
-      "probabilidadGolpeCritico": 15.0,
-      "danioGolpeCritico": 194.0,
-      "detalles": [
-        {
-          "texto": "Bonificación de daño contra enemigos vulnerables: 80.0%",
-          "palabras_clave": ["vulnerables"]
-        }
-      ],
-      "palabras_clave": ["golpe_critico", "vulnerables"]
-    }
-  },
-  "palabras_clave": [
-    {
-      "tag": "golpe_critico",
-      "texto_original": "golpe crítico",
-      "significado": "Probabilidad de infligir daño crítico adicional",
-      "categoria": "atributo",
-      "fuente": "tooltip"
-    },
-    {
-      "tag": "vulnerables",
-      "texto_original": "vulnerables",
-      "significado": null,
-      "categoria": "condicion",
-      "fuente": "estadistica"
-    },
-    {
-      "tag": "danio_de_habilidad",
-      "texto_original": "daño de habilidad",
-      "significado": null,
-      "categoria": "atributo",
-      "fuente": "tooltip"
-    }
-  ]
-}
-\`\`\`
-
-**CHECKLIST FINAL:**
-- ✅ Todo en español (variables, tags, textos)
-- ✅ Captura TODOS los atributos visibles con sus detalles completos
-- ✅ palabras_clave en detalles: array de strings ["tag1", "tag2"]
-- ✅ palabras_clave global: array de objetos con estructura completa
-- ✅ SOLO capturar como tags palabras EN BLANCO/SUBRAYADAS
-- ✅ Sección palabras_clave global con TODAS las palabras detectadas
-- ✅ significado puede ser null si no está disponible
-
-**IMPORTANTE:**
-- NO traduzcas conceptos al inglés
-- NO uses camelCase en tags, usa snake_case  
-- palabras_clave en detalles: array de STRINGS
-- palabras_clave global: array de OBJETOS {tag, texto_original, significado, categoria, fuente}
-- NO inventes tags con palabras que NO estén en blanco
-- SÍ captura TODAS las palabras blancas/subrayadas
-- SÍ captura TODOS los atributos visibles con sus detalles`;
+    return this.generateStatsPrompt();
   }
 }
 

@@ -22,6 +22,7 @@ const CharacterAspects: React.FC<Props> = ({ personaje, onChange }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [jsonText, setJsonText] = useState('');
+  const [promptElementCount, setPromptElementCount] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -212,7 +213,12 @@ const CharacterAspects: React.FC<Props> = ({ personaje, onChange }) => {
   };
 
   const handleCopyPrompt = async () => {
-    const prompt = ImageExtractionPromptService.generateCharacterAspectsPrompt();
+    const count = parseInt(promptElementCount, 10);
+    const prompt = ImageExtractionPromptService.withElementLimit(
+      ImageExtractionPromptService.generateCharacterAspectsPrompt(),
+      Number.isFinite(count) ? count : undefined,
+      'aspectos equipados'
+    );
     const success = await ImageExtractionPromptService.copyToClipboard(prompt);
     if (success) {
       setCopied(true);
@@ -293,23 +299,34 @@ const CharacterAspects: React.FC<Props> = ({ personaje, onChange }) => {
             placeholder='{"aspectos_equipados": [{"aspecto_id": "...", "nivel_actual": "5/21", ...}]}'
           />
           <div className="flex justify-between items-center gap-2">
-            <button
-              onClick={handleCopyPrompt}
-              className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
-              title="Copiar prompt para extraer datos de imágenes usando IA"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  ¡Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Prompt IA
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyPrompt}
+                className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
+                title="Copiar prompt para extraer datos de imágenes usando IA"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    ¡Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Prompt IA
+                  </>
+                )}
+              </button>
+              <input
+                type="number"
+                min="1"
+                value={promptElementCount}
+                onChange={(e) => setPromptElementCount(e.target.value)}
+                className="input text-xs py-1 px-2 w-20"
+                placeholder="#"
+                title="Cantidad de elementos a extraer (opcional)"
+              />
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setShowTextInput(false)} className="btn-secondary text-xs py-1 px-2">
                 Cancelar

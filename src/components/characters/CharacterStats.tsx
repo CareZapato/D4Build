@@ -25,6 +25,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [importing, setImporting] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [jsonText, setJsonText] = useState('');
+  const [promptElementCount, setPromptElementCount] = useState('');
   const [activeTab, setActiveTab] = useState<string>('principal');
   const [copied, setCopied] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -33,29 +34,197 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [estadisticas, setEstadisticas] = useState<Estadisticas>(
     personaje.estadisticas || {}
   );
+  const [baseHeroStats, setBaseHeroStats] = useState<Map<string, EstadisticaHeroe>>(new Map());
   const [heroStats, setHeroStats] = useState<Map<string, EstadisticaHeroe>>(new Map());  // v0.3.7: Mapa de estadísticas del héroe
   const isFirstRender = useRef(true); // evitar auto-save en montaje inicial
 
+  const loadHeroStats = async () => {
+    try {
+      const stats = await WorkspaceService.loadHeroStats(personaje.clase);
+      if (stats && stats.estadisticas) {
+        const statsMap = new Map<string, EstadisticaHeroe>();
+        stats.estadisticas.forEach(stat => {
+          // Crear índice por nombre normalizado para búsqueda rápida
+          const key = stat.nombre.toLowerCase();
+          statsMap.set(key, stat);
+        });
+        setBaseHeroStats(statsMap);
+        setHeroStats(statsMap);
+      }
+    } catch (error) {
+      console.log('No se pudieron cargar estadísticas del héroe (normal si no existen aún)');
+    }
+  };
+
   // Cargar estadísticas del héroe para tooltips (v0.3.7)
   useEffect(() => {
-    const loadHeroStats = async () => {
-      try {
-        const stats = await WorkspaceService.loadHeroStats(personaje.clase);
-        if (stats && stats.estadisticas) {
-          const statsMap = new Map<string, EstadisticaHeroe>();
-          stats.estadisticas.forEach(stat => {
-            // Crear índice por nombre normalizado para búsqueda rápida
-            const key = stat.nombre.toLowerCase();
-            statsMap.set(key, stat);
-          });
-          setHeroStats(statsMap);
-        }
-      } catch (error) {
-        console.log('No se pudieron cargar estadísticas del héroe (normal si no existen aún)');
-      }
-    };
     loadHeroStats();
   }, [personaje.clase]);
+
+  // Complementar tooltips con detalles del JSON del personaje (sin depender solo del héroe)
+  useEffect(() => {
+    const normalize = (value: string): string => value
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i')
+      .replace(/ó/g, 'o').replace(/ú/g, 'u').replace(/ñ/g, 'n')
+      .replace(/[()%]/g, '')
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+
+    const mapBySection: Record<string, Record<string, string>> = {
+      personaje: {
+        danioArma: 'daño de arma',
+        aguante: 'aguante'
+      },
+      atributosPrincipales: {
+        nivel: 'nivel',
+        fuerza: 'fuerza',
+        inteligencia: 'inteligencia',
+        voluntad: 'voluntad',
+        destreza: 'destreza'
+      },
+      defensivo: {
+        vidaMaxima: 'vida máxima',
+        cantidadPociones: 'cantidad pociones',
+        sanacionRecibida: 'sanación recibida',
+        vidaPorEliminacion: 'vida por eliminación',
+        vidaCada5Segundos: 'vida cada 5 segundos',
+        probabilidadBloqueo: 'probabilidad bloqueo',
+        reduccionBloqueo: 'reducción bloqueo',
+        bonificacionFortificacion: 'bonificación fortificación',
+        bonificacionBarrera: 'bonificación barrera',
+        probabilidadEsquivar: 'probabilidad esquivar'
+      },
+      ofensivo: {
+        danioBaseArma: 'daño base arma',
+        velocidadArma: 'velocidad arma',
+        bonificacionVelocidadAtaque: 'bonificación velocidad ataque',
+        probabilidadGolpeCritico: 'probabilidad golpe crítico',
+        danioGolpeCritico: 'daño golpe crítico',
+        probabilidadAbrumar: 'probabilidad abrumar',
+        danioAbrumador: 'daño abrumador',
+        danioContraEnemigosVulnerables: 'daño contra enemigos vulnerables',
+        todoElDanio: 'todo el daño',
+        danioConSangrado: 'daño con sangrado',
+        danioConQuemadura: 'daño con quemadura',
+        danioConVeneno: 'daño con veneno',
+        danioConCorrupcion: 'daño con corrupción',
+        danioVsEnemigosElite: 'daño vs enemigos elite',
+        danioVsEnemigosSaludables: 'daño vs enemigos saludables',
+        espinas: 'espinas'
+      },
+      armaduraYResistencias: {
+        aguante: 'aguante',
+        armadura: 'armadura',
+        resistenciaDanioFisico: 'resistencia al daño físico',
+        resistenciaFuego: 'resistencia al fuego',
+        resistenciaRayo: 'resistencia al rayo',
+        resistenciaFrio: 'resistencia al frío',
+        resistenciaVeneno: 'resistencia al veneno',
+        resistenciaSombra: 'resistencia a la sombra'
+      },
+      utilidad: {
+        maximoFe: 'máximo fe',
+        reduccionCostoFe: 'reducción costo fe',
+        regeneracionFe: 'regeneración fe',
+        feConCadaEliminacion: 'fe con cada eliminación',
+        velocidadMovimiento: 'velocidad movimiento',
+        reduccionRecuperacion: 'reducción recuperación',
+        bonificacionProbabilidadGolpeAfortunado: 'golpe afortunado',
+        bonificacionExperiencia: 'bonificación experiencia'
+      },
+      jcj: {
+        reduccionDanio: 'reducción daño'
+      },
+      moneda: {
+        oro: 'oro',
+        polvoRojo: 'polvo rojo',
+        marcasPalidas: 'marcas pálidas',
+        monedasDelAlcazar: 'monedas alcázar',
+        favor: 'favor',
+        carneFresca: 'carne fresca'
+      }
+    };
+
+    const next = new Map(baseHeroStats);
+
+    const sections = Object.keys(mapBySection);
+    sections.forEach((sectionKey) => {
+      const sectionData: any = (estadisticas as any)[sectionKey];
+      if (!sectionData || typeof sectionData !== 'object' || Array.isArray(sectionData)) return;
+
+      const detailGroups = new Map<string, any[]>();
+      const details = Array.isArray(sectionData.detalles) ? sectionData.detalles : [];
+
+      details.forEach((detail: any) => {
+        const candidates = [
+          detail?.atributo_ref,
+          detail?.stat_key,
+          detail?.campo,
+          detail?.id,
+          detail?.atributo_nombre,
+          detail?.nombre_atributo,
+          detail?.atributo,
+          detail?.stat_name
+        ].filter(Boolean);
+
+        let key = '';
+        if (candidates.length > 0) {
+          key = normalize(String(candidates[0]));
+        } else if (typeof detail?.texto === 'string' && detail.texto.includes(':')) {
+          key = normalize(detail.texto.split(':')[0]);
+        }
+
+        if (!key) return;
+        const existing = detailGroups.get(key) || [];
+        existing.push(detail);
+        detailGroups.set(key, existing);
+      });
+
+      Object.entries(mapBySection[sectionKey]).forEach(([fieldKey, lookupLabel]) => {
+        const normalizedField = normalize(fieldKey);
+        const normalizedLabel = normalize(lookupLabel);
+        const fieldDetails = detailGroups.get(normalizedField) || detailGroups.get(normalizedLabel) || [];
+
+        const current = next.get(lookupLabel);
+        const descripcionFromSection = sectionKey === 'personaje' && fieldKey === 'aguante'
+          ? sectionData.aguante_definicion
+          : undefined;
+
+        if (!current && fieldDetails.length === 0 && !descripcionFromSection) return;
+
+        next.set(lookupLabel, {
+          id: current?.id || `temp_${sectionKey}_${fieldKey}`,
+          nombre: current?.nombre || lookupLabel,
+          categoria: (current?.categoria || sectionKey) as any,
+          tipo_valor: current?.tipo_valor || 'texto',
+          ...current,
+          descripcion: descripcionFromSection || current?.descripcion,
+          detalles: fieldDetails.length > 0 ? fieldDetails : current?.detalles
+        });
+      });
+
+      // Obolos (actual/máximo) comparten tooltip
+      if (sectionKey === 'moneda' && sectionData.obolos) {
+        const obolosDetails = detailGroups.get(normalize('obolos')) || [];
+        if (obolosDetails.length > 0) {
+          const current = next.get('obolos');
+          next.set('obolos', {
+            id: current?.id || 'temp_moneda_obolos',
+            nombre: current?.nombre || 'obolos',
+            categoria: (current?.categoria || 'moneda') as any,
+            tipo_valor: current?.tipo_valor || 'texto',
+            ...current,
+            detalles: obolosDetails
+          });
+        }
+      }
+    });
+
+    setHeroStats(next);
+  }, [estadisticas, baseHeroStats]);
 
   // Convertir formato V2 a V1 (formato interno actual)
   const convertV2ToV1 = (v2Data: any): { stats: Estadisticas; nivel?: number; nivelParagon?: number } => {
@@ -70,6 +239,35 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
     // Formato V2 detectado - convertir a V1
     const v2Stats = v2Data.estadisticas;
+
+    // === Rama principal: secciones camelCase objeto (puede venir parcial: solo ofensivo, solo defensivo, etc.) ===
+    const hasObjectSections =
+      !!v2Stats.personaje ||
+      !!v2Stats.atributosPrincipales ||
+      (!!v2Stats.defensivo && !Array.isArray(v2Stats.defensivo)) ||
+      (!!v2Stats.ofensivo && !Array.isArray(v2Stats.ofensivo)) ||
+      (!!v2Stats.utilidad && !Array.isArray(v2Stats.utilidad)) ||
+      !!v2Stats.armaduraYResistencias ||
+      !!v2Stats.jcj ||
+      !!v2Stats.moneda;
+
+    if (hasObjectSections) {
+      const stats: Estadisticas = {};
+      if (v2Stats.personaje) stats.personaje = v2Stats.personaje;
+      if (v2Stats.atributosPrincipales) stats.atributosPrincipales = v2Stats.atributosPrincipales;
+      if (v2Stats.defensivo && !Array.isArray(v2Stats.defensivo)) stats.defensivo = v2Stats.defensivo;
+      if (v2Stats.ofensivo && !Array.isArray(v2Stats.ofensivo)) stats.ofensivo = v2Stats.ofensivo;
+      if (v2Stats.utilidad && !Array.isArray(v2Stats.utilidad)) stats.utilidad = v2Stats.utilidad;
+      if (v2Stats.armaduraYResistencias) stats.armaduraYResistencias = v2Stats.armaduraYResistencias;
+      if (v2Stats.jcj) stats.jcj = v2Stats.jcj;
+      if (v2Stats.moneda) stats.moneda = v2Stats.moneda;
+      return {
+        stats,
+        nivel: v2Stats.atributosPrincipales?.nivel,
+        nivelParagon: v2Data.nivel_paragon
+      };
+    }
+
     const convertedStats: Estadisticas = {};
 
     // Extraer nivel del personaje (puede venir como objeto o como número)
@@ -358,6 +556,33 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
     setImporting(true);
     try {
+      const mergeSection = (current: any, incoming: any) => {
+        if (!current && !incoming) return undefined;
+        const base = { ...(current || {}), ...(incoming || {}) };
+
+        const currentDetails = Array.isArray(current?.detalles) ? current.detalles : [];
+        const incomingDetails = Array.isArray(incoming?.detalles) ? incoming.detalles : [];
+        if (currentDetails.length > 0 || incomingDetails.length > 0) {
+          base.detalles = [...currentDetails, ...incomingDetails];
+        }
+
+        const currentKeywords = Array.isArray(current?.palabras_clave) ? current.palabras_clave : [];
+        const incomingKeywords = Array.isArray(incoming?.palabras_clave) ? incoming.palabras_clave : [];
+        if (currentKeywords.length > 0 || incomingKeywords.length > 0) {
+          base.palabras_clave = Array.from(new Set([...currentKeywords, ...incomingKeywords]));
+        }
+
+        return base;
+      };
+
+      const mergeMoneda = (current: any, incoming: any) => {
+        const merged = mergeSection(current, incoming) || {};
+        if (current?.obolos || incoming?.obolos) {
+          merged.obolos = { ...(current?.obolos || {}), ...(incoming?.obolos || {}) };
+        }
+        return merged;
+      };
+
       const JSONObjects = parseMultipleJSON(pendingImportData);
       let mergedStats: Estadisticas = { ...estadisticas };
       let extractedNivel: number | undefined;
@@ -379,14 +604,14 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
         
         // Merge progresivo
         mergedStats = {
-          personaje: { ...mergedStats.personaje, ...stats.personaje },
-          atributosPrincipales: { ...mergedStats.atributosPrincipales, ...stats.atributosPrincipales },
-          defensivo: { ...mergedStats.defensivo, ...stats.defensivo },
-          ofensivo: { ...mergedStats.ofensivo, ...stats.ofensivo },
-          utilidad: { ...mergedStats.utilidad, ...stats.utilidad },
-          armaduraYResistencias: { ...mergedStats.armaduraYResistencias, ...stats.armaduraYResistencias },
-          jcj: { ...mergedStats.jcj, ...stats.jcj },
-          moneda: { ...mergedStats.moneda, ...stats.moneda },
+          personaje: mergeSection(mergedStats.personaje, stats.personaje),
+          atributosPrincipales: mergeSection(mergedStats.atributosPrincipales, stats.atributosPrincipales),
+          defensivo: mergeSection(mergedStats.defensivo, stats.defensivo),
+          ofensivo: mergeSection(mergedStats.ofensivo, stats.ofensivo),
+          utilidad: mergeSection(mergedStats.utilidad, stats.utilidad),
+          armaduraYResistencias: mergeSection(mergedStats.armaduraYResistencias, stats.armaduraYResistencias),
+          jcj: mergeSection(mergedStats.jcj, stats.jcj),
+          moneda: mergeMoneda(mergedStats.moneda, stats.moneda),
         };
 
         // Extraer nivel si existe
@@ -414,6 +639,9 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
       setEstadisticas(mergedStats);
       onChange(mergedStats, extractedNivel, extractedNivelParagon, statsRefs);
+
+      // Refrescar metadatos del héroe para tooltips inmediatamente
+      await loadHeroStats();
       
       setJsonText('');
       setShowTextInput(false);
@@ -442,7 +670,12 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   }, [estadisticas]);
 
   const handleCopyPrompt = async () => {
-    const prompt = ImageExtractionPromptService.generateStatsPromptV2();
+    const count = parseInt(promptElementCount, 10);
+    const prompt = ImageExtractionPromptService.withElementLimit(
+      ImageExtractionPromptService.generateStatsPrompt(),
+      Number.isFinite(count) ? count : undefined,
+      'atributos de estadísticas'
+    );
     const success = await ImageExtractionPromptService.copyToClipboard(prompt);
     if (success) {
       setCopied(true);
@@ -585,23 +818,34 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             placeholder='{"personaje": {"danioArma": 595, "aguante": 52619}, ...}'
           />
           <div className="flex justify-between items-center gap-2">
-            <button
-              onClick={handleCopyPrompt}
-              className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
-              title="Copiar prompt para extraer estadísticas de imágenes usando IA"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  ¡Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Prompt IA
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyPrompt}
+                className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
+                title="Copiar prompt para extraer estadísticas de imágenes usando IA"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    ¡Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Prompt IA
+                  </>
+                )}
+              </button>
+              <input
+                type="number"
+                min="1"
+                value={promptElementCount}
+                onChange={(e) => setPromptElementCount(e.target.value)}
+                className="input text-xs py-1 px-2 w-20"
+                placeholder="#"
+                title="Cantidad de elementos a extraer (opcional)"
+              />
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setShowTextInput(false)} className="btn-secondary text-xs py-1 px-2">
                 Cancelar

@@ -1,0 +1,22 @@
+{
+  "aspectos_equipados": [
+    {
+      "aspecto_id": "aspecto_retribucion",
+      "nivel_actual": "5/21",
+      "slot_equipado": "Amuleto",
+      "valores_actuales": {
+        "probabilidad_bloqueo": "15%",
+        "danio_rayo": "300%"
+      }
+    },
+    {
+      "aspecto_id": "aspecto_hierro_sagrado",
+      "nivel_actual": "7/21",
+      "slot_equipado": "Pecho",
+      "valores_actuales": {
+        "reduccion_por_enemigo": "10%",
+        "reduccion_maxima": "50%"
+      }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "estadisticas": {
+    "personaje": {
+      "danioArma": 496,
+      "aguante": 52619,
+      "aguante_definicion": "El Aguante es una aproximación de tu capacidad de supervivencia para cada tipo de daño basada en tu vida, armadura, resistencias y otras fuentes de reducción de daño.",
+      "detalles": [
+        {
+          "texto": "Armadura: 18995",
+          "valor": 18995,
+          "contribucion": null,
+          "palabras_clave": []
+        }
+      ],
+      "palabras_clave": [
+        "reduccion_de_danio"
+      ]
+    },
+    "atributosPrincipales": {
+      "nivel": 60,
+      "fuerza": 1670,
+      "inteligencia": 208,
+      "detalles": [
+        {
+          "texto": "Aumenta la probabilidad de golpe crítico en +4.2 %",
+          "palabras_clave": [
+            "golpe_critico"
+          ]
+        }
+      ],
+      "palabras_clave": [
+        "golpe_critico"
+      ]
+    },
+    "defensivo": {
+      "vidaMaxima": 7581,
+      "detalles": [],
+      "palabras_clave": []
+    },
+    "ofensivo": {
+      "probabilidadGolpeCritico": 15,
+      "danioGolpeCritico": 194,
+      "danioContraEnemigosVulnerables": 80,
+      "detalles": [
+        {
+          "texto": "Bonificación de daño contra enemigos vulnerables: 80.0%",
+          "palabras_clave": [
+            "vulnerables"
+          ]
+        }
+      ],
+      "palabras_clave": [
+        "vulnerables",
+        "golpe_critico"
+      ]
+    },
+    "armaduraYResistencias": {
+      "aguante": 52619,
+      "armadura": 18995,
+      "resistenciaDanioFisico": 759,
+      "resistenciaFuego": 759,
+      "resistenciaRayo": 759,
+      "resistenciaFrio": 759,
+      "resistenciaVeneno": 1277,
+      "resistenciaSombra": 1693,
+      "detalles": [],
+      "palabras_clave": [
+        "reduccion_de_danio"
+      ]
+    },
+    "utilidad": {
+      "velocidadMovimiento": 0,
+      "detalles": [],
+      "palabras_clave": []
+    },
+    "moneda": {
+      "oro": "380M",
+      "obolos": {
+        "actual": 1618,
+        "maximo": 2500
+      },
+      "polvoRojo": 2768,
+      "marcasPalidas": 1180,
+      "monedasDelAlcazar": 890,
+      "favor": 99,
+      "carneFresca": "17.9k"
+    }
+  },
+  "palabras_clave": [
+    {
+      "tag": "vulnerables",
+      "texto_original": "vulnerables",
+      "significado": "Estado que hace que los enemigos reciban más daño de todas las fuentes.",
+      "categoria": "condicion",
+      "fuente": "estadistica"
+    },
+    {
+      "tag": "golpe_critico",
+      "texto_original": "golpe crítico",
+      "significado": "Probabilidad de realizar un ataque crítico que causa más daño.",
+      "categoria": "atributo",
+      "fuente": "estadistica"
+    }
+  ]
+}

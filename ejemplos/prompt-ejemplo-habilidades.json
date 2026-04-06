@@ -1,0 +1,85 @@
+{
+  "habilidades_activas": [
+    {
+      "id": "skill_activa_choque",
+      "nombre": "Choque",
+      "tipo_habilidad": "skill",
+      "tipo": "Básica",
+      "rama": "Leviatán",
+      "nivel_actual": 1,
+      "nivel_maximo": 5,
+      "descripcion": "Golpeas a un enemigo con tu arma y escudo, lo que inflige 2007 de daño.",
+      "tipo_danio": "Daño físico",
+      "requiere": "Un escudo",
+      "genera_recurso": {
+        "tipo": "Fe",
+        "cantidad": 20
+      },
+      "modificadores": [
+        {
+          "id": "mod_choque_potenciado",
+          "nombre": "Choque Potenciado",
+          "tipo_habilidad": "modificador",
+          "descripcion": "Cada vez que lanzas Choque, obtienes Marcha del Guerrero Divino durante 6 segundos.",
+          "tags": [
+            "marcha_del_guerrero_divino"
+          ]
+        },
+        {
+          "id": "mod_choque_castigo",
+          "nombre": "Castigo",
+          "tipo_habilidad": "modificador",
+          "descripcion": "Te envalentonas durante la Marcha del Guerrero Divino.",
+          "tags": [
+            "espinas",
+            "retribucion"
+          ]
+        }
+      ],
+      "tags": [
+        "escudo",
+        "danio_fisico"
+      ]
+    }
+  ],
+  "habilidades_pasivas": [
+    {
+      "id": "skill_pasiva_en_guardia",
+      "nombre": "En Guardia",
+      "tipo_habilidad": "pasiva",
+      "tipo": "Pasiva",
+      "rama": "Leviatán",
+      "nivel": 3,
+      "nivel_maximo": 3,
+      "efecto": "Obtienes un 30% más de armadura y un 15% más de probabilidad de bloqueo.",
+      "puntos_asignados": 3,
+      "tags": [
+        "armadura",
+        "bloqueo"
+      ]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "marcha_del_guerrero_divino",
+      "texto_original": "Marcha del Guerrero Divino",
+      "significado": null,
+      "categoria": "efecto",
+      "fuente": "habilidad"
+    },
+    {
+      "tag": "espinas",
+      "texto_original": "Espinas",
+      "significado": "Daño devuelto a los atacantes cuando te golpean.",
+      "categoria": "mecanica",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "bloqueo",
+      "texto_original": "bloqueo",
+      "significado": "Probabilidad de bloquear parte o todo el daño recibido.",
+      "categoria": "defensivo",
+      "fuente": "tooltip"
+    }
+  ]
+}

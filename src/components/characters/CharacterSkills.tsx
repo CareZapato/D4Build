@@ -32,6 +32,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [jsonText, setJsonText] = useState('');
+  const [promptElementCount, setPromptElementCount] = useState('');
   const [modalType, setModalType] = useState<'activa' | 'pasiva'>('activa');
   const [copied, setCopied] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -576,7 +577,12 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
 
   // Gestión de modificadores
   const handleCopyPrompt = async () => {
-    const prompt = ImageExtractionPromptService.generateFullSkillsPrompt();
+    const count = parseInt(promptElementCount, 10);
+    const prompt = ImageExtractionPromptService.withElementLimit(
+      ImageExtractionPromptService.generateFullSkillsPrompt(),
+      Number.isFinite(count) ? count : undefined,
+      'habilidades'
+    );
     const success = await ImageExtractionPromptService.copyToClipboard(prompt);
     if (success) {
       setCopied(true);
@@ -642,23 +648,34 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
             placeholder='{"habilidades_activas": [...], "habilidades_pasivas": [...]}'
           />
           <div className="flex justify-between items-center gap-2">
-            <button
-              onClick={handleCopyPrompt}
-              className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
-              title="Copiar prompt para extraer datos de imágenes usando IA"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  ¡Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Prompt IA
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyPrompt}
+                className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
+                title="Copiar prompt para extraer datos de imágenes usando IA"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    ¡Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Prompt IA
+                  </>
+                )}
+              </button>
+              <input
+                type="number"
+                min="1"
+                value={promptElementCount}
+                onChange={(e) => setPromptElementCount(e.target.value)}
+                className="input text-xs py-1 px-2 w-20"
+                placeholder="#"
+                title="Cantidad de elementos a extraer (opcional)"
+              />
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setShowTextInput(false)} className="btn-secondary text-xs py-1 px-2">
                 Cancelar

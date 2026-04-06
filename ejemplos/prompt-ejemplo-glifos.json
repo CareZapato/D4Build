@@ -1,0 +1,48 @@
+{
+  "glifos": [
+    {
+      "id": "glifo_centinela",
+      "nombre": "Centinela",
+      "rareza": "Raro",
+      "estado": "Encontrado",
+      "tamano_radio": 3,
+      "nivel_requerido": 1,
+      "atributo_escalado": {
+        "atributo": "Fuerza",
+        "cada": 5,
+        "bonificacion": "+2.0% más de daño de Leviatán"
+      },
+      "bonificacion_adicional": {
+        "descripcion": "Infliges un 1.5% más de daño por cada acumulación de Determinación que tengas.",
+        "requisito": {
+          "atributo": "Fuerza",
+          "valor_requerido": 40
+        }
+      },
+      "bonificacion_legendaria": {
+        "descripcion": "Infliges un 6.0% más de daño a los enemigos cercanos.",
+        "requiere_mejora": "Legendario nivel 45"
+      },
+      "tags": [
+        "determinacion",
+        "danio_cercano"
+      ]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "determinacion",
+      "texto_original": "Determinación",
+      "significado": null,
+      "categoria": "mecanica",
+      "fuente": "glifo"
+    },
+    {
+      "tag": "danio_cercano",
+      "texto_original": "enemigos cercanos",
+      "significado": null,
+      "categoria": "ofensivo",
+      "fuente": "glifo"
+    }
+  ]
+}

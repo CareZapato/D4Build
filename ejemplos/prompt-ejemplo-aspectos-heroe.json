@@ -1,0 +1,52 @@
+{
+  "aspectos": [
+    {
+      "id": "aspecto_retribucion",
+      "name": "Aspecto de Retribución",
+      "shortName": "de Retribución",
+      "effect": "El Bloqueo tiene un 15% de probabilidad de arrojar un rayo sagrado que inflige 300% de daño a enemigos.",
+      "level": "1/21",
+      "category": "ofensivo",
+      "tags": [
+        "bloqueo",
+        "rayo_sagrado",
+        "danio"
+      ]
+    },
+    {
+      "id": "aspecto_hierro_sagrado",
+      "name": "Aspecto de Hierro Sagrado",
+      "shortName": "de Hierro Sagrado",
+      "effect": "Ganas un 10% de reducción de daño por cada enemigo cercano, hasta un máximo del 50%.",
+      "level": "1/21",
+      "category": "defensivo",
+      "tags": [
+        "reduccion_de_danio",
+        "enemigo_cercano"
+      ]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "bloqueo",
+      "texto_original": "Bloqueo",
+      "significado": "Probabilidad de bloquear parte o todo el daño recibido.",
+      "categoria": "defensivo",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "rayo_sagrado",
+      "texto_original": "rayo sagrado",
+      "significado": null,
+      "categoria": "tipo_de_danio",
+      "fuente": "aspecto"
+    },
+    {
+      "tag": "reduccion_de_danio",
+      "texto_original": "reducción de daño",
+      "significado": "Reduce el daño recibido de las fuentes de ataque.",
+      "categoria": "defensivo",
+      "fuente": "tooltip"
+    }
+  ]
+}

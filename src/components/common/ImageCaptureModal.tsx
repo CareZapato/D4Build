@@ -47,6 +47,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [jsonText, setJsonText] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [selectedClase, setSelectedClase] = useState<string>('');
+  const [promptElementCount, setPromptElementCount] = useState<string>('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,6 +92,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setShowGallery(false);
     }
   }, [isOpen]);
+
+  // Estadísticas es siempre para personaje
+  useEffect(() => {
+    if (selectedCategory === 'estadisticas') {
+      setPromptType('personaje');
+    }
+  }, [selectedCategory]);
 
   // Manejar paste desde clipboard
   useEffect(() => {
@@ -545,12 +553,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const getPromptForCategory = (): string => {
     let basePrompt = '';
+    const manualCount = parseInt(promptElementCount, 10);
+    const parsedManualCount = Number.isFinite(manualCount) ? manualCount : undefined;
     
     // Determinar qué prompts usar según el tipo (héroe o personaje)
     switch (selectedCategory) {
       case 'skills':
-        basePrompt = ImageExtractionPromptService.generateActiveSkillsPrompt() + '\n\n' + 
-               ImageExtractionPromptService.generatePassiveSkillsPrompt();
+        basePrompt = ImageExtractionPromptService.generateFullSkillsPrompt();
         break;
       case 'glifos':
         basePrompt = ImageExtractionPromptService.generateGlyphsPrompt();
@@ -578,20 +587,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
     }
     
-    // Agregar cantidad de elementos al final del prompt
-    const elementCount = getElementCount();
-    if (elementCount > 0) {
-      const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
-      basePrompt += `\n\n---\n**IMPORTANTE**: Esta imagen contiene aproximadamente ${elementCount} ${categoryLabel.toLowerCase()} ${elementCount === 1 ? '' : 'diferentes'}. Asegúrate de extraer TODOS los elementos visibles en la imagen.`;
-    }
+    const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+    basePrompt = ImageExtractionPromptService.withElementLimit(
+      basePrompt,
+      parsedManualCount,
+      categoryLabel.toLowerCase()
+    );
     
     return basePrompt;
   };
 
   // Generar prompt resumido para embeber en la imagen
   const getShortPrompt = (): string => {
-    const elementCount = getElementCount();
-    
+    const manualCount = parseInt(promptElementCount, 10);
+    const parsedManualCount = Number.isFinite(manualCount) ? manualCount : undefined;
+    const countPrefix = parsedManualCount ? `${parsedManualCount} ` : '';
+
     let contextLine = '';
     if (promptType === 'personaje' && selectedPersonajeId) {
       const personaje = personajes.find(p => p.id === selectedPersonajeId);
@@ -599,29 +610,29 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         contextLine = `PERSONAJE: ${personaje.nombre} (${personaje.clase} Nv.${personaje.nivel})\\n`;
       }
     }
-    
+
     let prompt = '';
     switch (selectedCategory) {
       case 'skills':
-        prompt = `${contextLine}EXTRAE ${elementCount} HABILIDADES de Diablo 4 en JSON:\\n- Habilidades activas: id, nombre, tipo, rama, nivel, descripción, modificadores, tags\\n- Habilidades pasivas: id, nombre, tipo, nivel, efecto, tags\\n- Tags estructurados: solo palabras BLANCAS/SUBRAYADAS del juego\\n- Formato: {habilidades_activas:[], habilidades_pasivas:[], palabras_clave:[]}`;
+        prompt = `${contextLine}EXTRAE ${countPrefix}HABILIDADES de Diablo 4 en JSON:\\n- Activas: id, nombre, tipo_habilidad, tipo, rama, nivel_actual, nivel_maximo, descripcion, modificadores, tags\\n- Pasivas: id, nombre, tipo_habilidad, tipo, rama, nivel, nivel_maximo, efecto, puntos_asignados, tags\\n- Formato: {habilidades_activas:[], habilidades_pasivas:[], palabras_clave:[]}`;
         break;
       case 'glifos':
-        prompt = `${contextLine}EXTRAE ${elementCount} GLIFOS de Diablo 4 en JSON:\\n- Por glifo: id, nombre, rareza, nivel, efecto_base, atributo_escalado, bonificacion_adicional, bonificacion_legendaria, tags\\n- Tags: solo palabras BLANCAS/SUBRAYADAS\\n- Formato: {glifos:[], palabras_clave:[]}`;
+        prompt = `${contextLine}EXTRAE ${countPrefix}GLIFOS de Diablo 4 en JSON:\\n- Por glifo: id, nombre, rareza, estado, tamano_radio, atributo_escalado, bonificacion_adicional, bonificacion_legendaria, tags\\n- Formato: {glifos:[], palabras_clave:[]}`;
         break;
       case 'aspectos':
         if (promptType === 'personaje') {
-          prompt = `${contextLine}EXTRAE ${elementCount} ASPECTOS EQUIPADOS en JSON:\\n- Por aspecto: aspecto_id, nivel_actual (X/21), slot_equipado, valores_actuales\\n- Valores EXACTOS según el nivel mostrado\\n- Formato: {aspectos_equipados:[]}`;
+          prompt = `${contextLine}EXTRAE ${countPrefix}ASPECTOS EQUIPADOS en JSON:\\n- Por aspecto: aspecto_id, nivel_actual (X/21), slot_equipado, valores_actuales\\n- Valores EXACTOS según el nivel mostrado\\n- Formato: {aspectos_equipados:[]}`;
         } else {
-          prompt = `${contextLine}EXTRAE ${elementCount} ASPECTOS de Diablo 4 en JSON:\\n- Por aspecto: id, name, shortName, effect, level, category, keywords, tags\\n- Categories: ofensivo, defensivo, movilidad, recurso, utilidad\\n- Formato: {aspectos:[]}`;
+          prompt = `${contextLine}EXTRAE ${countPrefix}ASPECTOS de Diablo 4 en JSON:\\n- Por aspecto: id, name, shortName, effect, level, category, tags\\n- Categories: ofensivo, defensivo, movilidad, recurso, utilidad\\n- Formato: {aspectos:[], palabras_clave:[]}`;
         }
         break;
       case 'estadisticas':
-        prompt = `${contextLine}EXTRAE ESTADÍSTICAS COMPLETAS en JSON:\\n- Secciones: personaje, atributosPrincipales, defensivo, ofensivo, utilidad, armaduraYResistencias\\n- Incluir nivel_paragon en raíz y nivel en atributosPrincipales\\n- Tags: palabras BLANCAS/SUBRAYADAS\\n- Formato: {nivel_paragon, atributosPrincipales:{nivel,...}, personaje:{}, ...}`;
+        prompt = `${contextLine}EXTRAE ${countPrefix}ESTADÍSTICAS DEL PERSONAJE en JSON:\\n- Formato: {estadisticas:{personaje, atributosPrincipales, defensivo, ofensivo, armaduraYResistencias, utilidad, moneda}, palabras_clave:[]}\\n- Incluye detalles visibles por sección y palabras_clave cuando aparezcan\\n- Si ves Aguante, agrega aguante_definicion\\n- Respeta exactamente los nombres del JSON esperado`;
         break;
       default:
-        prompt = `${contextLine}EXTRAE ${elementCount} elementos en formato JSON estructurado`;
+        prompt = `${contextLine}EXTRAE ${countPrefix}elementos en formato JSON estructurado`;
     }
-    
+
     return prompt;
   };
 
@@ -711,39 +722,136 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
 
         switch (selectedCategory) {
-          case 'skills':
+          case 'skills': {
             if (data.habilidades_activas || data.habilidades_pasivas) {
-              // Convertir a referencias
-              const activasRefs = (data.habilidades_activas || []).map((h: any) => h.id);
-              const pasivasRefs = (data.habilidades_pasivas || []).map((h: any) => h.id);
-              
+              const newActivas: any[] = data.habilidades_activas || [];
+              const newPasivas: any[] = data.habilidades_pasivas || [];
+
+              // 1. Guardar en héroe primero (igual que CharacterSkills.applyImportChanges)
+              const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase) || { habilidades_activas: [], habilidades_pasivas: [] };
+
+              newActivas.forEach((skill: any) => {
+                const idx = heroSkills.habilidades_activas.findIndex((s: any) => s.nombre === skill.nombre);
+                const skillId = idx >= 0 ? heroSkills.habilidades_activas[idx].id : (skill.id || `skill_activa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                const mods = (skill.modificadores || []).map((mod: any) => {
+                  const existingMod = idx >= 0 ? heroSkills.habilidades_activas[idx].modificadores?.find((m: any) => m.nombre === mod.nombre) : undefined;
+                  return { ...mod, id: mod.id || existingMod?.id || `mod_${skillId}_${mod.nombre}`.replace(/\s+/g, '_').toLowerCase() + `_${Date.now()}` };
+                });
+                const skillWithId = { ...skill, id: skillId, modificadores: mods };
+                if (idx >= 0) heroSkills.habilidades_activas[idx] = skillWithId;
+                else heroSkills.habilidades_activas.push(skillWithId);
+              });
+
+              newPasivas.forEach((skill: any) => {
+                const idx = heroSkills.habilidades_pasivas.findIndex((s: any) => s.nombre === skill.nombre);
+                const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                const skillWithId = { ...skill, id: skillId };
+                if (idx >= 0) heroSkills.habilidades_pasivas[idx] = skillWithId;
+                else heroSkills.habilidades_pasivas.push(skillWithId);
+              });
+
+              await WorkspaceService.saveHeroSkills(personaje.clase, heroSkills);
+
+              // 2. Crear refs correctas con formato {skill_id, modificadores_ids, nivel_actual}
+              const activasRefs = newActivas.map((skill: any) => {
+                const heroSkill = heroSkills.habilidades_activas.find((s: any) => s.nombre === skill.nombre);
+                if (!heroSkill?.id) return null;
+                const modificadoresIds = (skill.modificadores || [])
+                  .map((mod: any) => heroSkill.modificadores?.find((m: any) => m.nombre === mod.nombre)?.id)
+                  .filter(Boolean);
+                return { skill_id: heroSkill.id, modificadores_ids: modificadoresIds, nivel_actual: skill.nivel_actual ?? skill.nivel ?? 1 };
+              }).filter(Boolean);
+
+              const pasivasRefs = newPasivas.map((skill: any) => {
+                const heroSkill = heroSkills.habilidades_pasivas.find((s: any) => s.nombre === skill.nombre);
+                if (!heroSkill?.id) return null;
+                return { skill_id: heroSkill.id, puntos_asignados: skill.puntos_asignados ?? skill.nivel ?? 0 };
+              }).filter(Boolean);
+
+              // 3. Merge sin duplicar
+              const existingActiveIds = new Set((personaje.habilidades_refs?.activas || []).map((r: any) => r.skill_id));
+              const existingPassiveIds = new Set((personaje.habilidades_refs?.pasivas || []).map((r: any) => typeof r === 'string' ? r : r.skill_id));
+
               personaje.habilidades_refs = {
-                activas: [...(personaje.habilidades_refs?.activas || []), ...activasRefs],
-                pasivas: [...(personaje.habilidades_refs?.pasivas || []), ...pasivasRefs]
+                activas: [...(personaje.habilidades_refs?.activas || []), ...activasRefs.filter((r: any): r is NonNullable<typeof r> => r !== null && !existingActiveIds.has(r.skill_id))],
+                pasivas: [...(personaje.habilidades_refs?.pasivas || []), ...pasivasRefs.filter((r: any): r is NonNullable<typeof r> => r !== null && !existingPassiveIds.has(r.skill_id))]
               };
-              
+
+              personaje.fecha_actualizacion = new Date().toISOString();
               await WorkspaceService.savePersonaje(personaje);
-              showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades agregadas a ${personaje.nombre}`, 'success');
+              showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades guardadas en ${personaje.nombre}`, 'success');
             }
             break;
-          case 'glifos':
+          }
+          case 'glifos': {
             if (data.glifos) {
-              const nuevosGlifos = data.glifos.map((g: any) => ({ id: g.id, nivel_actual: g.nivel || 1 }));
-              personaje.glifos_refs = [...(personaje.glifos_refs || []), ...nuevosGlifos];
-              
+              // 1. Guardar en héroe
+              const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase) || { glifos: [] };
+
+              (data.glifos as any[]).forEach((glyph: any) => {
+                const idx = heroGlyphs.glifos.findIndex((g: any) => g.nombre === glyph.nombre);
+                const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                const glyphWithId = { ...glyph, id: glyphId };
+                if (idx >= 0) heroGlyphs.glifos[idx] = glyphWithId;
+                else heroGlyphs.glifos.push(glyphWithId);
+              });
+
+              await WorkspaceService.saveHeroGlyphs(personaje.clase, heroGlyphs);
+
+              // 2. Crear refs correctas {id, nivel_actual}
+              const nuevosRefs = (data.glifos as any[]).map((glyph: any) => {
+                const heroGlyph = heroGlyphs.glifos.find((g: any) => g.nombre === glyph.nombre);
+                if (!heroGlyph?.id) return null;
+                return { id: heroGlyph.id, nivel_actual: glyph.nivel_actual ?? glyph.nivel ?? 1 };
+              }).filter(Boolean);
+
+              const existingRefIds = new Set((personaje.glifos_refs || []).map((r: any) => r.id as string));
+              personaje.glifos_refs = [
+                ...(personaje.glifos_refs || []),
+                ...nuevosRefs.filter((r: any): r is NonNullable<typeof r> => r !== null && !existingRefIds.has(r.id))
+              ] as any;
+
+              personaje.fecha_actualizacion = new Date().toISOString();
               await WorkspaceService.savePersonaje(personaje);
-              showToast(`✅ ${nuevosGlifos.length} glifos agregados a ${personaje.nombre}`, 'success');
+              showToast(`✅ ${nuevosRefs.length} glifos guardados en ${personaje.nombre}`, 'success');
             }
             break;
-          case 'aspectos':
-            if (data.aspectos_equipados) {
-              const aspectosRefs = data.aspectos_equipados.map((a: any) => a.aspecto_id);
-              personaje.aspectos_refs = [...(personaje.aspectos_refs || []), ...aspectosRefs];
-              
+          }
+          case 'aspectos': {
+            const aspectosData: any[] = data.aspectos_equipados || data.aspectos || [];
+            if (aspectosData.length > 0) {
+              // 1. Guardar en héroe (solo los que tienen datos completos, no solo refs)
+              const heroAspects = await WorkspaceService.loadHeroAspects(personaje.clase) || { aspectos: [] };
+
+              aspectosData.forEach((aspecto: any) => {
+                const nombre = aspecto.nombre || aspecto.name;
+                if (!nombre) return; // solo ref sin datos, skip
+                const idx = heroAspects.aspectos.findIndex((a: any) => a.id === aspecto.aspecto_id || a.nombre === nombre || a.name === nombre);
+                const aspectoId = idx >= 0 ? heroAspects.aspectos[idx].id : (aspecto.id || aspecto.aspecto_id || `aspecto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                const aspectoWithId = { ...aspecto, id: aspectoId };
+                if (idx >= 0) heroAspects.aspectos[idx] = aspectoWithId;
+                else heroAspects.aspectos.push(aspectoWithId);
+              });
+
+              await WorkspaceService.saveHeroAspects(personaje.clase, heroAspects);
+
+              // 2. Crear refs (IDs del héroe o aspecto_id original)
+              const aspectosRefs = aspectosData.map((a: any) => {
+                const heroAspecto = heroAspects.aspectos.find((ha: any) =>
+                  ha.id === a.aspecto_id || ha.nombre === a.nombre || ha.name === a.nombre
+                );
+                return heroAspecto?.id || a.aspecto_id || a.id;
+              }).filter(Boolean);
+
+              const existingIds = new Set<string>((personaje.aspectos_refs || []).map((id: any) => String(id)));
+              personaje.aspectos_refs = [...(personaje.aspectos_refs || []), ...aspectosRefs.filter((id: string) => !existingIds.has(id))];
+
+              personaje.fecha_actualizacion = new Date().toISOString();
               await WorkspaceService.savePersonaje(personaje);
-              showToast(`✅ ${aspectosRefs.length} aspectos agregados a ${personaje.nombre}`, 'success');
+              showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
             }
             break;
+          }
           case 'estadisticas': {
             // Normalizar: soporta formato V1 (flat con nivel_paragon en raíz) y
             // V2 (objeto con clave "estadisticas" que envuelve las secciones).
@@ -1104,24 +1212,26 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               {/* Panel de Prompt (lateral, colapsable) */}
               {showPromptPanel && (
-                <div className="bg-d4-bg p-4 rounded border border-d4-accent/30 flex flex-col">
-                  <h3 className="text-lg font-semibold text-d4-accent mb-4">
+                <div className="bg-d4-bg p-2 rounded border border-d4-accent/30 flex flex-col">
+                  <h3 className="text-sm font-bold text-d4-accent mb-2">
                     Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
                   </h3>
                   
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-d4-text mb-2">
-                      Tipo de extracción:
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-d4-text mb-1">
+                      Tipo:
                     </label>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => setPromptType('heroe')}
-                        className={`px-3 py-1.5 rounded text-sm font-semibold ${
-                          promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
-                        }`}
-                      >
-                        Héroe
-                      </button>
+                      {selectedCategory !== 'estadisticas' && (
+                        <button
+                          onClick={() => setPromptType('heroe')}
+                          className={`px-3 py-1.5 rounded text-sm font-semibold ${
+                            promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                          }`}
+                        >
+                          Héroe
+                        </button>
+                      )}
                       <button
                         onClick={() => setPromptType('personaje')}
                         className={`px-3 py-1.5 rounded text-sm font-semibold ${
@@ -1135,9 +1245,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   {/* Selector de clase (solo si tipo = heroe) */}
                   {promptType === 'heroe' && (
-                    <div className="mb-4">
-                      <label className="block text-sm font-semibold text-d4-text mb-2">
-                        Clase del héroe:
+                    <div className="mb-2">
+                      <label className="block text-xs font-semibold text-d4-text mb-1">
+                        Clase:
                       </label>
                       <select
                         value={selectedClase}
@@ -1151,17 +1261,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           </option>
                         ))}
                       </select>
-                      <p className="text-xs text-d4-text-dim mt-1">
-                        Selecciona la clase del héroe para guardar los datos maestros
-                      </p>
                     </div>
                   )}
 
                   {/* Selector de personaje (solo si tipo = personaje) */}
                   {promptType === 'personaje' && (
-                    <div className="mb-4">
-                      <label className="block text-sm font-semibold text-d4-text mb-2">
-                        Personaje específico:
+                    <div className="mb-2">
+                      <label className="block text-xs font-semibold text-d4-text mb-1">
+                        Personaje:
                       </label>
                       <select
                         value={selectedPersonajeId || ''}
@@ -1179,15 +1286,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           <option value="" disabled>No hay personajes creados</option>
                         )}
                       </select>
-                      <p className="text-xs text-d4-text-dim mt-1">
-                        {personajes && personajes.length > 0 
-                          ? 'Opcional: Selecciona un personaje para agregar contexto al prompt'
-                          : 'Crea un personaje primero desde la sección Personajes'}
-                      </p>
                     </div>
                   )}
 
-                  <div className="bg-d4-surface p-4 rounded border border-d4-border max-h-[400px] overflow-y-auto flex-1">
+                  <div className="bg-d4-surface p-2 rounded border border-d4-border max-h-[220px] overflow-y-auto flex-1">
                     <pre className="text-xs text-d4-text whitespace-pre-wrap font-mono">
                       {getPromptForCategory()}
                     </pre>
@@ -1195,25 +1297,37 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   <button
                     onClick={copyPromptToClipboard}
-                    className="mt-4 btn-primary flex items-center gap-2 w-full justify-center"
+                    className="mt-2 btn-primary flex items-center gap-2 w-full justify-center"
                   >
                     <Copy className="w-4 h-4" />
                     {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
                   </button>
 
+                  <div className="mt-2">
+                    <label className="block text-xs font-semibold text-d4-text mb-1">
+                      Cantidad de elementos (opcional)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={promptElementCount}
+                      onChange={(e) => setPromptElementCount(e.target.value)}
+                      className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-xs"
+                      placeholder="Ej: 5"
+                      title="Si lo defines, el prompt extrae solo esa cantidad de elementos señalados"
+                    />
+                  </div>
+
                   {/* Área de importación de JSON */}
-                  <div className="mt-6 pt-6 border-t border-d4-border">
-                    <h4 className="text-sm font-semibold text-d4-accent mb-3">
-                      📥 Importar JSON Resultante
+                  <div className="mt-2 pt-2 border-t border-d4-border">
+                    <h4 className="text-xs font-semibold text-d4-accent mb-1">
+                      📥 Importar JSON
                     </h4>
-                    <p className="text-xs text-d4-text-dim mb-3">
-                      Pega el JSON resultado de ChatGPT aquí para agregarlo automáticamente a {promptType === 'heroe' ? 'los datos del héroe' : 'tu personaje'}
-                    </p>
                     <textarea
                       value={jsonText}
                       onChange={(e) => setJsonText(e.target.value)}
                       placeholder={`Pega el JSON aquí...${selectedCategory === 'skills' ? '\nEjemplo: {"habilidades_activas": [...], "habilidades_pasivas": [...]}' : selectedCategory === 'glifos' ? '\nEjemplo: {"glifos": [...]}' : selectedCategory === 'aspectos' ? (promptType === 'heroe' ? '\nEjemplo: {"aspectos": [...]}' : '\nEjemplo: {"aspectos_equipados": [...]}') : '\nEjemplo: {"nivel_paragon": 150, ...}'}`}
-                      className="w-full h-32 p-3 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-xs resize-none"
+                      className="w-full h-20 p-2 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-xs resize-none"
                     />
                     <button
                       onClick={handleImportJSON}
