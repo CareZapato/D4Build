@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">5 de Abril, 2026</p>
+                <p className="text-d4-text font-semibold">6 de Abril, 2026</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,173 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-purple-300 px-2 py-1 rounded">Nueva Funcionalidad Mayor</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Gestor de Captura de Imágenes */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                📸 Gestor de Captura de Imágenes
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Nueva herramienta completa para capturar, componer y gestionar imágenes del juego de forma eficiente
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Captura por categorías</strong>: Skills, Glifos, Aspectos, Estadísticas, Otros</li>
+                <li><strong>Pegar con Ctrl+V</strong>: Captura screenshots directamente desde el clipboard</li>
+                <li><strong>Dos modos de captura</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5">
+                    <li>🟢 <strong>Nuevo Elemento</strong>: Agrega a la derecha con espacio (elementos diferentes)</li>
+                    <li>🟣 <strong>Completar</strong>: Agrega abajo sin espacio (continúa elemento incompleto)</li>
+                  </ul>
+                </li>
+                <li><strong>Composición inteligente</strong>: Une múltiples capturas en una sola imagen</li>
+                <li><strong>Preview en tiempo real</strong>: Ve cómo quedará la imagen final mientras capturas (siempre visible)</li>
+                <li><strong>Guardado automático</strong>: Crea carpeta /img dentro de cada categoría</li>
+                <li><strong>Galería integrada</strong>: Visualiza todas las imágenes guardadas por categoría</li>
+                <li><strong>Copiar al portapapeles</strong>: Botón para copiar imagen compuesta y pegarla directamente en chat de IA</li>
+              </ul>
+            </div>
+
+            {/* Recomendaciones Inteligentes */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                💡 Recomendaciones Inteligentes por Categoría
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                El sistema ahora muestra recomendaciones específicas sobre cantidad de elementos por imagen:
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Habilidades</strong>: Máximo 3-4 por imagen (alta complejidad de atributos)</li>
+                <li><strong>Glifos</strong>: Máximo 5-6 por imagen (complejidad media)</li>
+                <li><strong>Aspectos</strong>: Máximo 4-5 por imagen (incluye keywords y tags)</li>
+                <li><strong>Estadísticas</strong>: 1 imagen completa con todas las pestañas verticales</li>
+              </ul>
+              <p className="text-xs text-d4-text-dim mt-2 bg-d4-surface p-2 rounded">
+                🎯 <strong>Beneficio</strong>: Evita saturar el contexto de la IA y mejora la precisión de la extracción JSON
+              </p>
+            </div>
+
+            {/* Generación de Prompts IA */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🤖 Generación de Prompts para IA
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Prompts reutilizables</strong>: Usa los mismos prompts de extracción que las secciones de personajes/héroes</li>
+                <li><strong>Por categoría</strong>: Genera el prompt correcto según el tipo de datos (skills, glifos, aspectos, estadísticas)</li>
+                <li><strong>Cantidad de elementos incluida</strong>: Al final del prompt se agrega automáticamente la cantidad de elementos detectados en la imagen
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Ejemplo: "Esta imagen contiene aproximadamente 3 habilidades. Asegúrate de extraer TODOS los elementos"</li>
+                    <li>Mejora significativamente la precisión de la extracción</li>
+                  </ul>
+                </li>
+                <li><strong>Copiar con un click</strong>: Botón para copiar prompt al portapapeles</li>
+                <li><strong>Integración completa</strong>: Compatible con el sistema de tags estructurados (V2)</li>
+              </ul>
+            </div>
+
+            {/* UX Mejorada */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2">
+                ✨ Mejoras de UX (Diseño Minimalista)
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Modal tabbed</strong>: 3 tabs (Captura | Prompt IA | Galería)</li>
+                <li><strong>Preview prominente</strong>: La imagen compuesta se muestra PRIMERO y en grande, siempre visible
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Reordenado: Preview → Controles → Lista de capturas</li>
+                    <li>Tooltip de instrucciones (icono ?) en lugar de panel expandido</li>
+                  </ul>
+                </li>
+                <li><strong>Barra de progreso minimalista</strong>: Ubicada al lado derecho de las pestañas
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Compacta: Muestra "3/4" + barra visual</li>
+                    <li>Tooltip con recomendaciones completas al hacer hover</li>
+                    <li>Colores: 🟢 Óptimo | 🟡 Riesgo | 🔴 Excedido</li>
+                    <li>Solo visible en tab "Captura"</li>
+                  </ul>
+                </li>
+                <li><strong>3 Botones horizontales de captura</strong>:
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>🟢 Nuevo Elemento (horizontal)</li>
+                    <li>🟣 Completar (vertical)</li>
+                    <li>🔵 Copiar Guardada (última imagen de la categoría)</li>
+                    <li>Todos a la misma altura, sin thumbnail visible</li>
+                    <li>Botón "Copiar Guardada" se activa solo cuando hay imágenes guardadas</li>
+                  </ul>
+                </li>
+                <li><strong>Carga automática de última imagen</strong>: Al cambiar de categoría se carga automáticamente la última imagen guardada</li>
+                <li><strong>Toast notifications</strong>: Mensajes no invasivos en lugar de alerts
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>✅ Verde: Guardado exitoso con ruta del archivo</li>
+                    <li>❌ Rojo: Errores con descripción</li>
+                    <li>Auto-desaparece en 5 segundos</li>
+                  </ul>
+                </li>
+                <li><strong>Contador en pestañas</strong>: Cada categoría muestra cantidad de imágenes guardadas (ej: "Galería (5)")</li>
+                <li><strong>Botón Copiar en galería</strong>: Icono de copiar al hacer hover sobre cada imagen guardada</li>
+                <li><strong>Botón destacado</strong>: Nuevo botón "Captura" en el sidebar con gradiente Purple/Blue</li>
+                <li><strong>Feedback visual mejorado</strong>: Lista de imágenes capturadas con thumbnails y estado</li>
+              </ul>
+            </div>
+
+            {/* Workflow mejorado */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2">
+                🎯 Workflow Optimizado (Diseño Minimalista)
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                El nuevo flujo minimalista enfoca en lo esencial:
+              </p>
+              <ol className="text-sm text-d4-text space-y-2 ml-4 list-decimal">
+                <li><strong>Preview grande</strong>: Lo primero que ves, actualización en tiempo real</li>
+                <li><strong>Barra de progreso compacta</strong>: Al lado de las pestañas (hover para detalles)</li>
+                <li><strong>3 botones de captura</strong>: Nuevo | Completar | Copiar Guardada</li>
+                <li><strong>Captura rápida</strong>: Win + Shift + S → Ctrl + V</li>
+                <li><strong>Guardar</strong>: Botón "Guardar Imagen Acumulada" (toast de confirmación)</li>
+                <li><strong>Reutilizar última</strong>: Botón "Copiar Guardada" para usar imagen anterior</li>
+                <li><strong>Prompt con contexto</strong>: Tab "Prompt IA" incluye cantidad de elementos</li>
+                <li><strong>Usar en IA</strong>: Copiar imagen → Pegar en chat + Copiar prompt → Pegar</li>
+              </ol>
+              <p className="text-xs text-d4-text-dim mt-3 bg-d4-surface p-2 rounded">
+                💡 <strong>Beneficio principal</strong>: Interfaz más limpia y rápida. Todo lo importante visible de inmediato, detalles en tooltips al hacer hover.
+              </p>
+            </div>
+
+            {/* Servicios y Arquitectura */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2">
+                🔧 Nuevos Servicios
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>ImageService</strong>: Gestión de almacenamiento de imágenes en FileSystem API
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>saveImage(): Guarda imagen con timestamp automático</li>
+                    <li>listImages(): Carga galería por categoría</li>
+                    <li>deleteImage(): Elimina imágenes</li>
+                    <li>ensureImgFolder(): Crea estructura de carpetas automáticamente</li>
+                  </ul>
+                </li>
+                <li><strong>Canvas API</strong>: Composición de múltiples imágenes en una sola
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Espaciado inteligente entre elementos</li>
+                    <li>Sin espacio entre partes de un mismo elemento</li>
+                    <li>Fondo blanco automático</li>
+                    <li>Exportación en PNG de alta calidad</li>
+                  </ul>
+                </li>
+                <li><strong>Clipboard API</strong>: Copiar imagen compuesta al portapapeles para usar en chats de IA</li>
+              </ul>
             </div>
           </div>
         </div>

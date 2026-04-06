@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Users, Shield, Sparkles, Tag } from 'lucide-react';
+import { Users, Shield, Sparkles, Tag, Camera } from 'lucide-react';
 import ChangelogModal from '../ChangelogModal';
+import ImageCaptureModal from '../common/ImageCaptureModal';
 
 type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags';
 
@@ -11,6 +12,7 @@ interface Props {
 
 const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showImageCapture, setShowImageCapture] = useState(false);
 
   const menuItems = [
     { id: 'characters' as View, icon: Users, label: 'Personajes' },
@@ -39,12 +41,13 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             className="mt-1 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.3.13.1
+            v0.4.0
           </button>
         </div>
       </div>
 
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
+      <ImageCaptureModal isOpen={showImageCapture} onClose={() => setShowImageCapture(false)} />
 
       <nav className="flex-1 p-5">
         <ul className="space-y-3">
@@ -63,6 +66,17 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
               </button>
             </li>
           ))}
+          
+          {/* Botón de Captura de Imágenes */}
+          <li className="pt-3 border-t border-d4-border/50">
+            <button
+              onClick={() => setShowImageCapture(true)}
+              className="w-full flex items-center gap-4 px-5 py-4 rounded-lg transition-all duration-200 font-bold text-base uppercase tracking-wide bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:scale-105"
+            >
+              <Camera className="w-6 h-6 drop-shadow-md" />
+              <span>Captura</span>
+            </button>
+          </li>
         </ul>
       </nav>
 

@@ -1,5 +1,6 @@
 import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, EstadisticasHeroe } from '../types';
 import { TagService } from './TagService';
+import { ImageService } from './ImageService';
 
 export class WorkspaceService {
   private static workspaceConfig: WorkspaceConfig | null = null;
@@ -21,6 +22,9 @@ export class WorkspaceService {
       
       // Configurar TagService con el handle del directorio
       TagService.setFileSystemHandle(this.fileSystemHandle);
+      
+      // Configurar ImageService con el handle del directorio
+      ImageService.setFileSystemHandle(this.fileSystemHandle);
       
       // Crear estructura de carpetas
       await this.createWorkspaceStructure();
