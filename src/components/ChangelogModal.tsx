@@ -68,6 +68,107 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.4.2 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.2</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">UX Mejorada</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Layout optimizado */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🎨 Layout Optimizado del Gestor de Imágenes
+              </h4>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Preview con menos zoom</strong>: Imagen mostrada al 85% para ver más contenido de una vez
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Mejor visión general de la imagen compuesta</li>
+                    <li>Scroll más eficiente</li>
+                  </ul>
+                </li>
+                <li><strong>Panel de Prompt lateral colapsable</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Botón "Prompt" en la esquina superior derecha del preview</li>
+                    <li>Por defecto: Preview ocupa 100% del ancho</li>
+                    <li>Al expandir: Preview 50% + Prompt 50% (lado a lado)</li>
+                    <li>Eliminado tab "Prompt IA" redundante</li>
+                  </ul>
+                </li>
+                <li><strong>Tabs simplificados</strong>: Solo "Capturar" y "Galería"</li>
+              </ul>
+            </div>
+
+            {/* Embeber prompt en imagen */}
+            <div className="bg-d4-bg border-l-4 border-pink-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-pink-300 mb-2 flex items-center gap-2">
+                📝 Embeber Prompt en Imagen (Nuevo)
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Opción para agregar el prompt resumido directamente en la imagen, reduciendo a la mitad el trabajo de copiar cosas
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Checkbox opcional</strong>: "Embeber prompt en imagen"
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Por defecto desactivado (imagen sin texto)</li>
+                    <li>Al activar: agrega sección de texto en la parte inferior</li>
+                  </ul>
+                </li>
+                <li><strong>Prompt resumido optimizado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Versión condensada pero sin perder estructura</li>
+                    <li>Incluye cantidad de elementos detectados</li>
+                    <li>Formato legible para ChatGPT y otros LLMs</li>
+                    <li>Destaca información crítica del JSON esperado</li>
+                  </ul>
+                </li>
+                <li><strong>Contexto inteligente</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Si seleccionaste un personaje: incluye nombre, clase y nivel</li>
+                    <li>Adapta el prompt según tipo (Héroe vs Personaje)</li>
+                  </ul>
+                </li>
+                <li><strong>Renderizado de alta calidad</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Texto en negro bold sobre fondo gris claro</li>
+                    <li>Borde superior para separar imagen del texto</li>
+                    <li>Maneja saltos de línea (\\n) correctamente</li>
+                    <li>Wrapping automático según ancho de imagen</li>
+                  </ul>
+                </li>
+              </ul>
+              <div className="mt-3 p-2 bg-d4-surface rounded border border-pink-500/30">
+                <p className="text-xs text-pink-300 font-semibold">🚀 Beneficio Principal</p>
+                <p className="text-xs text-d4-text-dim mt-1">
+                  Copia la imagen y pégala directamente en ChatGPT. El modelo leerá tanto la imagen como las instrucciones embebidas, eliminando la necesidad de copiar el prompt por separado.
+                </p>
+              </div>
+            </div>
+
+            {/* Prompts resumidos */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                📋 Prompts Resumidos por Categoría
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                Cada categoría tiene su propio prompt resumido optimizado para embeber:
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Habilidades</strong>: Estructura activas/pasivas, tags estructurados, modificadores</li>
+                <li><strong>Glifos</strong>: Atributos escalados, bonificaciones adicionales, rareza</li>
+                <li><strong>Aspectos</strong>:
+                  <ul className="ml-4 mt-1 text-xs text-d4-text-dim">
+                    <li>Héroe: id, name, effect, category, keywords</li>
+                    <li>Personaje: aspecto_id, nivel_actual, slot, valores_actuales</li>
+                  </ul>
+                </li>
+                <li><strong>Estadísticas</strong>: Todas las secciones, nivel_paragon, atributosPrincipales</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.4.1 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">

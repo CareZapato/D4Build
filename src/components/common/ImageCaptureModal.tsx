@@ -33,10 +33,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string }>>([]);
   const [showGallery, setShowGallery] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [showPromptPanel, setShowPromptPanel] = useState(false);
   const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('heroe');
   const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [embedPromptInImage, setEmbedPromptInImage] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('new');
   const [lastSavedImageUrl, setLastSavedImageUrl] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -81,15 +82,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       capturedImages.forEach(img => URL.revokeObjectURL(img.url));
       if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
       setCapturedImages([]);
+      setShowPromptPanel(false);
       setComposedImageUrl(null);
       setShowGallery(false);
-      setShowPrompt(false);
     }
   }, [isOpen]);
 
   // Manejar paste desde clipboard
   useEffect(() => {
-    if (!isOpen || showGallery || showPrompt) return;
+    if (!isOpen || showGallery) return;
 
     const handlePaste = async (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -108,7 +109,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [isOpen, showGallery, showPrompt, captureMode]);
+  }, [isOpen, showGallery, captureMode]);
 
   const addImageToComposition = (blob: Blob, isNewElement: boolean) => {
     const url = URL.createObjectURL(blob);
@@ -190,9 +191,40 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     totalWidth += currentGroupWidth;
     maxHeight = Math.max(maxHeight, currentGroupHeight);
 
-    // Configurar canvas
+    // Calcular espacio para el texto del prompt si está activado
+    let promptHeight = 0;
+    let promptText = '';
+    if (embedPromptInImage && capturedImages.length > 0) {
+      promptText = getShortPrompt();
+      const fontSize = 14;
+      const lineHeight = fontSize * 1.5;
+      const padding = 20;
+      const maxPromptWidth = totalWidth - (padding * 2);
+      
+      // Calcular líneas necesarias
+      ctx.font = `${fontSize}px Arial`;
+      const words = promptText.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxPromptWidth && currentLine !== '') {
+          lines.push(currentLine.trim());
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine.trim());
+      
+      promptHeight = (lines.length * lineHeight) + (padding * 2);
+    }
+
+    // Configurar canvas (con espacio extra para prompt si está activado)
     canvas.width = totalWidth;
-    canvas.height = maxHeight;
+    canvas.height = maxHeight + promptHeight;
 
     // Fondo blanco
     ctx.fillStyle = '#FFFFFF';
@@ -222,6 +254,58 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
     });
 
+    // Dibujar texto del prompt si está activado
+    if (embedPromptInImage && promptHeight > 0) {
+      const fontSize = 14;
+      const lineHeight = fontSize * 1.5;
+      const padding = 20;
+      const textStartY = maxHeight + padding;
+      
+      // Fondo para el texto
+      ctx.fillStyle = '#F0F0F0';
+      ctx.fillRect(0, maxHeight, canvas.width, promptHeight);
+      
+      // Borde superior
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, maxHeight);
+      ctx.lineTo(canvas.width, maxHeight);
+      ctx.stroke();
+      
+      // Dibujar texto
+      ctx.fillStyle = '#000000';
+      ctx.font = `bold ${fontSize}px Arial`;
+      ctx.textBaseline = 'top';
+      
+      const words = promptText.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      const maxPromptWidth = totalWidth - (padding * 2);
+      
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxPromptWidth && currentLine !== '') {
+          lines.push(currentLine.trim());
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine.trim());
+      
+      // Renderizar líneas con saltos de línea reales
+      lines.forEach((line, index) => {
+        // Procesar saltos de línea explícitos (\\n)
+        const subLines = line.split('\\n');
+        subLines.forEach((subLine, subIndex) => {
+          const actualIndex = lines.slice(0, index).reduce((acc, l) => acc + l.split('\\n').length, 0) + subIndex;
+          ctx.fillText(subLine, padding, textStartY + (actualIndex * lineHeight));
+        });
+      });
+    }
+
     // Crear blob
     canvas.toBlob((blob) => {
       if (blob) {
@@ -238,7 +322,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     } else {
       setComposedImageUrl(null);
     }
-  }, [capturedImages]);
+  }, [capturedImages, embedPromptInImage]);
 
   // Funciones helper
   const loadCategoryCounts = async () => {
@@ -416,6 +500,43 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     return basePrompt;
   };
 
+  // Generar prompt resumido para embeber en la imagen
+  const getShortPrompt = (): string => {
+    const elementCount = getElementCount();
+    
+    let contextLine = '';
+    if (promptType === 'personaje' && selectedPersonajeId) {
+      const personaje = personajes.find(p => p.id === selectedPersonajeId);
+      if (personaje) {
+        contextLine = `PERSONAJE: ${personaje.nombre} (${personaje.clase} Nv.${personaje.nivel})\\n`;
+      }
+    }
+    
+    let prompt = '';
+    switch (selectedCategory) {
+      case 'skills':
+        prompt = `${contextLine}EXTRAE ${elementCount} HABILIDADES de Diablo 4 en JSON:\\n- Habilidades activas: id, nombre, tipo, rama, nivel, descripción, modificadores, tags\\n- Habilidades pasivas: id, nombre, tipo, nivel, efecto, tags\\n- Tags estructurados: solo palabras BLANCAS/SUBRAYADAS del juego\\n- Formato: {habilidades_activas:[], habilidades_pasivas:[], palabras_clave:[]}`;
+        break;
+      case 'glifos':
+        prompt = `${contextLine}EXTRAE ${elementCount} GLIFOS de Diablo 4 en JSON:\\n- Por glifo: id, nombre, rareza, nivel, efecto_base, atributo_escalado, bonificacion_adicional, bonificacion_legendaria, tags\\n- Tags: solo palabras BLANCAS/SUBRAYADAS\\n- Formato: {glifos:[], palabras_clave:[]}`;
+        break;
+      case 'aspectos':
+        if (promptType === 'personaje') {
+          prompt = `${contextLine}EXTRAE ${elementCount} ASPECTOS EQUIPADOS en JSON:\\n- Por aspecto: aspecto_id, nivel_actual (X/21), slot_equipado, valores_actuales\\n- Valores EXACTOS según el nivel mostrado\\n- Formato: {aspectos_equipados:[]}`;
+        } else {
+          prompt = `${contextLine}EXTRAE ${elementCount} ASPECTOS de Diablo 4 en JSON:\\n- Por aspecto: id, name, shortName, effect, level, category, keywords, tags\\n- Categories: ofensivo, defensivo, movilidad, recurso, utilidad\\n- Formato: {aspectos:[]}`;
+        }
+        break;
+      case 'estadisticas':
+        prompt = `${contextLine}EXTRAE ESTADÍSTICAS COMPLETAS en JSON:\\n- Secciones: personaje, atributosPrincipales, defensivo, ofensivo, utilidad, armaduraYResistencias\\n- Incluir nivel_paragon en raíz y nivel en atributosPrincipales\\n- Tags: palabras BLANCAS/SUBRAYADAS\\n- Formato: {nivel_paragon, atributosPrincipales:{nivel,...}, personaje:{}, ...}`;
+        break;
+      default:
+        prompt = `${contextLine}EXTRAE ${elementCount} elementos en formato JSON estructurado`;
+    }
+    
+    return prompt;
+  };
+
   const copyPromptToClipboard = () => {
     const prompt = getPromptForCategory();
     navigator.clipboard.writeText(prompt);
@@ -498,25 +619,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between gap-4 mb-6">
           <div className="flex gap-2">
             <button
-              onClick={() => { setShowGallery(false); setShowPrompt(false); }}
+              onClick={() => setShowGallery(false)}
               className={`px-4 py-2 rounded font-semibold ${
-                !showGallery && !showPrompt ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
+                !showGallery ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
               }`}
             >
               <Camera className="w-4 h-4 inline mr-2" />
               Capturar
             </button>
             <button
-              onClick={() => { setShowPrompt(true); setShowGallery(false); }}
-              className={`px-4 py-2 rounded font-semibold ${
-                showPrompt ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
-              }`}
-            >
-              <Copy className="w-4 h-4 inline mr-2" />
-              Prompt IA
-            </button>
-            <button
-              onClick={() => { setShowGallery(true); setShowPrompt(false); loadGallery(); }}
+              onClick={() => { setShowGallery(true); loadGallery(); }}
               className={`px-4 py-2 rounded font-semibold ${
                 showGallery ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
               }`}
@@ -530,7 +642,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </div>
           
           {/* Barra de progreso minimalista (solo visible en tab Captura) */}
-          {!showGallery && !showPrompt && (
+          {!showGallery && (
             <div className="relative group">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-d4-text-dim font-semibold">{getElementCount()}/{getRecommendedMax(selectedCategory)}</span>
@@ -598,109 +710,214 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Contenido según tab */}
-        {!showGallery && !showPrompt && (
+        {!showGallery && (
           <div className="space-y-6">
-            {/* Preview de imagen compuesta (PRIORIDAD #1 - SIEMPRE VISIBLE) */}
-            <div className="bg-d4-bg p-4 rounded border-2 border-d4-accent/50">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-d4-accent flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5" />
-                  Preview en Tiempo Real
-                </h3>
-                {/* Tooltip de instrucciones */}
-                <div className="relative group">
-                  <button
-                    className="p-2 bg-d4-surface hover:bg-d4-border rounded-full transition-colors"
-                    title="Ver instrucciones"
-                  >
-                    <HelpCircle className="w-5 h-5 text-d4-accent" />
-                  </button>
-                  {/* Tooltip */}
-                  <div className="absolute right-0 top-full mt-2 w-96 bg-d4-surface border-2 border-d4-accent rounded-lg p-4 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                    <p className="text-sm font-bold text-d4-accent mb-2">
-                      📸 Instrucciones de Captura:
+            {/* Preview de imagen compuesta con panel de prompt lateral */}
+            <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {/* Panel de Preview */}
+              <div className="bg-d4-bg p-4 rounded border-2 border-d4-accent/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-d4-accent flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Preview en Tiempo Real
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {/* Botón toggle prompt panel */}
+                    <button
+                      onClick={() => setShowPromptPanel(!showPromptPanel)}
+                      className={`px-3 py-2 rounded font-semibold transition-all ${
+                        showPromptPanel
+                          ? 'bg-d4-accent text-black shadow-lg'
+                          : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                      }`}
+                      title={showPromptPanel ? 'Ocultar prompt' : 'Mostrar prompt'}
+                    >
+                      <Copy className="w-4 h-4 inline mr-1" />
+                      Prompt
+                    </button>
+                    {/* Tooltip de instrucciones */}
+                    <div className="relative group">
+                      <button
+                        className="p-2 bg-d4-surface hover:bg-d4-border rounded-full transition-colors"
+                        title="Ver instrucciones"
+                      >
+                        <HelpCircle className="w-5 h-5 text-d4-accent" />
+                      </button>
+                      {/* Tooltip */}
+                      <div className="absolute right-0 top-full mt-2 w-96 bg-d4-surface border-2 border-d4-accent rounded-lg p-4 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                        <p className="text-sm font-bold text-d4-accent mb-2">
+                          📸 Instrucciones de Captura:
+                        </p>
+                        <ul className="text-xs text-d4-text-dim space-y-1 list-disc list-inside">
+                          <li>Toma screenshot con <kbd className="px-1 py-0.5 bg-d4-bg rounded">Win + Shift + S</kbd></li>
+                          <li>Selecciona modo (Nuevo Elemento o Completar)</li>
+                          <li>Pega con <kbd className="px-1 py-0.5 bg-d4-bg rounded">Ctrl + V</kbd> o carga archivo</li>
+                          <li><strong>Nuevo Elemento</strong>: Agrega a la DERECHA con espacio (elemento diferente)</li>
+                          <li><strong>Completar</strong>: Agrega ABAJO sin espacio (continúa elemento anterior)</li>
+                          <li>La imagen se compone en <strong>tiempo real</strong> aquí</li>
+                          <li>Cuando termines, presiona <strong>"Guardar Imagen Acumulada"</strong></li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {composedImageUrl ? (
+                  <div className="bg-white p-4 rounded max-h-96 overflow-auto border-2 border-green-500/50">
+                    <img src={composedImageUrl} alt="Composed" className="w-full h-auto object-contain" style={{ maxWidth: '100%', transform: 'scale(0.85)' }} />
+                  </div>
+                ) : (
+                  <div className="bg-d4-surface p-8 rounded border-2 border-dashed border-d4-border flex flex-col items-center justify-center min-h-[200px]">
+                    <ImageIcon className="w-16 h-16 text-d4-text-dim mb-3" />
+                    <p className="text-d4-text-dim text-center">
+                      La imagen compuesta aparecerá aquí en tiempo real
+                      <br />
+                      <span className="text-xs">Pega o carga imágenes para comenzar</span>
                     </p>
-                    <ul className="text-xs text-d4-text-dim space-y-1 list-disc list-inside">
-                      <li>Toma screenshot con <kbd className="px-1 py-0.5 bg-d4-bg rounded">Win + Shift + S</kbd></li>
-                      <li>Selecciona modo (Nuevo Elemento o Completar)</li>
-                      <li>Pega con <kbd className="px-1 py-0.5 bg-d4-bg rounded">Ctrl + V</kbd> o carga archivo</li>
-                      <li><strong>Nuevo Elemento</strong>: Agrega a la DERECHA con espacio (elemento diferente)</li>
-                      <li><strong>Completar</strong>: Agrega ABAJO sin espacio (continúa elemento anterior)</li>
-                      <li>La imagen se compone en <strong>tiempo real</strong> aquí</li>
-                      <li>Cuando termines, presiona <strong>"Guardar Imagen Acumulada"</strong></li>
-                    </ul>
+                  </div>
+                )}
+
+                {/* Opciones de guardado */}
+                <div className="mt-4 space-y-3">
+                  {/* Checkbox para embeber prompt */}
+                  <label className="flex items-center gap-2 p-2 bg-d4-surface rounded cursor-pointer hover:bg-d4-border transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={embedPromptInImage}
+                      onChange={(e) => setEmbedPromptInImage(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-d4-text">
+                      📝 <strong>Embeber prompt en la imagen</strong> (versión resumida para ChatGPT)
+                    </span>
+                  </label>
+
+                  {/* Botones de acción */}
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={saveComposedImage} 
+                      disabled={!composedImageUrl}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
+                        composedImageUrl
+                          ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Save className="w-5 h-5" />
+                      Guardar Imagen Acumulada
+                    </button>
+                    <button 
+                      onClick={downloadComposedImage} 
+                      disabled={!composedImageUrl}
+                      className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                        composedImageUrl
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Download className="w-4 h-4" />
+                      Descargar
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!composedImageUrl) return;
+                        try {
+                          const response = await fetch(composedImageUrl);
+                          const blob = await response.blob();
+                          await navigator.clipboard.write([
+                            new ClipboardItem({ 'image/png': blob })
+                          ]);
+                          showToast('✅ Imagen copiada al portapapeles', 'success');
+                        } catch (error) {
+                          console.error('Error copiando imagen:', error);
+                          showToast('❌ Error al copiar. Usa el botón Descargar.', 'error');
+                        }
+                      }}
+                      disabled={!composedImageUrl}
+                      className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                        composedImageUrl
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                      title="Copiar imagen al portapapeles para pegarla en el chat de IA"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copiar
+                    </button>
                   </div>
                 </div>
               </div>
-              
-              {composedImageUrl ? (
-                <div className="bg-white p-4 rounded max-h-96 overflow-auto border-2 border-green-500/50">
-                  <img src={composedImageUrl} alt="Composed" className="max-w-full h-auto" />
-                </div>
-              ) : (
-                <div className="bg-d4-surface p-8 rounded border-2 border-dashed border-d4-border flex flex-col items-center justify-center min-h-[200px]">
-                  <ImageIcon className="w-16 h-16 text-d4-text-dim mb-3" />
-                  <p className="text-d4-text-dim text-center">
-                    La imagen compuesta aparecerá aquí en tiempo real
-                    <br />
-                    <span className="text-xs">Pega o carga imágenes para comenzar</span>
-                  </p>
+
+              {/* Panel de Prompt (lateral, colapsable) */}
+              {showPromptPanel && (
+                <div className="bg-d4-bg p-4 rounded border border-d4-accent/30 flex flex-col">
+                  <h3 className="text-lg font-semibold text-d4-accent mb-4">
+                    Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
+                  </h3>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-d4-text mb-2">
+                      Tipo de extracción:
+                    </label>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setPromptType('heroe')}
+                        className={`px-4 py-2 rounded font-semibold ${
+                          promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                        }`}
+                      >
+                        Para Héroe (Clase)
+                      </button>
+                      <button
+                        onClick={() => setPromptType('personaje')}
+                        className={`px-4 py-2 rounded font-semibold ${
+                          promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                        }`}
+                      >
+                        Para Personaje
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Selector de personaje (solo si tipo = personaje) */}
+                  {promptType === 'personaje' && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-d4-text mb-2">
+                        Personaje específico:
+                      </label>
+                      <select
+                        value={selectedPersonajeId || ''}
+                        onChange={(e) => setSelectedPersonajeId(e.target.value || null)}
+                        className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                      >
+                        <option value="">Ninguno (extracción genérica)</option>
+                        {personajes.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-d4-text-dim mt-1">
+                        Opcional: Selecciona un personaje para agregar contexto al prompt
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="bg-d4-surface p-4 rounded border border-d4-border max-h-[400px] overflow-y-auto flex-1">
+                    <pre className="text-xs text-d4-text whitespace-pre-wrap font-mono">
+                      {getPromptForCategory()}
+                    </pre>
+                  </div>
+
+                  <button
+                    onClick={copyPromptToClipboard}
+                    className="mt-4 btn-primary flex items-center gap-2 w-full justify-center"
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
+                  </button>
                 </div>
               )}
-
-              {/* Botones de acción (SIEMPRE VISIBLES) */}
-              <div className="flex gap-3 mt-4">
-                <button 
-                  onClick={saveComposedImage} 
-                  disabled={!composedImageUrl}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
-                    composedImageUrl
-                      ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg'
-                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <Save className="w-5 h-5" />
-                  Guardar Imagen Acumulada
-                </button>
-                <button 
-                  onClick={downloadComposedImage} 
-                  disabled={!composedImageUrl}
-                  className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-                    composedImageUrl
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <Download className="w-4 h-4" />
-                  Descargar
-                </button>
-                <button 
-                  onClick={async () => {
-                    if (!composedImageUrl) return;
-                    try {
-                      const response = await fetch(composedImageUrl);
-                      const blob = await response.blob();
-                      await navigator.clipboard.write([
-                        new ClipboardItem({ 'image/png': blob })
-                      ]);
-                      showToast('✅ Imagen copiada al portapapeles', 'success');
-                    } catch (error) {
-                      console.error('Error copiando imagen:', error);
-                      showToast('❌ Error al copiar. Usa el botón Descargar.', 'error');
-                    }
-                  }}
-                  disabled={!composedImageUrl}
-                  className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-                    composedImageUrl
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  }`}
-                  title="Copiar imagen al portapapeles para pegarla en el chat de IA"
-                >
-                  <Copy className="w-4 h-4" />
-                  Copiar
-                </button>
-              </div>
             </div>
 
             {/* Botones de modo de captura (3 botones horizontales) */}
@@ -809,79 +1026,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
             {/* Canvas oculto */}
             <canvas ref={canvasRef} className="hidden" />
-          </div>
-        )}
-
-        {/* Tab Prompt IA */}
-        {showPrompt && (
-          <div className="space-y-4">
-            <div className="bg-d4-bg p-4 rounded border border-d4-accent/30">
-              <h3 className="text-lg font-semibold text-d4-accent mb-4">
-                Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
-              </h3>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-d4-text mb-2">
-                  Tipo de extracción:
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setPromptType('heroe')}
-                    className={`px-4 py-2 rounded font-semibold ${
-                      promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
-                    }`}
-                  >
-                    Para Héroe (Clase)
-                  </button>
-                  <button
-                    onClick={() => setPromptType('personaje')}
-                    className={`px-4 py-2 rounded font-semibold ${
-                      promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
-                    }`}
-                  >
-                    Para Personaje
-                  </button>
-                </div>
-              </div>
-
-              {/* Selector de personaje (solo si tipo = personaje) */}
-              {promptType === 'personaje' && (
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-d4-text mb-2">
-                    Personaje específico:
-                  </label>
-                  <select
-                    value={selectedPersonajeId || ''}
-                    onChange={(e) => setSelectedPersonajeId(e.target.value || null)}
-                    className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
-                  >
-                    <option value="">Ninguno (extracción genérica)</option>
-                    {personajes.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-d4-text-dim mt-1">
-                    Opcional: Selecciona un personaje para agregar contexto al prompt
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-d4-surface p-4 rounded border border-d4-border max-h-96 overflow-y-auto">
-                <pre className="text-xs text-d4-text whitespace-pre-wrap font-mono">
-                  {getPromptForCategory()}
-                </pre>
-              </div>
-
-              <button
-                onClick={copyPromptToClipboard}
-                className="mt-4 btn-primary flex items-center gap-2 w-full justify-center"
-              >
-                <Copy className="w-4 h-4" />
-                {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
-              </button>
-            </div>
           </div>
         )}
 
