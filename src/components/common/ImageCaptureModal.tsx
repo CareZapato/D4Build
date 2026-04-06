@@ -164,36 +164,78 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       })
     );
 
-    // Calcular dimensiones
+    // Calcular dimensiones con layout inteligente (4 horizontales, luego vertical)
     const SPACING = 10; // Espacio entre elementos completos
     const VERTICAL_OFFSET = 0; // Sin espacio entre partes incompletas
+    const MAX_HORIZONTAL = 4; // Máximo de elementos por fila horizontal
 
-    let totalWidth = 0;
-    let maxHeight = 0;
-    let currentGroupWidth = 0;
-    let currentGroupHeight = 0;
-
-    loadedImages.forEach(({ img, isComplete }, index) => {
-      if (index === 0 || isComplete) {
-        // Nuevo elemento completo
-        if (index > 0) {
-          totalWidth += SPACING; // Agregar espacio antes del nuevo elemento
-        }
-        totalWidth += currentGroupWidth;
-        maxHeight = Math.max(maxHeight, currentGroupHeight);
-        
-        currentGroupWidth = img.width;
-        currentGroupHeight = img.height;
-      } else {
-        // Continuación del elemento (apilar verticalmente)
-        currentGroupWidth = Math.max(currentGroupWidth, img.width);
-        currentGroupHeight += img.height + VERTICAL_OFFSET;
+    // Agrupar elementos completos
+    const completeGroups: Array<Array<{ img: HTMLImageElement; isComplete: boolean; originalIndex: number }>> = [];
+    let currentGroup: Array<{ img: HTMLImageElement; isComplete: boolean; originalIndex: number }> = [];
+    
+    loadedImages.forEach((item, index) => {
+      currentGroup.push({ ...item, originalIndex: index });
+      if (item.isComplete && index < loadedImages.length - 1) {
+        completeGroups.push(currentGroup);
+        currentGroup = [];
       }
     });
+    if (currentGroup.length > 0) {
+      completeGroups.push(currentGroup);
+    }
 
-    // Agregar último grupo
-    totalWidth += currentGroupWidth;
-    maxHeight = Math.max(maxHeight, currentGroupHeight);
+    // Contar grupos completos para layout
+    const totalCompleteGroups = completeGroups.length;
+    
+    // Calcular dimensiones totales según cantidad de elementos
+    let totalWidth = 0;
+    let totalHeight = 0;
+
+    if (totalCompleteGroups <= MAX_HORIZONTAL) {
+      // Layout horizontal (hasta 4 elementos)
+      completeGroups.forEach((group, groupIndex) => {
+        if (groupIndex > 0) totalWidth += SPACING;
+        let groupWidth = 0;
+        let groupHeight = 0;
+        group.forEach(item => {
+          groupWidth = Math.max(groupWidth, item.img.width);
+          groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+        });
+        totalWidth += groupWidth;
+        totalHeight = Math.max(totalHeight, groupHeight);
+      });
+    } else {
+      // Layout vertical con filas de MAX_HORIZONTAL elementos
+      let currentRowWidth = 0;
+      let currentRowHeight = 0;
+      
+      completeGroups.forEach((group, groupIndex) => {
+        const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
+        const colIndex = groupIndex % MAX_HORIZONTAL;
+        
+        let groupWidth = 0;
+        let groupHeight = 0;
+        group.forEach(item => {
+          groupWidth = Math.max(groupWidth, item.img.width);
+          groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+        });
+        
+        if (colIndex === 0) {
+          // Nueva fila
+          if (rowIndex > 0) totalHeight += SPACING;
+          totalHeight += currentRowHeight;
+          currentRowWidth = groupWidth;
+          currentRowHeight = groupHeight;
+          totalWidth = Math.max(totalWidth, currentRowWidth);
+        } else {
+          // Misma fila
+          currentRowWidth += SPACING + groupWidth;
+          currentRowHeight = Math.max(currentRowHeight, groupHeight);
+          totalWidth = Math.max(totalWidth, currentRowWidth);
+        }
+      });
+      totalHeight += currentRowHeight; // Agregar última fila
+    }
 
     // Calcular espacio para el texto del prompt si está activado
     let promptHeight = 0;
@@ -228,53 +270,91 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
     // Configurar canvas (con espacio extra para prompt si está activado)
     canvas.width = totalWidth;
-    canvas.height = maxHeight + promptHeight;
+    canvas.height = totalHeight + promptHeight;
 
     // Fondo blanco
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Dibujar imágenes
-    let xOffset = 0;
-    let yOffset = 0;
-    let groupStartX = 0;
-
-    loadedImages.forEach(({ img, isComplete }, index) => {
-      if (index === 0 || isComplete) {
-        // Nuevo elemento completo
-        if (index > 0) {
-          xOffset += SPACING;
+    // Dibujar imágenes con layout inteligente
+    if (totalCompleteGroups <= MAX_HORIZONTAL) {
+      // Layout horizontal (hasta 4 elementos)
+      let xOffset = 0;
+      completeGroups.forEach((group, groupIndex) => {
+        if (groupIndex > 0) xOffset += SPACING;
+        
+        let groupStartX = xOffset;
+        let yOffset = 0;
+        let maxGroupWidth = 0;
+        
+        group.forEach(item => {
+          ctx.drawImage(item.img, groupStartX, yOffset);
+          yOffset += item.img.height + VERTICAL_OFFSET;
+          maxGroupWidth = Math.max(maxGroupWidth, item.img.width);
+        });
+        
+        xOffset += maxGroupWidth;
+      });
+    } else {
+      // Layout vertical con filas de MAX_HORIZONTAL elementos
+      let currentRowY = 0;
+      
+      completeGroups.forEach((group, groupIndex) => {
+        const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
+        const colIndex = groupIndex % MAX_HORIZONTAL;
+        
+        if (colIndex === 0 && rowIndex > 0) {
+          // Calcular altura de fila anterior
+          let maxRowHeight = 0;
+          for (let i = (rowIndex - 1) * MAX_HORIZONTAL; i < Math.min(rowIndex * MAX_HORIZONTAL, totalCompleteGroups); i++) {
+            const prevGroup = completeGroups[i];
+            let groupHeight = 0;
+            prevGroup.forEach(item => {
+              groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+            });
+            maxRowHeight = Math.max(maxRowHeight, groupHeight);
+          }
+          currentRowY += maxRowHeight + SPACING;
         }
-        groupStartX = xOffset;
-        yOffset = 0;
-        ctx.drawImage(img, xOffset, yOffset);
-        xOffset += img.width;
-        yOffset += img.height;
-      } else {
-        // Continuación del elemento (apilar verticalmente)
-        yOffset += VERTICAL_OFFSET;
-        ctx.drawImage(img, groupStartX, yOffset);
-        yOffset += img.height;
-      }
-    });
+        
+        // Calcular X offset para esta columna
+        let xOffset = 0;
+        for (let i = rowIndex * MAX_HORIZONTAL; i < groupIndex; i++) {
+          const prevGroup = completeGroups[i];
+          let groupWidth = 0;
+          prevGroup.forEach(item => {
+            groupWidth = Math.max(groupWidth, item.img.width);
+          });
+          xOffset += groupWidth + SPACING;
+        }
+        
+        // Dibujar grupo actual
+        let yOffset = currentRowY;
+        let groupStartX = xOffset;
+        group.forEach(item => {
+          ctx.drawImage(item.img, groupStartX, yOffset);
+          yOffset += item.img.height + VERTICAL_OFFSET;
+        });
+      });
+    }
 
     // Dibujar texto del prompt si está activado
     if (embedPromptInImage && promptHeight > 0) {
       const fontSize = 14;
       const lineHeight = fontSize * 1.5;
       const padding = 20;
-      const textStartY = maxHeight + padding;
+      const textStartY = totalHeight + padding;
       
       // Fondo para el texto
       ctx.fillStyle = '#F0F0F0';
-      ctx.fillRect(0, maxHeight, canvas.width, promptHeight);
+      ctx.fillRect(0, totalHeight, canvas.width, promptHeight);
       
       // Borde superior
       ctx.strokeStyle = '#333333';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(0, maxHeight);
-      ctx.lineTo(canvas.width, maxHeight);
+      ctx.moveTo(0, totalHeight);
+      ctx.lineTo(canvas.width, totalHeight);
       ctx.stroke();
       
       // Dibujar texto
@@ -361,11 +441,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const getRecommendedMax = (category: ImageCategory): number => {
     switch (category) {
-      case 'skills': return 4;
-      case 'glifos': return 6;
-      case 'aspectos': return 5;
+      case 'skills': return 6;  // Aumentado de 4 a 6
+      case 'glifos': return 8;  // Aumentado de 6 a 8
+      case 'aspectos': return 7;  // Aumentado de 5 a 7
       case 'estadisticas': return 1;
-      case 'otros': return 5;
+      case 'otros': return 8;  // Aumentado de 5 a 8
     }
   };
 
@@ -968,6 +1048,25 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     >
                       <Copy className="w-4 h-4" />
                       Copiar
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (composedImageUrl) {
+                          URL.revokeObjectURL(composedImageUrl);
+                          setComposedImageUrl(null);
+                          showToast('🗑️ Imagen compuesta eliminada', 'success');
+                        }
+                      }}
+                      disabled={!composedImageUrl}
+                      className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                        composedImageUrl
+                          ? 'bg-red-600 hover:bg-red-700 text-white'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                      title="Eliminar la imagen compuesta"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Borrar
                     </button>
                   </div>
                 </div>

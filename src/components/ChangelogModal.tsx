@@ -68,6 +68,80 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.4.4 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.4</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">Composición Inteligente</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Layout de composición */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🎨 Layout Inteligente de Composición
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                La composición ahora usa un layout inteligente que apila elementos verticalmente después de 4 horizontales
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Grid adaptativo</strong>: Hasta 4 elementos se muestran horizontalmente
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>1-4 elementos: Layout horizontal tradicional</li>
+                    <li>5+ elementos: Grid con 4 columnas, filas apiladas verticalmente</li>
+                    <li>Evita imágenes excesivamente anchas</li>
+                  </ul>
+                </li>
+                <li><strong>Espaciado optimizado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>10px de espacio entre elementos completos</li>
+                    <li>Sin espacio entre partes incompletas (modo continuar)</li>
+                    <li>Filas separadas por el mismo espaciado</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+
+            {/* Límites aumentados */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                📊 Límites Recomendados Aumentados
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Los límites de elementos por captura se ajustaron según la complejidad del JSON
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Skills: 4 → 6</strong> (JSON complejo con activas/pasivas/modificadores/tags)</li>
+                <li><strong>Glifos: 6 → 8</strong> (Complejidad media con bonificaciones/escalado)</li>
+                <li><strong>Aspectos: 5 → 7</strong> (Complejidad media-alta con keywords/tags)</li>
+                <li><strong>Otros: 5 → 8</strong> (Complejidad variable según categoría)</li>
+                <li><strong>Estadísticas: 1</strong> (Sin cambio, captura única comprehensiva)</li>
+              </ul>
+              <div className="mt-3 p-2 bg-d4-surface rounded border border-blue-500/30">
+                <p className="text-xs text-blue-300 font-semibold">💡 Consideración</p>
+                <p className="text-xs text-d4-text-dim mt-1">
+                  Los límites son recomendaciones para obtener resultados óptimos con ChatGPT. Puedes capturar más elementos, pero la calidad de extracción puede variar.
+                </p>
+              </div>
+            </div>
+
+            {/* Botón borrar */}
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🗑️ Borrar Imagen Compuesta
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                Nuevo botón para eliminar la imagen compuesta del visor de preview
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Permite limpiar el preview sin cerrar el modal</li>
+                <li>Útil para rehacer la composición desde cero</li>
+                <li>Libera memoria eliminando la URL del objeto blob</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.4.3 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
