@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { WorkspaceService } from './services/WorkspaceService';
 import { Personaje } from './types';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useAppContext } from './context/AppContext';
 import './index.css';
 
 // Componentes
@@ -16,11 +16,16 @@ import { TagsManager } from './components/tags/TagsManager';
 type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags';
 
 function AppContent() {
-  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [currentView, setCurrentView] = useState<View>('characters');
-  const [personajes, setPersonajes] = useState<Personaje[]>([]);
-  const [selectedPersonaje, setSelectedPersonaje] = useState<Personaje | null>(null);
   const [loading, setLoading] = useState(false);
+  const {
+    workspaceLoaded,
+    setWorkspaceLoaded,
+    personajes,
+    setPersonajes,
+    selectedPersonaje,
+    setSelectedPersonaje,
+  } = useAppContext();
 
   const loadPersonajes = useCallback(async () => {
     setLoading(true);
