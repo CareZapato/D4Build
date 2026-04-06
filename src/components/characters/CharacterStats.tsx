@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Upload, TrendingUp, Copy, Check } from 'lucide-react';
 import { Personaje, Estadisticas, Tag, EstadisticaHeroe } from '../../types';
 import { TagService } from '../../services/TagService';
@@ -34,6 +34,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
     personaje.estadisticas || {}
   );
   const [heroStats, setHeroStats] = useState<Map<string, EstadisticaHeroe>>(new Map());  // v0.3.7: Mapa de estadísticas del héroe
+  const isFirstRender = useRef(true); // evitar auto-save en montaje inicial
 
   // Cargar estadísticas del héroe para tooltips (v0.3.7)
   useEffect(() => {
@@ -432,6 +433,11 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   };
 
   useEffect(() => {
+    // No disparar en el primer render para no sobreescribir datos guardados
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     onChange(estadisticas);
   }, [estadisticas]);
 

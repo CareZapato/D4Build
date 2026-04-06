@@ -169,16 +169,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const VERTICAL_OFFSET = 0; // Sin espacio entre partes incompletas
     const MAX_HORIZONTAL = 4; // Máximo de elementos por fila horizontal
 
-    // Agrupar elementos completos
+    // Agrupar elementos completos.
+    // isComplete=true significa NUEVA captura (inicio de grupo).
+    // Cuando se ve isComplete=true, se cierra el grupo anterior y empieza uno nuevo.
     const completeGroups: Array<Array<{ img: HTMLImageElement; isComplete: boolean; originalIndex: number }>> = [];
     let currentGroup: Array<{ img: HTMLImageElement; isComplete: boolean; originalIndex: number }> = [];
     
     loadedImages.forEach((item, index) => {
-      currentGroup.push({ ...item, originalIndex: index });
-      if (item.isComplete && index < loadedImages.length - 1) {
+      if (item.isComplete && currentGroup.length > 0) {
+        // Nueva captura → cerrar grupo anterior
         completeGroups.push(currentGroup);
         currentGroup = [];
       }
+      currentGroup.push({ ...item, originalIndex: index });
     });
     if (currentGroup.length > 0) {
       completeGroups.push(currentGroup);
@@ -445,7 +448,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       case 'skills': return 6;  // Aumentado de 4 a 6
       case 'glifos': return 8;  // Aumentado de 6 a 8
       case 'aspectos': return 7;  // Aumentado de 5 a 7
-      case 'estadisticas': return 1;
+      case 'estadisticas': return 5; // 5 capturas ideales (secciones distintas)
       case 'otros': return 8;  // Aumentado de 5 a 8
     }
   };
@@ -741,18 +744,44 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               showToast(`✅ ${aspectosRefs.length} aspectos agregados a ${personaje.nombre}`, 'success');
             }
             break;
-          case 'estadisticas':
-            personaje.estadisticas = data;
-            if (data.atributosPrincipales?.nivel) {
-              personaje.nivel = data.atributosPrincipales.nivel;
+          case 'estadisticas': {
+            // Normalizar: soporta formato V1 (flat con nivel_paragon en raíz) y
+            // V2 (objeto con clave "estadisticas" que envuelve las secciones).
+            // nivel_paragon pertenece a Personaje, no a Estadisticas.
+            let statsToSave: any;
+            let parsedNivel: number | undefined;
+            let parsedNivelParagon: number | undefined;
+
+            if (data.estadisticas && typeof data.estadisticas === 'object' && !Array.isArray(data.estadisticas)) {
+              // Formato V2: extraer secciones internas
+              const v2 = data.estadisticas;
+              statsToSave = {};
+              if (v2.personaje) statsToSave.personaje = v2.personaje;
+              if (v2.atributosPrincipales) statsToSave.atributosPrincipales = v2.atributosPrincipales;
+              if (v2.defensivo && !Array.isArray(v2.defensivo)) statsToSave.defensivo = v2.defensivo;
+              if (v2.ofensivo && !Array.isArray(v2.ofensivo)) statsToSave.ofensivo = v2.ofensivo;
+              if (v2.utilidad && !Array.isArray(v2.utilidad)) statsToSave.utilidad = v2.utilidad;
+              if (v2.armaduraYResistencias) statsToSave.armaduraYResistencias = v2.armaduraYResistencias;
+              if (v2.jcj) statsToSave.jcj = v2.jcj;
+              if (v2.moneda) statsToSave.moneda = v2.moneda;
+              parsedNivelParagon = data.nivel_paragon;
+              parsedNivel = statsToSave.atributosPrincipales?.nivel;
+            } else {
+              // Formato V1 flat: nivel_paragon no pertenece a Estadisticas
+              const { nivel_paragon, ...rest } = data;
+              statsToSave = rest;
+              parsedNivelParagon = nivel_paragon;
+              parsedNivel = rest.atributosPrincipales?.nivel;
             }
-            if (data.nivel_paragon) {
-              personaje.nivel_paragon = data.nivel_paragon;
-            }
-            
+
+            personaje.estadisticas = statsToSave;
+            if (parsedNivel !== undefined) personaje.nivel = parsedNivel;
+            if (parsedNivelParagon !== undefined) personaje.nivel_paragon = parsedNivelParagon;
+            personaje.fecha_actualizacion = new Date().toISOString();
             await WorkspaceService.savePersonaje(personaje);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
             break;
+          }
         }
       }
       
