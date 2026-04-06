@@ -238,6 +238,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
 
     // Calcular espacio para el texto del prompt si está activado
+    const PROMPT_MARGIN = 15; // Margen blanco alrededor del marco
     let promptHeight = 0;
     let promptText = '';
     if (embedPromptInImage && capturedImages.length > 0) {
@@ -245,7 +246,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const fontSize = 14;
       const lineHeight = fontSize * 1.5;
       const padding = 20;
-      const maxPromptWidth = totalWidth - (padding * 2);
+      const maxPromptWidth = totalWidth - (padding * 2) - (PROMPT_MARGIN * 2);
       
       // Calcular líneas necesarias
       ctx.font = `${fontSize}px Arial`;
@@ -265,7 +266,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
       if (currentLine) lines.push(currentLine.trim());
       
-      promptHeight = (lines.length * lineHeight) + (padding * 2);
+      promptHeight = (lines.length * lineHeight) + (padding * 2) + (PROMPT_MARGIN * 2);
     }
 
     // Configurar canvas (con espacio extra para prompt si está activado)
@@ -276,7 +277,59 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Dibujar imágenes con layout inteligente
+    // Dibujar texto del prompt ARRIBA si está activado
+    if (embedPromptInImage && promptHeight > 0) {
+      const fontSize = 14;
+      const lineHeight = fontSize * 1.5;
+      const padding = 20;
+      
+      // Fondo blanco para el área completa del prompt (ya pintado)
+      
+      // Marco/borde alrededor del texto
+      const frameX = PROMPT_MARGIN;
+      const frameY = PROMPT_MARGIN;
+      const frameWidth = canvas.width - (PROMPT_MARGIN * 2);
+      const frameHeight = promptHeight - (PROMPT_MARGIN * 2);
+      
+      // Fondo gris claro para el cuadro del texto
+      ctx.fillStyle = '#F5F5F5';
+      ctx.fillRect(frameX, frameY, frameWidth, frameHeight);
+      
+      // Borde del marco (negro)
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(frameX, frameY, frameWidth, frameHeight);
+      
+      // Dibujar texto dentro del marco
+      ctx.fillStyle = '#000000';
+      ctx.font = `bold ${fontSize}px Arial`;
+      ctx.textBaseline = 'top';
+      
+      const words = promptText.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      const maxPromptWidth = frameWidth - (padding * 2);
+      
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxPromptWidth && currentLine !== '') {
+          lines.push(currentLine.trim());
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine.trim());
+      
+      lines.forEach((line, i) => {
+        ctx.fillText(line, frameX + padding, frameY + padding + (i * lineHeight));
+      });
+    }
+
+    // Dibujar imágenes con layout inteligente (desplazadas hacia abajo si hay prompt)
+    const imageOffsetY = embedPromptInImage && promptHeight > 0 ? promptHeight : 0;
+    
     if (totalCompleteGroups <= MAX_HORIZONTAL) {
       // Layout horizontal (hasta 4 elementos)
       let xOffset = 0;
@@ -284,7 +337,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (groupIndex > 0) xOffset += SPACING;
         
         let groupStartX = xOffset;
-        let yOffset = 0;
+        let yOffset = imageOffsetY;
         let maxGroupWidth = 0;
         
         group.forEach(item => {
@@ -297,7 +350,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
     } else {
       // Layout vertical con filas de MAX_HORIZONTAL elementos
-      let currentRowY = 0;
+      let currentRowY = imageOffsetY;
       
       completeGroups.forEach((group, groupIndex) => {
         const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
@@ -334,58 +387,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         group.forEach(item => {
           ctx.drawImage(item.img, groupStartX, yOffset);
           yOffset += item.img.height + VERTICAL_OFFSET;
-        });
-      });
-    }
-
-    // Dibujar texto del prompt si está activado
-    if (embedPromptInImage && promptHeight > 0) {
-      const fontSize = 14;
-      const lineHeight = fontSize * 1.5;
-      const padding = 20;
-      const textStartY = totalHeight + padding;
-      
-      // Fondo para el texto
-      ctx.fillStyle = '#F0F0F0';
-      ctx.fillRect(0, totalHeight, canvas.width, promptHeight);
-      
-      // Borde superior
-      ctx.strokeStyle = '#333333';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, totalHeight);
-      ctx.lineTo(canvas.width, totalHeight);
-      ctx.stroke();
-      
-      // Dibujar texto
-      ctx.fillStyle = '#000000';
-      ctx.font = `bold ${fontSize}px Arial`;
-      ctx.textBaseline = 'top';
-      
-      const words = promptText.split(' ');
-      const lines: string[] = [];
-      let currentLine = '';
-      const maxPromptWidth = totalWidth - (padding * 2);
-      
-      for (const word of words) {
-        const testLine = currentLine + word + ' ';
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxPromptWidth && currentLine !== '') {
-          lines.push(currentLine.trim());
-          currentLine = word + ' ';
-        } else {
-          currentLine = testLine;
-        }
-      }
-      if (currentLine) lines.push(currentLine.trim());
-      
-      // Renderizar líneas con saltos de línea reales
-      lines.forEach((line, index) => {
-        // Procesar saltos de línea explícitos (\\n)
-        const subLines = line.split('\\n');
-        subLines.forEach((subLine, subIndex) => {
-          const actualIndex = lines.slice(0, index).reduce((acc, l) => acc + l.split('\\n').length, 0) + subIndex;
-          ctx.fillText(subLine, padding, textStartY + (actualIndex * lineHeight));
         });
       });
     }

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Personaje, WorkspaceConfig } from '../types';
+import { WorkspaceService } from '../services/WorkspaceService';
 
 /**
  * AppContext - Contexto global de la aplicación D4Builds
@@ -115,9 +116,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   ];
 
   const refreshPersonajes = async () => {
-    // Esta función será implementada para recargar personajes desde el workspace
-    console.log('Refreshing personajes...');
+    try {
+      const chars = await WorkspaceService.listPersonajes();
+      setPersonajes(chars);
+    } catch (error) {
+      console.error('Error refrescando personajes:', error);
+    }
   };
+
+  // Cargar personajes cuando el workspace esté listo
+  useEffect(() => {
+    if (workspaceLoaded) {
+      refreshPersonajes();
+    }
+  }, [workspaceLoaded]);
 
   const getPersonajeById = (id: string): Personaje | undefined => {
     return personajes.find(p => p.id === id);

@@ -68,6 +68,69 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.4.5 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.5</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-amber-600/20 to-orange-600/20 text-amber-300 px-2 py-1 rounded">Correcciones Críticas</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Carga de personajes */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🔧 Carga de Personajes Corregida
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Los personajes ahora se cargan correctamente desde archivos JSON en el workspace
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>refreshPersonajes implementado</strong>: AppContext ahora carga personajes desde WorkspaceService
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Lee archivos JSON de la carpeta personajes/</li>
+                    <li>Actualiza automáticamente al cargar workspace</li>
+                    <li>Disponible en todos los componentes vía contexto</li>
+                  </ul>
+                </li>
+                <li><strong>Selector de personajes funcional</strong>: Modal de capturas muestra personajes correctamente</li>
+              </ul>
+            </div>
+
+            {/* Prompt embebido mejorado */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🎨 Prompt Embebido Reubicado
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                El texto del prompt ahora aparece arriba de las imágenes, como un enunciado claro
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Posición superior</strong>: El prompt está en la parte superior de la imagen compuesta
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Las imágenes capturadas se muestran debajo del prompt</li>
+                    <li>Funciona como enunciado de la tarea</li>
+                  </ul>
+                </li>
+                <li><strong>Marco decorativo</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Borde negro de 3px alrededor del texto</li>
+                    <li>Fondo gris claro (#F5F5F5) dentro del marco</li>
+                    <li>15px de margen blanco alrededor del marco</li>
+                    <li>Separación clara entre prompt e imágenes</li>
+                  </ul>
+                </li>
+                <li><strong>Mejor legibilidad</strong>: Texto negro en negrita, bien espaciado dentro del marco</li>
+              </ul>
+              <div className="mt-3 p-2 bg-d4-surface rounded border border-blue-500/30">
+                <p className="text-xs text-blue-300 font-semibold">💡 Mejora Visual</p>
+                <p className="text-xs text-d4-text-dim mt-1">
+                  El prompt ahora se ve como una instrucción clara y separada del contenido capturado, mejorando la experiencia al usar ChatGPT.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.4.4 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
