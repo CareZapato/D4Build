@@ -5,6 +5,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Efectos de brillo para tags con descripción */
+@layer utilities {
+  .shadow-glow-subtle {
+    box-shadow: 0 0 8px rgba(220, 175, 115, 0.2),
+                0 0 4px rgba(220, 175, 115, 0.15);
+  }
+  
+  .shadow-glow-medium {
+    box-shadow: 0 0 12px rgba(220, 175, 115, 0.3),
+                0 0 6px rgba(220, 175, 115, 0.2),
+                inset 0 0 4px rgba(220, 175, 115, 0.1);
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 :root {
   font-family: 'Rajdhani', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;

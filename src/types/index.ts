@@ -254,11 +254,16 @@ export interface Personaje {
     nivel_actual: number;  // Nivel específico del personaje
     nivel_maximo?: number;  // Nivel máximo del glifo (por defecto 100)
   }>;
-  // Referencias a aspectos del héroe
-  aspectos_refs?: string[]; // IDs de aspectos equipados
+  // Referencias a aspectos del héroe con nivel y valores actuales (v0.3.9)
+  aspectos_refs?: Array<{
+    aspecto_id: string;              // ID del aspecto en el héroe
+    nivel_actual: string;             // Nivel actual del aspecto equipado (formato "X/21")
+    slot_equipado?: string;           // Slot donde está equipado (ej: "Amuleto", "Pecho")
+    valores_actuales: Record<string, string>;  // Valores numéricos actuales según nivel
+  }> | string[];  // Retrocompatibilidad con formato antiguo
   // Referencias a estadísticas del héroe con valores específicos (v0.3.7)
   estadisticas_refs?: Array<{
-    stat_id: string;           // ID de la estadística en el héroe
+  stat_id: string;           // ID de la estadística en el héroe
     valor: string | number;    // Valor específico del personaje
   }>;
   // @deprecated (v0.3.7) - Usar estadisticas_refs en su lugar

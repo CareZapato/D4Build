@@ -109,7 +109,7 @@ Los tags son palabras clave del juego (conceptos de mecánicas, habilidades, efe
 6. **Sección palabras_clave global**:
    - Recopila TODOS los tags detectados (de skills y modificadores)
    - Incluir significado si está disponible en tooltip
-   - pendiente_revision: true si significado es null
+   - Si no hay significado, usa null
 
 **Campos opcionales**:
 - Si un campo no aplica: usa null
@@ -956,24 +956,32 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
   },
   "palabras_clave": [
     {
-      "palabra": "vulnerables",
-      "descripcion": "Estado que hace que los enemigos reciban más daño de todas las fuentes",
-      "categoria": "condicion"
+      "tag": "vulnerables",
+      "texto_original": "vulnerables",
+      "significado": "Estado que hace que los enemigos reciban más daño de todas las fuentes",
+      "categoria": "condicion",
+      "fuente": "estadistica"
     },
     {
-      "palabra": "golpe crítico",
-      "descripcion": "Probabilidad de realizar un ataque crítico que causa más daño",
-      "categoria": "atributo"
+      "tag": "golpe_critico",
+      "texto_original": "golpe crítico",
+      "significado": "Probabilidad de realizar un ataque crítico que causa más daño",
+      "categoria": "atributo",
+      "fuente": "estadistica"
     },
     {
-      "palabra": "reducción de daño",
-      "descripcion": "Porcentaje de daño que se reduce al recibir ataques",
-      "categoria": "efecto"
+      "tag": "reduccion_de_danio",
+      "texto_original": "reducción de daño",
+      "significado": "Porcentaje de daño que se reduce al recibir ataques",
+      "categoria": "efecto",
+      "fuente": "estadistica"
     },
     {
-      "palabra": "resistencia",
-      "descripcion": "Reducción del daño de un tipo elemental específico",
-      "categoria": "atributo"
+      "tag": "resistencia",
+      "texto_original": "resistencia",
+      "significado": "Reducción del daño de un tipo elemental específico",
+      "categoria": "atributo",
+      "fuente": "estadistica"
     }
   ]
 }
@@ -987,6 +995,129 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 - **Valores:** Pueden ser números o strings con "%" 
 - Si un campo no está visible, usa null u omite el campo
 - Incluye TODAS las secciones visibles en la imagen`;
+  }
+
+  // Generar prompt para extraer aspectos equipados por el personaje (para CharacterAspects)
+  static generateCharacterAspectsPrompt(): string {
+    return `Analiza la imagen que te voy a proporcionar y extrae la información de los aspectos legendarios que el PERSONAJE tiene EQUIPADOS en su build de Diablo 4.
+
+**⚠️ IMPORTANTE:**
+
+- Extrae SOLO los aspectos que el personaje tiene equipados en su equipo actual
+- Cada aspecto tiene valores que **VARÍAN** según el nivel/tier del aspecto imprinted
+- La descripción del efecto es fija, pero los **VALORES NUMÉRICOS** dependen del nivel
+
+**Instrucciones:**
+1. Identifica cada aspecto equipado visible en la imagen (suelen estar en items de equipo)
+2. Extrae el nombre completo del aspecto
+3. Copia los valores numéricos EXACTOS que muestra en ese nivel
+4. Anota el nivel/tier del aspecto (formato X/21)
+5. Si es visible, determina el slot donde está equipado
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "aspectos_equipados": [
+    {
+      "aspecto_id": "aspecto_tempestad_aceleradora",
+      "nivel_actual": "5/21",
+      "slot_equipado": "Amuleto",
+      "valores_actuales": {
+        "velocidad_ataque": "15%",
+        "duracion": "3",
+        "max_acumulaciones": "5"
+      }
+    },
+    {
+      "aspecto_id": "aspecto_renovacion",
+      "nivel_actual": "10/21",
+      "slot_equipado": "Pecho",
+      "valores_actuales": {
+        "recuperacion_recurso": "35%",
+        "barrera": "25%"
+      }
+    },
+    {
+      "aspecto_id": "aspecto_conductor",
+      "nivel_actual": "7/21",
+      "slot_equipado": "Botas",
+      "valores_actuales": {
+        "velocidad_movimiento": "25%",
+        "duracion": "3"
+      }
+    }
+  ]
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **aspecto_id**: ID normalizado del aspecto maestro (sin "Aspecto", snake_case)
+   - Elimina "Aspecto de" / "Aspecto del" / "Aspecto de la"
+   - Convierte a snake_case
+   - Ejemplos: "aspecto_tempestad_aceleradora", "aspecto_renovacion", "aspecto_conductor"
+
+2. **nivel_actual**: El nivel/tier actual del aspecto equipado
+   - Formato: "X/21" (string)
+   - Los valores van típicamente de 1/21 a 21/21
+   - Si no es visible, puedes inferir por los valores o usar "?/21"
+
+3. **slot_equipado** (opcional): Dónde está equipado
+   - Ejemplos: "Casco", "Pecho", "Guantes", "Pantalones", "Botas", "Amuleto", "Anillo 1", "Anillo 2", "Arma"
+   - Si no es visible, usa null
+
+4. **valores_actuales**: Valores EXACTOS que muestra el aspecto en ese nivel
+   - Clave descriptiva: nombre del stat que varía (snake_case)
+   - Valor: el valor numérico ACTUAL (solo el número, sin explicación)
+   - Unidades: incluir "%" si es porcentaje, números simples para segundos/cantidad
+   - Solo incluir valores que VARÍAN con el nivel (no constantes)
+
+5. **Valores variables típicos que debes capturar**:
+   - Porcentajes de daño, velocidad, reducción, etc.
+   - Duraciones en segundos  
+   - Cantidades numéricas
+   - Límites de acumulación
+   - **NO incluir** texto descriptivo fijo ni mecánicas que no escalan
+
+**EJEMPLO COMPLETO:**
+
+Aspecto mostrado en item del juego:
+"Aspecto de Recursos Abundantes (15/21) en Amuleto: Cada punto de tu recurso principal por encima del 95% te otorga un 3.2% de aumento de daño, hasta un máximo del 64%."
+
+JSON correspondiente:
+\`\`\`json
+{
+  "aspecto_id": "aspecto_recursos_abundantes",
+  "nivel_actual": "15/21",
+  "slot_equipado": "Amuleto",
+  "valores_actuales": {
+    "danio_por_punto": "3.2%",
+    "danio_maximo": "64%",
+    "umbral_recurso": "95%"
+  }
+}
+\`\`\`
+
+**CASOS ESPECIALES:**
+
+- Si un aspecto NO tiene valores que escalen: usa {} vacío para valores_actuales
+- Si solo muestra el nivel pero no los stats exactos: captura solo aspecto_id, nivel_actual y slot
+- Si un aspecto tiene múltiples efectos escalables: incluye todos en valores_actuales
+- Si hay aspectos duplicados (ej: 2 anillos): identificar como slot diferentes
+
+**VALIDACIONES:**
+
+- ✅ aspecto_id DEBE coincidir con IDs de maestros (usa snake_case, sin "Aspecto")
+- ✅ nivel_actual DEBE ser formato "X/21" (string)
+- ✅ valores_actuales son los números ACTUALES del aspecto equipado, no fórmulas
+- ✅ No incluir descripción completa del efecto (solo valores numéricos)
+- ✅ Captura TODOS los aspectos visibles en la imagen
+
+**NO captures**: 
+- La descripción completa del efecto (eso está en datos maestros de héroe)
+- Tags/palabras clave (también están en datos maestros)
+- Información fija que no varía con el nivel`;
   }
 
   // Copiar prompt al portapapeles
@@ -1073,7 +1204,8 @@ Extraer estadísticas con información estructurada de palabras clave del juego,
    - "defensivo": Mecánicas defensivas
 
 5. **DETALLES DE ESTADÍSTICAS:**
-   Captura TODOS los subítems visibles debajo de cada estadística:
+   Captura TODOS los subítems visibles debajo de cada estadística.
+   Los tags se extraen como strings simples en el array "palabras_clave" del detalle:
    \`\`\`json
    {
      "texto": "Aumenta el daño de habilidad en 208.8 %",
@@ -1081,15 +1213,7 @@ Extraer estadísticas con información estructurada de palabras clave del juego,
      "valor": 208.8,
      "unidad": "%",
      "contribucion": null,
-     "tags": [
-       {
-         "tag": "danio_de_habilidad",
-         "texto_original": "daño de habilidad",
-         "significado": null,
-         "categoria": "ofensivo",
-         "fuente": "tooltip"
-       }
-     ]
+     "palabras_clave": ["danio_de_habilidad"]
    }
    \`\`\`
 
@@ -1104,236 +1228,94 @@ Extraer estadísticas con información estructurada de palabras clave del juego,
        "texto_original": "golpe crítico",
        "significado": "Probabilidad de que una habilidad o ataque inflija daño crítico adicional.",
        "categoria": "atributo",
-       "descripcion_jugabilidad": null,
-       "sinonimos": ["critico", "crit"],
-       "origen": "tooltip",
-       "pendiente_revision": false
+       "fuente": "tooltip"
      },
      {
        "tag": "fortificacion",
        "texto_original": "fortificación",
        "significado": null,
-       "categoria": "mecanica_defensiva",
-       "descripcion_jugabilidad": null,
-       "sinonimos": [],
-       "origen": "tooltip",
-       "pendiente_revision": true
+       "categoria": "mecanica",
+       "fuente": "tooltip"
      }
    ]
    \`\`\`
-   
-   - Si tiene significado: "pendiente_revision": false
-   - Si NO tiene significado: "pendiente_revision": true
 
 **FORMATO JSON ESPERADO:**
 
-**Ejemplo - Imagen mostrando múltiples estadísticas:**
+**Ejemplo:**
 \`\`\`json
 {
-  "nivel": {
-    "nivel": 60,
-    "descripcion": "El nivel de tu personaje, que se incrementa al acumular experiencia.",
-    "detalles": [
-      {
-        "texto": "Los monstruos en este nivel tienen 85.0 % de reducción de daño visible.",
-        "tipo": "efecto",
-        "valor": 85.0,
-        "unidad": "%",
-        "contribucion": null,
-        "tags": [
-          {
-            "tag": "reduccion_de_danio_visible",
-            "texto_original": "reducción de daño visible",
-            "significado": null,
-            "categoria": "mecanica",
-            "fuente": "tooltip"
-          }
-        ]
-      }
-    ],
-    "tags": [
-      {
-        "tag": "reduccion_de_danio_visible",
-        "texto_original": "reducción de daño visible",
-        "significado": null,
-        "categoria": "mecanica",
-        "fuente": "tooltip"
-      }
-    ]
-  },
   "nivel_paragon": 150,
   "estadisticas": {
-    "atributos_principales": [
-      {
-        "id": "fuerza",
-        "nombre": "Fuerza",
-        "categoria": "atributo_principal",
-        "valor": 1670,
-        "unidad": "puntos",
-        "descripcion": null,
-        "detalles": [
-          {
-            "texto": "Contribución de objetos: 1297",
-            "tipo": "contribucion",
-            "valor": 1297,
-            "unidad": "puntos",
-            "contribucion": "objetos",
-            "tags": []
-          },
-          {
-            "texto": "Aumenta el daño de habilidad en 208.8 %",
-            "tipo": "bonificacion",
-            "valor": 208.8,
-            "unidad": "%",
-            "contribucion": null,
-            "tags": [
-              {
-                "tag": "danio_de_habilidad",
-                "texto_original": "daño de habilidad",
-                "significado": null,
-                "categoria": "atributo",
-                "fuente": "tooltip"
-              }
-            ]
-          }
-        ],
-        "tags": [
-          {
-            "tag": "danio_de_habilidad",
-            "texto_original": "daño de habilidad",
-            "significado": null,
-            "categoria": "atributo",
-            "fuente": "tooltip"
-          }
-        ]
-      },
-      {
-        "id": "inteligencia",
-        "nombre": "Inteligencia",
-        "categoria": "atributo_principal",
-        "valor": 208,
-        "unidad": "puntos",
-        "descripcion": null,
-        "detalles": [
-          {
-            "texto": "Aumenta la probabilidad de golpe crítico en +4.2 %",
-            "tipo": "bonificacion",
-            "valor": 4.2,
-            "unidad": "%",
-            "contribucion": null,
-            "tags": [
-              {
-                "tag": "golpe_critico",
-                "texto_original": "golpe crítico",
-                "significado": "Probabilidad de infligir daño crítico",
-                "categoria": "atributo",
-                "fuente": "tooltip"
-              }
-            ]
-          }
-        ],
-        "tags": [
-          {
-            "tag": "golpe_critico",
-            "texto_original": "golpe crítico",
-            "significado": "Probabilidad de infligir daño crítico",
-            "categoria": "atributo",
-            "fuente": "tooltip"
-          }
-        ]
-      }
-    ],
-    "defensivo": [
-      {
-        "id": "armadura",
-        "nombre": "Armadura",
-        "categoria": "defensivo",
-        "valor": 20296,
-        "unidad": "puntos",
-        "descripcion": "Reduce el daño recibido en 73.7 %",
-        "detalles": [
-          {
-            "texto": "Aplica al daño físico y daño en el tiempo",
-            "tipo": "aclaracion",
-            "valor": null,
-            "unidad": null,
-            "contribucion": null,
-            "tags": []
-          }
-        ],
-        "tags": []
-      },
-      {
-        "id": "vida_maxima",
-        "nombre": "Vida máxima",
-        "categoria": "defensivo",
-        "valor": 7581,
-        "unidad": "puntos",
-        "descripcion": null,
-        "detalles": [],
-        "tags": []
-      }
-    ],
-    "ofensivo": [
-      {
-        "id": "probabilidad_golpe_critico",
-        "nombre": "Probabilidad de golpe crítico",
-        "categoria": "ofensivo",
-        "valor": 15.0,
-        "unidad": "%",
-        "descripcion": null,
-        "detalles": [
-          {
-            "texto": "Contribución de objetos y Paragón: +10.0 %",
-            "tipo": "contribucion",
-            "valor": 10.0,
-            "unidad": "%",
-            "contribucion": "objetos_y_paragon",
-            "tags": []
-          }
-        ],
-        "tags": [
-          {
-            "tag": "golpe_critico",
-            "texto_original": "golpe crítico",
-            "significado": "Probabilidad de infligir daño crítico",
-            "categoria": "atributo",
-            "fuente": "tooltip"
-          }
-        ]
-      }
-    ]
+    "personaje": {
+      "danioArma": 496,
+      "aguante": 52619,
+      "aguante_definicion": "El Aguante es una aproximación de tu capacidad de supervivencia...",
+      "detalles": [
+        {
+          "texto": "Armadura: 18,995",
+          "valor": 18995,
+          "contribucion": null,
+          "palabras_clave": []
+        }
+      ],
+      "palabras_clave": ["reduccion_de_danio"]
+    },
+    "atributosPrincipales": {
+      "nivel": 60,
+      "fuerza": 1670,
+      "inteligencia": 208,
+      "detalles": [
+        {
+          "texto": "Aumenta el daño de habilidad en 208.8 %",
+          "palabras_clave": ["danio_de_habilidad"]
+        },
+        {
+          "texto": "Aumenta la probabilidad de golpe crítico en +4.2 %",
+          "palabras_clave": ["golpe_critico"]
+        }
+      ],
+      "palabras_clave": ["danio_de_habilidad", "golpe_critico"]
+    },
+    "defensivo": {
+      "vidaMaxima": 7581,
+      "armadura": 20296,
+      "detalles": [],
+      "palabras_clave": []
+    },
+    "ofensivo": {
+      "probabilidadGolpeCritico": 15.0,
+      "danioGolpeCritico": 194.0,
+      "detalles": [
+        {
+          "texto": "Bonificación de daño contra enemigos vulnerables: 80.0%",
+          "palabras_clave": ["vulnerables"]
+        }
+      ],
+      "palabras_clave": ["golpe_critico", "vulnerables"]
+    }
   },
   "palabras_clave": [
     {
-      "tag": "reduccion_de_danio_visible",
-      "texto_original": "reducción de daño visible",
+      "tag": "golpe_critico",
+      "texto_original": "golpe crítico",
+      "significado": "Probabilidad de infligir daño crítico adicional",
+      "categoria": "atributo",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "vulnerables",
+      "texto_original": "vulnerables",
       "significado": null,
-      "categoria": "mecanica",
-      "descripcion_jugabilidad": null,
-      "sinonimos": [],
-      "origen": "tooltip",
-      "pendiente_revision": true
+      "categoria": "condicion",
+      "fuente": "estadistica"
     },
     {
       "tag": "danio_de_habilidad",
       "texto_original": "daño de habilidad",
       "significado": null,
       "categoria": "atributo",
-      "descripcion_jugabilidad": null,
-      "sinonimos": [],
-      "origen": "tooltip",
-      "pendiente_revision": true
-    },
-    {
-      "tag": "golpe_critico",
-      "texto_original": "golpe crítico",
-      "significado": "Probabilidad de infligir daño crítico",
-      "categoria": "atributo",
-      "descripcion_jugabilidad": null,
-      "sinonimos": ["critico", "crit"],
-      "origen": "tooltip",
-      "pendiente_revision": false
+      "fuente": "tooltip"
     }
   ]
 }
@@ -1341,24 +1323,21 @@ Extraer estadísticas con información estructurada de palabras clave del juego,
 
 **CHECKLIST FINAL:**
 - ✅ Todo en español (variables, tags, textos)
-- ✅ **Captura TODOS los atributos visibles con sus detalles completos**
-- ✅ Tags como objetos con "tag", "texto_original", "significado" (puede ser null)
-- ✅ **SOLO** capturar como tags palabras EN BLANCO/SUBRAYADAS (no inventar)
-- ✅ Objeto "nivel" con nivel, descripcion y detalles si está visible
-- ✅ Sección "palabras_clave" global presente con TODAS las palabras detectadas
-- ✅ Campo "pendiente_revision" en palabras_clave (true si significado es null)
-- ✅ Detalles con estructura completa (texto, tipo, valor, unidad, contribucion, tags)
-- ✅ Nombres claros en español: "golpe_critico", "abrumador", "vulnerable" (NO "daño abrumador")
-- ✅ Si un campo está vacío, usar null o {} o [] según corresponda
+- ✅ Captura TODOS los atributos visibles con sus detalles completos
+- ✅ palabras_clave en detalles: array de strings ["tag1", "tag2"]
+- ✅ palabras_clave global: array de objetos con estructura completa
+- ✅ SOLO capturar como tags palabras EN BLANCO/SUBRAYADAS
+- ✅ Sección palabras_clave global con TODAS las palabras detectadas
+- ✅ significado puede ser null si no está disponible
 
 **IMPORTANTE:**
 - NO traduzcas conceptos al inglés
-- NO uses camelCase en tags, usa snake_case
-- NO simplifiques tags a strings, deben ser objetos
-- NO inventes tags con palabras que NO estén en blanco - esto es crítico
+- NO uses camelCase en tags, usa snake_case  
+- palabras_clave en detalles: array de STRINGS
+- palabras_clave global: array de OBJETOS {tag, texto_original, significado, categoria, fuente}
+- NO inventes tags con palabras que NO estén en blanco
 - SÍ captura TODAS las palabras blancas/subrayadas
-- SÍ captura TODOS los atributos visibles en la imagen con sus detalles
-- SÍ permite significado null cuando no tengas la definición`;
+- SÍ captura TODOS los atributos visibles con sus detalles`;
   }
 }
 

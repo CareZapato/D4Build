@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Users, Shield, Sparkles } from 'lucide-react';
+import { Users, Shield, Sparkles, Tag } from 'lucide-react';
 import ChangelogModal from '../ChangelogModal';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags';
 
 interface Props {
   currentView: View;
@@ -15,6 +15,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   const menuItems = [
     { id: 'characters' as View, icon: Users, label: 'Personajes' },
     { id: 'heroes' as View, icon: Shield, label: 'Héroes' },
+    { id: 'tags' as View, icon: Tag, label: 'Tags' },
     { id: 'prompts' as View, icon: Sparkles, label: 'Prompts' },
   ];
 
@@ -38,7 +39,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             className="mt-1 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.3.7
+            v0.3.13.1
           </button>
         </div>
       </div>

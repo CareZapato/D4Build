@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Upload, Plus, Trash2, Gem, Copy, Check } from 'lucide-react';
-import { Personaje, Glifo, GlifosHeroe, Tag } from '../../types';
+import { Personaje, Glifo, GlifosHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
-import { TagService } from '../../services/TagService';
-import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
-import Modal from '../common/Modal';
+import { TagLinkingService } from '../../services/TagLinkingService';
+import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';import { TagBadge } from '../tags/TagBadge';import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 
 interface Props {
@@ -92,33 +91,25 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
   };
 
   const processJSONImport = async (content: string) => {
-    const data = JSON.parse(content) as GlifosHeroe;
+    const data = JSON.parse(content);
 
     if (!data.glifos || !Array.isArray(data.glifos)) {
       modal.showError('El archivo no tiene el formato correcto de glifos');
       return;
     }
 
-    // Procesar tags desde sección global palabras_clave (formato V2 de IA)
-    let allTags: Tag[] = [];
-    if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
-      allTags = (data as any).palabras_clave;
-    }
+    // Procesar y vincular tags usando TagLinkingService
+    const { linkedData, tagMap, tagsProcessed } = await TagLinkingService.processAndLinkAllTags(
+      data,
+      'glifo'
+    );
 
-    // Recolectar tags de glifos individuales si tienen tags
-    data.glifos.forEach((glyph: any) => {
-      if (glyph.tags && Array.isArray(glyph.tags)) {
-        glyph.tags.forEach((tag: any) => {
-          if (typeof tag === 'object' && tag.tag) {
-            allTags.push(tag);
-          }
-        });
-      }
-    });
+    console.log(`${tagsProcessed} tags procesados y vinculados`);
 
-    // Guardar tags globalmente y obtener IDs
-    const tagIds = await TagService.processAndSaveTagsV2(allTags, 'glifo');
-    console.log('Tags de glifos guardados con IDs:', tagIds);
+    // Vincular tags en cada glifo
+    const glifosConTags = linkedData.glifos.map((glifo: any) => 
+      TagLinkingService.linkGlyphTags(glifo, tagMap)
+    );
 
     // Primero sincronizar con el héroe (actualizar existentes o agregar nuevos)
     const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase);
@@ -128,7 +119,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     let agregados = 0;
 
     // Normalizar estructura de glifos
-    const normalizedGlyphs = data.glifos.map((glyph: any) => {
+    const normalizedGlyphs = glifosConTags.map((glyph: any) => {
       const normalized: any = { ...glyph };
       
       // Normalizar efecto_base: si es string, convertir a objeto
@@ -172,7 +163,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
       return normalized;
     });
 
-    normalizedGlyphs.forEach(glyph => {
+    normalizedGlyphs.forEach((glyph: any) => {
       const existingIndex = updatedHeroGlyphs.glifos.findIndex(g => g.nombre === glyph.nombre);
       
       if (existingIndex >= 0) {
@@ -199,7 +190,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     // Ahora actualizar referencias del personaje (actualizar nivel o agregar nuevos)
     const updatedRefs = [...glyphsRefs];
     
-    data.glifos.forEach(glyph => {
+    glifosConTags.forEach((glyph: any) => {
       const heroGlyph = updatedHeroGlyphs.glifos.find(g => g.nombre === glyph.nombre);
       if (!heroGlyph?.id) return;
       
@@ -489,6 +480,27 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
                   </span>
                 )}
               </div>
+
+              {/* Tags del glifo */}
+              {glyph.tags && Array.isArray(glyph.tags) && glyph.tags.length > 0 && (
+                <div className="mt-3 pt-2 border-t border-d4-border/30">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] text-d4-text-dim font-semibold">Tags:</span>
+                    {glyph.tags.map((tagItem, idx) => {
+                      const tagId = typeof tagItem === 'string' ? tagItem : (tagItem as any).tag || (tagItem as any).id;
+                      if (!tagId) return null;
+                      return (
+                        <TagBadge 
+                          key={idx} 
+                          tagId={tagId} 
+                          iconSize={12} 
+                          textSize="text-[10px]"
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Info } from 'lucide-react';
 import { DetalleEstadistica } from '../../types';
+import { TagBadge } from '../tags/TagBadge';
 
 interface StatFieldProps {
   label: string;
@@ -80,6 +81,24 @@ const StatField: React.FC<StatFieldProps> = ({
                           <span className="ml-1 font-semibold">
                             ({detalle.valor}{detalle.unidad || ''})
                           </span>
+                        )}
+                        {/* Tags del detalle */}
+                        {detalle.palabras_clave && Array.isArray(detalle.palabras_clave) && detalle.palabras_clave.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                            <span className="text-[9px] opacity-70">Tags:</span>
+                            {detalle.palabras_clave.map((tagItem, tagIdx) => {
+                              const tagId = typeof tagItem === 'string' ? tagItem : (tagItem as any).tag || (tagItem as any).id;
+                              if (!tagId) return null;
+                              return (
+                                <TagBadge 
+                                  key={tagIdx} 
+                                  tagId={tagId} 
+                                  iconSize={10} 
+                                  textSize="text-[9px]"
+                                />
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
                     ))}

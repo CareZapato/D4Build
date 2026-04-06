@@ -5,6 +5,7 @@ import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
 import CharacterGlyphs from './CharacterGlyphs';
 import CharacterSkills from './CharacterSkills';
+import CharacterAspects from './CharacterAspects';
 import CharacterPrompts from './CharacterPrompts';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
@@ -38,6 +39,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [skillsCollapsed, setSkillsCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [glyphsCollapsed, setGlyphsCollapsed] = useState(false);
+  const [aspectsCollapsed, setAspectsCollapsed] = useState(false);
   const [promptsCollapsed, setPromptsCollapsed] = useState(false);
 
   // Sincronizar estados cuando cambie el personaje prop
@@ -152,7 +154,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
-      habilidades_refs: skillsRefs,
+ habilidades_refs: skillsRefs,
       fecha_actualizacion: new Date().toISOString(),
     };
     
@@ -166,6 +168,27 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     } catch (error) {
       console.error('Error guardando habilidades:', error);
       modal.showError('Error al guardar las habilidades');
+    }
+  };
+
+  const handleAspectsChange = async (aspectsRefs: Array<{ aspecto_id: string; nivel_actual: string; slot_equipado?: string; valores_actuales: Record<string, string> }>) => {
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      aspectos_refs: aspectsRefs,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente
+    try {
+      await WorkspaceService.savePersonaje(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando aspectos:', error);
+      modal.showError('Error al guardar los aspectos');
     }
   };
 
@@ -392,6 +415,33 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             {!glyphsCollapsed && (
               <div className="px-4 pb-4">
                 <CharacterGlyphs personaje={editedPersonaje} onChange={handleGlyphsChange} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Aspectos */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setAspectsCollapsed(!aspectsCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Aspectos Equipados</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
+              {aspectsCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!aspectsCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterAspects personaje={editedPersonaje} onChange={handleAspectsChange} />
               </div>
             )}
           </div>

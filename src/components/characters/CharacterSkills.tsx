@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Upload, Plus, Trash2, Zap, Shield, Copy, Check, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { Personaje, HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje, Tag, TipoHabilidad } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
-import { TagService } from '../../services/TagService';
+import { TagLinkingService } from '../../services/TagLinkingService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import { TagBadge } from '../tags/TagBadge';
 import Modal from '../common/Modal';
 import ConfirmImportModal, { ImportSummary } from '../common/ConfirmImportModal';
 import { useModal } from '../../hooks/useModal';
@@ -235,10 +236,10 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       habilidades_pasivas: []
     };
 
-    let allTags: Tag[] = [];
+    let allPalabrasClave: Tag[] = [];
 
     for (const jsonStr of JSONObjects) {
-      const data = JSON.parse(jsonStr) as HabilidadesPersonaje;
+      const data = JSON.parse(jsonStr);
       
       if (data.habilidades_activas) {
         combinedData.habilidades_activas.push(...data.habilidades_activas);
@@ -247,33 +248,34 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
         combinedData.habilidades_pasivas.push(...data.habilidades_pasivas);
       }
       
-      // Recolectar tags desde sección global palabras_clave (formato V2 de IA)
-      if ((data as any).palabras_clave && Array.isArray((data as any).palabras_clave)) {
-        allTags.push(...(data as any).palabras_clave);
+      // Recolectar palabras_clave globales
+      if (data.palabras_clave && Array.isArray(data.palabras_clave)) {
+        allPalabrasClave.push(...data.palabras_clave);
       }
-
-      // Recolectar tags de modificadores si tienen tags individuales
-      data.habilidades_activas?.forEach((skill: any) => {
-        if (skill.modificadores && Array.isArray(skill.modificadores)) {
-          skill.modificadores.forEach((mod: any) => {
-            if (mod.tags && Array.isArray(mod.tags)) {
-              mod.tags.forEach((tag: any) => {
-                if (typeof tag === 'object' && tag.tag) {
-                  allTags.push(tag);
-                }
-              });
-            }
-          });
-        }
-      });
     }
 
-    // Procesar y guardar tags globalmente antes de calcular el summary
-    if (allTags.length > 0) {
-      await TagService.processAndSaveTagsV2(allTags, 'habilidad');
-    }
+    // Procesar tags y crear mapa de vinculación
+    const { tagMap: newTagMap, tagsProcessed } = await TagLinkingService.processAndLinkAllTags(
+      { palabras_clave: allPalabrasClave },
+      'habilidad'
+    );
 
-    setPendingImportData(combinedData);
+    // Vincular tags en habilidades activas
+    const linkedActivas = combinedData.habilidades_activas.map(skill => 
+      TagLinkingService.linkSkillTags(skill, newTagMap)
+    );
+
+    // Vincular tags en habilidades pasivas
+    const linkedPasivas = combinedData.habilidades_pasivas.map(skill => 
+      TagLinkingService.linkSkillTags(skill, newTagMap)
+    );
+
+    const linkedData: HabilidadesPersonaje = {
+      habilidades_activas: linkedActivas,
+      habilidades_pasivas: linkedPasivas
+    };
+
+    setPendingImportData(linkedData);
 
     // Calcular resumen de cambios
     const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase) || {
@@ -287,7 +289,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     let pasivasAgregadas = 0;
 
     // Analizar habilidades activas
-    combinedData.habilidades_activas.forEach(skill => {
+    linkedData.habilidades_activas.forEach(skill => {
       const exists = heroSkills.habilidades_activas.some(s => s.nombre === skill.nombre);
       if (exists) {
         activasActualizadas++;
@@ -297,7 +299,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     });
 
     // Analizar habilidades pasivas
-    combinedData.habilidades_pasivas.forEach(skill => {
+    linkedData.habilidades_pasivas.forEach(skill => {
       const exists = heroSkills.habilidades_pasivas.some(s => s.nombre === skill.nombre);
       if (exists) {
         pasivasActualizadas++;
@@ -315,7 +317,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
         actualizadas: pasivasActualizadas,
         agregadas: pasivasAgregadas
       },
-      palabrasClave: allTags.length
+      palabrasClave: tagsProcessed
     };
   };
 
@@ -795,6 +797,25 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                     <p className="text-sm text-d4-text leading-relaxed">
                       {skill.descripcion}
                     </p>
+
+                    {/* Tags de la habilidad */}
+                    {skill.tags && Array.isArray(skill.tags) && skill.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                        <span className="text-[10px] text-d4-text-dim font-semibold">Tags:</span>
+                        {skill.tags.map((tagItem, idx) => {
+                          const tagId = typeof tagItem === 'string' ? tagItem : (tagItem as any).tag || (tagItem as any).id;
+                          if (!tagId) return null;
+                          return (
+                            <TagBadge 
+                              key={idx} 
+                              tagId={tagId} 
+                              iconSize={12} 
+                              textSize="text-[10px]"
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Modificadores (colapsable) */}
@@ -830,6 +851,24 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                                     <p className="text-xs text-d4-text-dim leading-relaxed">
                                       {mod.descripcion}
                                     </p>
+                                    {/* Tags del modificador */}
+                                    {mod.tags && Array.isArray(mod.tags) && mod.tags.length > 0 && (
+                                      <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                        <span className="text-[9px] text-d4-text-dim font-semibold">Tags:</span>
+                                        {mod.tags.map((tagItem, idx) => {
+                                          const tagId = typeof tagItem === 'string' ? tagItem : (tagItem as any).tag || (tagItem as any).id;
+                                          if (!tagId) return null;
+                                          return (
+                                            <TagBadge 
+                                              key={idx} 
+                                              tagId={tagId} 
+                                              iconSize={10} 
+                                              textSize="text-[9px]"
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>

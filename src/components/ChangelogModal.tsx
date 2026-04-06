@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">21 de Marzo, 2026</p>
+                <p className="text-d4-text font-semibold">5 de Abril, 2026</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,436 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.13.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.13.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-400 px-2 py-1 rounded">Corrección Crítica</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Corrección de Tags */}
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🐛 Tags No Mostraban Información
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Problema identificado</strong>: TagService.getTagById() buscaba por ID único, pero los datos almacenan tags como strings normalizados ("golpe_critico")</li>
+                <li><strong>Solución</strong>: Método ahora busca primero por ID, luego por tag normalizado</li>
+                <li><strong>Resultado</strong>: Tooltips ahora muestran correctamente significado, jugabilidad y categoría</li>
+              </ul>
+            </div>
+
+            {/* Tags por Defecto */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                ✨ Tags por Defecto Inicializados
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                Si no existe <code className="bg-d4-surface px-1 rounded">tags.json</code>, se crean automáticamente 14 tags comunes de Diablo 4:
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Atributos</strong>: Inteligencia, Voluntad, Fuerza, Destreza</li>
+                <li><strong>Control</strong>: Helados, Congelados, Aturdidos, Control de Multitudes</li>
+                <li><strong>Estados</strong>: Saludable, Daño, Sanación</li>
+                <li><strong>Críticos</strong>: Golpe Crítico, Probabilidad de Golpe Crítico, Daño de Golpe Crítico</li>
+              </ul>
+              <p className="text-xs text-d4-text-dim mt-2">
+                💡 Cada tag incluye: significado detallado, descripción de jugabilidad, sinónimos y categoría
+              </p>
+            </div>
+
+            {/* Mejoras de Debugging */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2">
+                🔍 Mejor Logging
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Mensajes con emojis para fácil identificación en consola</li>
+                <li>✅ Tags cargados desde archivo</li>
+                <li>⚠️ Tags.json no existe, creando por defecto</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.13 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.13</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 px-2 py-1 rounded">Optimización</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Mejoras de Performance */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                ⚡ Mejoras de Performance en Tags
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Componente TagTooltip memoizado</strong>: Evita re-renders innecesarios con React.memo</li>
+                <li><strong>Carga lazy de datos</strong>: Los tags se cargan solo cuando existen (useMemo)</li>
+                <li><strong>Debouncing de 150ms</strong>: Evita tooltips flash al pasar el mouse rápidamente</li>
+                <li><strong>Limpieza de timeouts</strong>: useEffect cleanup para evitar memory leaks</li>
+                <li><strong>Animación fade-in suave</strong>: Transición fluida de 200ms al mostrar tooltips</li>
+              </ul>
+            </div>
+
+            {/* Nuevo Componente TagBadge */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                ✨ Nuevo Componente: TagBadge
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Badge integrado con tooltip</strong>: Componente unificado para mostrar tags</li>
+                <li><strong>Efecto de brillo</strong>: Tags con descripción brillan sutilmente</li>
+                <li><strong>Visual distintivo</strong>: 
+                  <ul className="ml-4 mt-1 space-y-0.5">
+                    <li>Tags con descripción: Borde dorado + sombra brillante + hover mejorado</li>
+                    <li>Tags sin descripción: Estilo estándar sin efectos</li>
+                  </ul>
+                </li>
+                <li><strong>Memoización inteligente</strong>: Evita cálculos redundantes con useMemo</li>
+                <li><strong>Props configurables</strong>: textSize, iconSize, showIcon, className</li>
+              </ul>
+            </div>
+
+            {/* Tooltips Mejorados */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                📖 Tooltips con Más Información
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Badge "✨ Con descripción"</strong>: Indicador visual en el header del tooltip</li>
+                <li><strong>Significado resaltado</strong>: Fondo dorado suave + borde lateral izquierdo</li>
+                <li><strong>Jugabilidad resaltada</strong>: Fondo púrpura suave + borde lateral izquierdo</li>
+                <li><strong>Icono con brillo</strong>: El icono Info brilla si el tag tiene descripción</li>
+                <li><strong>Borde destacado</strong>: Tooltips con descripción usan borde más brillante</li>
+              </ul>
+            </div>
+
+            {/* Efectos CSS Nuevos */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                🎨 Nuevos Efectos Visuales (CSS)
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>shadow-glow-subtle</strong>: Brillo suave dorado (8px + 4px)</li>
+                <li><strong>shadow-glow-medium</strong>: Brillo medio con inset (12px + 6px + 4px)</li>
+                <li><strong>animate-fade-in</strong>: Animación de entrada 200ms con translateY</li>
+                <li><strong>Transiciones suaves</strong>: duration-200/300 en todos los efectos hover</li>
+              </ul>
+            </div>
+
+            {/* Refactorización */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2">
+                🔄 Refactorización de Código
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                Todos los componentes de personaje ahora usan <code className="bg-d4-surface px-1 rounded">TagBadge</code> en lugar de renderizar tags manualmente:
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>CharacterSkills</strong>: Habilidades activas + Modificadores</li>
+                <li><strong>CharacterGlyphs</strong>: Tags de glifos</li>
+                <li><strong>CharacterAspects</strong>: Tags de aspectos</li>
+                <li><strong>StatField</strong>: Tags en tooltip de estadísticas</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.12.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.12.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-400 px-2 py-1 rounded">Corrección de Errores</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Correcciones */}
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🐛 Errores Corregidos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Tags como objetos:</strong> Solucionado error al renderizar tags que venían como objetos completos en lugar de IDs</li>
+                <li>• <strong>TypeScript:</strong> Agregado type assertion para manejar tags flexibles (string | objeto)</li>
+                <li>• <strong>Aspectos no encontrados:</strong> Mejorado manejo de error cuando no hay aspectos disponibles para una clase</li>
+                <li>• <strong>React rendering:</strong> Solucionado "Objects are not valid as a React child"</li>
+              </ul>
+            </div>
+
+            {/* Soporte flexible */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔧 Manejo Robusto de Tags</h4>
+              <p className="text-sm text-d4-text-dim mb-2">Ahora el sistema acepta tags en múltiples formatos:</p>
+              <ul className="space-y-1 text-sm text-d4-text-dim font-mono">
+                <li>• <span className="text-orange-400">String simple</span>: "golpe_critico"</li>
+                <li>• <span className="text-orange-400">Objeto completo</span>: {`{tag: "golpe_critico", texto_original: "...", ...}`}</li>
+                <li>• <span className="text-orange-400">Extracción automática</span>: Detecta y extrae el ID correcto en ambos casos</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.12 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.12</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-400 px-2 py-1 rounded">Tooltips de Tags Integrados</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Integración completa */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔍 TagTooltip en Todos los Componentes</h4>
+              <p className="text-sm text-d4-text-dim mb-2">Ahora puedes ver el significado de cada palabra clave (tag) directamente en la interfaz:</p>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>CharacterSkills:</strong> Tags visibles en habilidades y modificadores con icono Info</li>
+                <li>• <strong>CharacterGlyphs:</strong> Tags visibles en cada glifo equipado</li>
+                <li>• <strong>CharacterAspects:</strong> Tags visibles en aspectos equipados</li>
+                <li>• <strong>CharacterStats:</strong> Tags visibles en los detalles de cada estadística</li>
+                <li>• <strong>Hover interactivo:</strong> Al pasar el mouse sobre el icono Info se muestra el tooltip completo</li>
+              </ul>
+            </div>
+
+            {/* Información mostrada */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📊 Información del Tag Tooltip</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim font-mono">
+                <li>• <span className="text-cyan-400">Nombre</span>: Texto original del tag</li>
+                <li>• <span className="text-cyan-400">Significado</span>: Descripción completa del término</li>
+                <li>• <span className="text-cyan-400">Categoría</span>: Tipo (atributo, mecánica, condición, etc.)</li>
+                <li>• <span className="text-cyan-400">Origen</span>: Fuente del tag (tooltip, habilidad, glifo, etc.)</li>
+                <li>• <span className="text-cyan-400">Estado</span>: Indica si requiere revisión</li>
+              </ul>
+            </div>
+
+            {/* Experiencia mejorada */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Experiencia de Usuario</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• Acceso instantáneo a definiciones de términos del juego</li>
+                <li>• Colores por categoría para identificación rápida</li>
+                <li>• Auto-posicionamiento del tooltip (arriba/abajo según espacio)</li>
+                <li>• No requiere abrir modales ni navegar a otras secciones</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.11 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.11</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-400 px-2 py-1 rounded">Coherencia en Prompts IA</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Estandarización */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎯 Estructura Unificada de Tags</h4>
+              <p className="text-sm text-d4-text-dim mb-2">Todos los prompts ahora usan el mismo formato para palabras_clave:</p>
+              <ul className="space-y-1 text-sm text-d4-text-dim font-mono">
+                <li>• <span className="text-purple-400">tag</span>: Identificador normalizado (snake_case)</li>
+                <li>• <span className="text-purple-400">texto_original</span>: Como aparece en el juego</li>
+                <li>• <span className="text-purple-400">significado</span>: Definición del tooltip (null si no disponible)</li>
+                <li>• <span className="text-purple-400">categoria</span>: atributo | mecanica | condicion | etc</li>
+                <li>• <span className="text-purple-400">fuente</span>: tooltip | habilidad | glifo | aspecto | estadistica</li>
+              </ul>
+            </div>
+
+            {/* Prompts actualizados */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📋 Prompts Modernizados</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>generateStatsPrompt():</strong> Estructura actualizada (tag, texto_original, significado)</li>
+                <li>• <strong>generateStatsPromptV2():</strong> Simplificado, eliminados campos extras</li>
+                <li>• <strong>Eliminados:</strong> "palabra", "descripcion", "origen", "pendiente_revision", "sinonimos"</li>
+                <li>• <strong>Ejemplos:</strong> Actualizados con formato consistente</li>
+              </ul>
+            </div>
+
+            {/* Beneficios */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💡 Ventajas</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• Importaciones más predecibles en todos los tipos de datos</li>
+                <li>• TagLinkingService optimizado para formato único</li>
+                <li>• Menor posibilidad de errores de parsing</li>
+                <li>• Documentación clara para análisis con IA</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.10 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.10</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-400 px-2 py-1 rounded">Vinculación Automática de Tags</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* TagLinkingService */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔗 TagLinkingService (Nuevo)</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Servicio centralizado:</strong> Procesa palabras_clave y vincula tags automáticamente</li>
+                <li>• <strong>processAndMapTags():</strong> Procesa Tag[] y retorna Map&lt;string, string&gt; (tag_normalizado → tag_id)</li>
+                <li>• <strong>linkTagsToIds():</strong> Convierte array de strings a array de IDs usando el mapa</li>
+                <li>• <strong>linkSkillTags():</strong> Vincula tags en habilidades (skill, modificadores, efectos, pasiva, activa)</li>
+                <li>• <strong>linkGlyphTags():</strong> Vincula tags en glifos</li>
+                <li>• <strong>linkAspectTags():</strong> Vincula tags en aspectos</li>
+                <li>• <strong>processAndLinkAllTags():</strong> Método todo-en-uno para procesar y vincular en un solo paso</li>
+              </ul>
+            </div>
+
+            {/* Integración en componentes */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">⚡ Componentes Actualizados</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>CharacterSkills:</strong> Tags vinculados automáticamente al importar JSON</li>
+                <li>• <strong>CharacterGlyphs:</strong> Tags vinculados en glifos durante importación</li>
+                <li>• <strong>CharacterAspects:</strong> Tags vinculados en aspectos durante importación</li>
+                <li>• <strong>Flujo unificado:</strong> Todos los componentes usan TagLinkingService</li>
+                <li>• <strong>Sin código duplicado:</strong> Lógica centralizada de vinculación</li>
+              </ul>
+            </div>
+
+            {/* Flujo de importación */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📥 Flujo de Importación Mejorado</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Paso 1:</strong> Usuario importa JSON con palabras_clave globales</li>
+                <li>• <strong>Paso 2:</strong> TagLinkingService procesa palabras_clave → guarda en tags.json → obtiene IDs</li>
+                <li>• <strong>Paso 3:</strong> Crea mapa tag_normalizado → tag_id</li>
+                <li>• <strong>Paso 4:</strong> Vincula arrays tags: string[] en objetos con IDs correspondientes</li>
+                <li>• <strong>Paso 5:</strong> Guarda objetos con tags IDs en archivos del héroe</li>
+                <li>• <strong>Resultado:</strong> Tags completamente vinculados y listos para tooltips</li>
+              </ul>
+            </div>
+
+            {/* Beneficios */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Beneficios del Sistema</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Automático:</strong> No requiere intervención manual para vincular tags</li>
+                <li>• <strong>Centralizado:</strong> Un solo repositorio global de tags (tags.json)</li>
+                <li>• <strong>Consistente:</strong> Mismo flujo para habilidades, glifos, aspectos y stats</li>
+                <li>• <strong>Escalable:</strong> Fácil agregar tooltips en cualquier componente</li>
+                <li>• <strong>Búsqueda eficiente:</strong> IDs permiten lookups O(1) en TagService</li>
+                <li>• <strong>Sin duplicación:</strong> Tags compartidos entre múltiples objetos usan mismo ID</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.9 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.9</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-purple-400 px-2 py-1 rounded">Tags Manager & Sistema de Tooltips</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Gestor de Tags */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🏷️ Gestor de Tags (Nueva Sección)</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Vista completa de tags:</strong> Gestión centralizada de todas las palabras clave del workspace</li>
+                <li>• <strong>Filtros avanzados:</strong> Por categoría (atributo, efecto, condición, recurso, mecánica, tipo_de_daño, defensivo), origen y pendientes</li>
+                <li>• <strong>Búsqueda inteligente:</strong> Por nombre normalizado, texto original, significado o sinónimos</li>
+                <li>• <strong>CRUD completo:</strong> Crear, editar y eliminar tags manualmente</li>
+                <li>• <strong>Estadísticas visuales:</strong> Total de tags, pendientes de revisión y filtrados</li>
+                <li>• <strong>Categorización por colores:</strong> Identificación visual rápida por tipo</li>
+              </ul>
+            </div>
+
+            {/* Sistema de Tooltips */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">💡 Componentes de Tooltips</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>TagTooltip:</strong> Icono de información con popup hover mostrando detalles completos del tag</li>
+                <li>• <strong>TagTooltipInline:</strong> Variante para texto clickable con tooltip integrado</li>
+                <li>• <strong>Información mostrada:</strong> Nombre, significado, categoría, sinónimos, origen y estado de revisión</li>
+                <li>• <strong>Posicionamiento inteligente:</strong> Auto-ajuste arriba/abajo según espacio disponible</li>
+                <li>• <strong>Listos para integración:</strong> Preparados para usarse en Skills, Glyphs, Aspects y Stats</li>
+              </ul>
+            </div>
+
+            {/* Mejoras UX */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">✨ Mejoras de Experiencia</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Navegación mejorada:</strong> Nueva opción "Tags" en el menú lateral</li>
+                <li>• <strong>Edición inline:</strong> Editar tags directamente en la lista sin modales adicionales</li>
+                <li>• <strong>Confirmación de eliminación:</strong> Modal de confirmación antes de borrar tags</li>
+                <li>• <strong>Indicadores visuales:</strong> Tags pendientes de revisión destacados con icono de alerta</li>
+                <li>• <strong>Timestamps:</strong> Fechas de creación y última actualización por tag</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.3.8 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.3.8</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-400 px-2 py-1 rounded">Aspectos en Personajes</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Aspectos en Personajes */}
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🔮 Gestión de Aspectos (Nueva Sección)</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Nueva sección en personajes:</strong> CharacterAspects integrado en CharacterDetail</li>
+                <li>• <strong>Importación desde JSON:</strong> Importar aspectos equipados con nivel, slot y valores actuales</li>
+                <li>• <strong>Agregar desde héroe:</strong> Modal para seleccionar aspectos del pool del héroe</li>
+                <li>• <strong>Edición de nivel y slot:</strong> Input numérico para nivel (X/21) y selector de slot equipado</li>
+                <li>• <strong>Valores dependientes de nivel:</strong> Captura de valores_actuales escalados por nivel</li>
+                <li>• <strong>Categorización por color:</strong> Ofensivo (rojo), Defensivo (azul), Recurso (verde), Utilidad (morado), Movilidad (amarillo)</li>
+              </ul>
+            </div>
+
+            {/* Prompt para Aspectos */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🤖 Prompt IA para Aspectos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>generateCharacterAspectsPrompt():</strong> Nuevo método en ImageExtractionPromptService</li>
+                <li>• <strong>Extracción inteligente:</strong> Instrucciones para extraer aspecto_id, nivel_actual, slot y valores_actuales</li>
+                <li>• <strong>Formato normalizado:</strong> IDs en snake_case (ej: "aspecto_recursos_abundantes")</li>
+                <li>• <strong>Valores escalados:</strong> Captura solo los valores numéricos actuales según el nivel</li>
+                <li>• <strong>Ejemplos detallados:</strong> +140 líneas de instrucciones y casos de uso</li>
+              </ul>
+            </div>
+
+            {/* Tipos Mejorados */}
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">📝 Tipos para Aspectos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Personaje.aspectos_refs:</strong> Array con aspecto_id, nivel_actual, slot_equipado, valores_actuales</li>
+                <li>• <strong>nivel_actual:</strong> String formato "X/21" (ej: "15/21")</li>
+                <li>• <strong>valores_actuales:</strong> Record&lt;string, string&gt; con valores específicos del nivel</li>
+                <li>• <strong>Retrocompatibilidad:</strong> Soporta string[] para aspectos sin detalles</li>
+                <li>• <strong>Aspecto mejorado:</strong> Ahora con keywords y tags para búsqueda avanzada</li>
+              </ul>
+            </div>
+
+            {/* UI Mejorada */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-semibold text-d4-text mb-2">🎨 Interfaz de Aspectos</h4>
+              <ul className="space-y-1 text-sm text-d4-text-dim">
+                <li>• <strong>Vista por categorías:</strong> Aspectos agrupados y coloreados por tipo</li>
+                <li>• <strong>Detalles expandidos:</strong> Efecto completo, valores actuales y slot equipado</li>
+                <li>• <strong>Importación dual:</strong> Archivo JSON o pegar texto en textarea</li>
+                <li>• <strong>Botón de prompt:</strong> Copiar instrucciones para IA con un click</li>
+                <li>• <strong>Sección colapsable:</strong> Ocultar/mostrar aspectos como las demás secciones</li>
+              </ul>
             </div>
           </div>
         </div>

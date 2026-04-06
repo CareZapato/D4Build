@@ -11,8 +11,9 @@ import CharacterList from './components/characters/CharacterList';
 import CharacterDetail from './components/characters/CharacterDetail';
 import HeroManager from './components/heroes/HeroManager';
 import PromptGenerator from './components/prompts/PromptGenerator';
+import { TagsManager } from './components/tags/TagsManager';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags';
 
 function AppContent() {
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
@@ -88,6 +89,8 @@ function AppContent() {
         return <HeroManager />;
       case 'prompts':
         return <PromptGenerator personajes={personajes} />;
+      case 'tags':
+        return <TagsManager />;
       default:
         return <div className="text-d4-text">Vista en construcción</div>;
     }
