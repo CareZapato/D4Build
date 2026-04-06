@@ -627,7 +627,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         break;
       case 'estadisticas':
-        prompt = `${contextLine}EXTRAE ${countPrefix}ESTADÍSTICAS DEL PERSONAJE en JSON:\\n- Formato: {estadisticas:{personaje, atributosPrincipales, defensivo, ofensivo, armaduraYResistencias, utilidad, moneda}, palabras_clave:[]}\\n- Incluye detalles visibles por sección y palabras_clave cuando aparezcan\\n- Si ves Aguante, agrega aguante_definicion\\n- Respeta exactamente los nombres del JSON esperado`;
+        // Usar la misma lógica que getPromptForCategory para garantizar consistencia
+        prompt = ImageExtractionPromptService.generateStatsPrompt();
+        if (contextLine) {
+          prompt = `${contextLine}${prompt}`;
+        }
+        // Agregar withElementLimit para mantener consistencia con getPromptForCategory
+        prompt = ImageExtractionPromptService.withElementLimit(
+          prompt,
+          parsedManualCount,
+          'estadísticas'
+        );
         break;
       default:
         prompt = `${contextLine}EXTRAE ${countPrefix}elementos en formato JSON estructurado`;
