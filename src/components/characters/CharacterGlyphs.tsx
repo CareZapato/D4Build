@@ -33,6 +33,10 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     loadCharacterGlyphsData();
   }, [glyphsRefs, availableGlyphs]);
 
+  useEffect(() => {
+    setGlyphsRefs(personaje.glifos_refs || []);
+  }, [personaje.id, personaje.glifos_refs]);
+
   const loadHeroGlyphs = async () => {
     try {
       const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase);

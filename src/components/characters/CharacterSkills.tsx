@@ -53,6 +53,10 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     loadCharacterSkillsData();
   }, [skillsRefs, availableSkills]);
 
+  useEffect(() => {
+    setSkillsRefs(personaje.habilidades_refs || { activas: [], pasivas: [] });
+  }, [personaje.id, personaje.habilidades_refs]);
+
   const loadHeroSkills = async () => {
     try {
       const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
@@ -489,18 +493,21 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       };
     }).filter((ref): ref is { skill_id: string; puntos_asignados: number } => ref !== null);
 
-    // Combinar con IDs existentes (sin duplicar por skill_id)
-    const existingActiveIds = new Set(skillsRefs.activas.map(ref => ref.skill_id));
-    const newUniqueActiveRefs = newActiveRefs.filter(ref => !existingActiveIds.has(ref.skill_id));
-    
-    const existingPassiveIds = new Set(skillsRefs.pasivas.map(ref => 
-      typeof ref === 'string' ? ref : ref.skill_id
-    ));
-    const newUniquePassiveRefs = newPassiveRefs.filter(ref => !existingPassiveIds.has(ref.skill_id));
-    
+    // Upsert por skill_id: si ya existe, se actualiza (nivel/modificadores), si no existe, se agrega.
+    const activeById = new Map<string, { skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>();
+    skillsRefs.activas.forEach(ref => activeById.set(ref.skill_id, ref));
+    newActiveRefs.forEach(ref => activeById.set(ref.skill_id, ref));
+
+    const passiveById = new Map<string, { skill_id: string; puntos_asignados?: number }>();
+    skillsRefs.pasivas.forEach(ref => {
+      const normalized = typeof ref === 'string' ? { skill_id: ref, puntos_asignados: undefined } : ref;
+      passiveById.set(normalized.skill_id, normalized);
+    });
+    newPassiveRefs.forEach(ref => passiveById.set(ref.skill_id, ref));
+
     const updatedRefs = {
-      activas: [...skillsRefs.activas, ...newUniqueActiveRefs],
-      pasivas: [...skillsRefs.pasivas, ...newUniquePassiveRefs]
+      activas: Array.from(activeById.values()),
+      pasivas: Array.from(passiveById.values())
     };
 
     setSkillsRefs(updatedRefs);

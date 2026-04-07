@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, HelpCircle, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import { TagLinkingService } from '../../services/TagLinkingService';
 import { useAppContext } from '../../context/AppContext';
 import { WorkspaceService } from '../../services/WorkspaceService';
 
@@ -28,7 +29,7 @@ const CATEGORIES: { value: ImageCategory; label: string }[] = [
 ];
 
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { personajes, availableClasses } = useAppContext();
+  const { personajes, availableClasses, selectedPersonaje, setSelectedPersonaje, setPersonajes } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
@@ -51,6 +52,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const syncUpdatedPersonajeInContext = (updatedPersonaje: any) => {
+    const updatedList = personajes.map(p => p.id === updatedPersonaje.id ? updatedPersonaje : p);
+    setPersonajes(updatedList);
+    if (selectedPersonaje?.id === updatedPersonaje.id) {
+      setSelectedPersonaje(updatedPersonaje);
+    }
+  };
 
   // Cargar contadores de categorías al abrir
   useEffect(() => {
@@ -620,11 +629,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         prompt = `${contextLine}EXTRAE ${countPrefix}GLIFOS de Diablo 4 en JSON:\\n- Por glifo: id, nombre, rareza, estado, tamano_radio, atributo_escalado, bonificacion_adicional, bonificacion_legendaria, tags\\n- Formato: {glifos:[], palabras_clave:[]}`;
         break;
       case 'aspectos':
-        if (promptType === 'personaje') {
-          prompt = `${contextLine}EXTRAE ${countPrefix}ASPECTOS EQUIPADOS en JSON:\\n- Por aspecto: aspecto_id, nivel_actual (X/21), slot_equipado, valores_actuales\\n- Valores EXACTOS según el nivel mostrado\\n- Formato: {aspectos_equipados:[]}`;
-        } else {
-          prompt = `${contextLine}EXTRAE ${countPrefix}ASPECTOS de Diablo 4 en JSON:\\n- Por aspecto: id, name, shortName, effect, level, category, tags\\n- Categories: ofensivo, defensivo, movilidad, recurso, utilidad\\n- Formato: {aspectos:[], palabras_clave:[]}`;
+        // Usar la misma lógica que getPromptForCategory para evitar versiones mínimas
+        prompt = promptType === 'personaje'
+          ? ImageExtractionPromptService.generateCharacterAspectsPrompt()
+          : ImageExtractionPromptService.generateAspectsPrompt();
+        if (contextLine) {
+          prompt = `${contextLine}${prompt}`;
         }
+        prompt = ImageExtractionPromptService.withElementLimit(
+          prompt,
+          parsedManualCount,
+          promptType === 'personaje' ? 'aspectos equipados' : 'aspectos'
+        );
         break;
       case 'estadisticas':
         // Usar la misma lógica que getPromptForCategory para garantizar consistencia
@@ -675,6 +691,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       return;
     }
 
+    let shouldReload = false;
     setImporting(true);
     try {
       const data = JSON.parse(jsonText);
@@ -697,23 +714,28 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 habilidades_pasivas: data.habilidades_pasivas || []
               });
               showToast(`✅ ${(data.habilidades_activas?.length || 0) + (data.habilidades_pasivas?.length || 0)} habilidades guardadas en ${clase}`, 'success');
+              shouldReload = true;
             }
             break;
           case 'glifos':
             if (data.glifos) {
               await WorkspaceService.saveHeroGlyphs(clase, { glifos: data.glifos });
               showToast(`✅ ${data.glifos.length} glifos guardados en ${clase}`, 'success');
+              shouldReload = true;
             }
             break;
           case 'aspectos':
-            if (data.aspectos) {
-              await WorkspaceService.saveHeroAspects(clase, { aspectos: data.aspectos });
-              showToast(`✅ ${data.aspectos.length} aspectos guardados en ${clase}`, 'success');
+            if (data.aspectos || data.aspectos_equipados) {
+              const aspectsToSave = data.aspectos || data.aspectos_equipados || [];
+              await WorkspaceService.saveHeroAspects(clase, { aspectos: aspectsToSave });
+              showToast(`✅ ${aspectsToSave.length} aspectos guardados en ${clase}`, 'success');
+              shouldReload = true;
             }
             break;
           case 'estadisticas':
             await WorkspaceService.saveHeroStats(clase, data);
             showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
+            shouldReload = true;
             break;
         }
       } else {
@@ -763,33 +785,61 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               await WorkspaceService.saveHeroSkills(personaje.clase, heroSkills);
 
               // 2. Crear refs correctas con formato {skill_id, modificadores_ids, nivel_actual}
-              const activasRefs = newActivas.map((skill: any) => {
+              const activasRefs: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }> = [];
+              for (const skill of newActivas) {
                 const heroSkill = heroSkills.habilidades_activas.find((s: any) => s.nombre === skill.nombre);
-                if (!heroSkill?.id) return null;
+                if (!heroSkill?.id) continue;
+
                 const modificadoresIds = (skill.modificadores || [])
                   .map((mod: any) => heroSkill.modificadores?.find((m: any) => m.nombre === mod.nombre)?.id)
-                  .filter(Boolean);
-                return { skill_id: heroSkill.id, modificadores_ids: modificadoresIds, nivel_actual: skill.nivel_actual ?? skill.nivel ?? 1 };
-              }).filter(Boolean);
+                  .filter((id: string | undefined): id is string => Boolean(id));
 
-              const pasivasRefs = newPasivas.map((skill: any) => {
+                activasRefs.push({
+                  skill_id: heroSkill.id,
+                  modificadores_ids: modificadoresIds,
+                  nivel_actual: skill.nivel_actual ?? skill.nivel ?? 1
+                });
+              }
+
+              const pasivasRefs: Array<{ skill_id: string; puntos_asignados?: number }> = [];
+              for (const skill of newPasivas) {
                 const heroSkill = heroSkills.habilidades_pasivas.find((s: any) => s.nombre === skill.nombre);
-                if (!heroSkill?.id) return null;
-                return { skill_id: heroSkill.id, puntos_asignados: skill.puntos_asignados ?? skill.nivel ?? 0 };
-              }).filter(Boolean);
+                if (!heroSkill?.id) continue;
 
-              // 3. Merge sin duplicar
-              const existingActiveIds = new Set((personaje.habilidades_refs?.activas || []).map((r: any) => r.skill_id));
-              const existingPassiveIds = new Set((personaje.habilidades_refs?.pasivas || []).map((r: any) => typeof r === 'string' ? r : r.skill_id));
+                pasivasRefs.push({
+                  skill_id: heroSkill.id,
+                  puntos_asignados: skill.puntos_asignados ?? skill.nivel ?? 0
+                });
+              }
 
-              personaje.habilidades_refs = {
-                activas: [...(personaje.habilidades_refs?.activas || []), ...activasRefs.filter((r: any): r is NonNullable<typeof r> => r !== null && !existingActiveIds.has(r.skill_id))],
-                pasivas: [...(personaje.habilidades_refs?.pasivas || []), ...pasivasRefs.filter((r: any): r is NonNullable<typeof r> => r !== null && !existingPassiveIds.has(r.skill_id))]
+              // 3. Upsert por skill_id para actualizar niveles/modificadores sin requerir refresh.
+              const existingActiveRefs = (personaje.habilidades_refs?.activas || []) as Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>;
+              const existingPassiveRefs = (personaje.habilidades_refs?.pasivas || []) as Array<string | { skill_id: string; puntos_asignados?: number }>;
+
+              const activeById = new Map<string, { skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>();
+              existingActiveRefs.forEach(ref => activeById.set(ref.skill_id, ref));
+              activasRefs.forEach(ref => activeById.set(ref.skill_id, ref));
+
+              const passiveById = new Map<string, { skill_id: string; puntos_asignados?: number }>();
+              existingPassiveRefs.forEach(ref => {
+                const normalized = typeof ref === 'string' ? { skill_id: ref, puntos_asignados: undefined } : ref;
+                passiveById.set(normalized.skill_id, normalized);
+              });
+              pasivasRefs.forEach(ref => passiveById.set(ref.skill_id, ref));
+
+              const updatedPersonaje = {
+                ...personaje,
+                habilidades_refs: {
+                  activas: Array.from(activeById.values()),
+                  pasivas: Array.from(passiveById.values())
+                },
+                fecha_actualizacion: new Date().toISOString()
               };
 
-              personaje.fecha_actualizacion = new Date().toISOString();
-              await WorkspaceService.savePersonaje(personaje);
+              await WorkspaceService.savePersonaje(updatedPersonaje);
+              syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades guardadas en ${personaje.nombre}`, 'success');
+              shouldReload = true;
             }
             break;
           }
@@ -813,52 +863,150 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const heroGlyph = heroGlyphs.glifos.find((g: any) => g.nombre === glyph.nombre);
                 if (!heroGlyph?.id) return null;
                 return { id: heroGlyph.id, nivel_actual: glyph.nivel_actual ?? glyph.nivel ?? 1 };
-              }).filter(Boolean);
+              }).filter((r: any): r is { id: string; nivel_actual: number } => r !== null);
 
-              const existingRefIds = new Set((personaje.glifos_refs || []).map((r: any) => r.id as string));
-              personaje.glifos_refs = [
-                ...(personaje.glifos_refs || []),
-                ...nuevosRefs.filter((r: any): r is NonNullable<typeof r> => r !== null && !existingRefIds.has(r.id))
-              ] as any;
+              const glyphRefsById = new Map<string, { id: string; nivel_actual: number; nivel_maximo?: number }>();
+              ((personaje.glifos_refs || []) as Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>).forEach(ref => {
+                glyphRefsById.set(ref.id, ref);
+              });
+              nuevosRefs.forEach(ref => {
+                const prev = glyphRefsById.get(ref.id);
+                glyphRefsById.set(ref.id, {
+                  id: ref.id,
+                  nivel_actual: ref.nivel_actual,
+                  nivel_maximo: prev?.nivel_maximo ?? 100
+                });
+              });
 
-              personaje.fecha_actualizacion = new Date().toISOString();
-              await WorkspaceService.savePersonaje(personaje);
+              const updatedPersonaje = {
+                ...personaje,
+                glifos_refs: Array.from(glyphRefsById.values()),
+                fecha_actualizacion: new Date().toISOString()
+              };
+
+              await WorkspaceService.savePersonaje(updatedPersonaje);
+              syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${nuevosRefs.length} glifos guardados en ${personaje.nombre}`, 'success');
+              shouldReload = true;
             }
             break;
           }
           case 'aspectos': {
             const aspectosData: any[] = data.aspectos_equipados || data.aspectos || [];
             if (aspectosData.length > 0) {
+              const { tagMap } = await TagLinkingService.processAndLinkAllTags(
+                { palabras_clave: Array.isArray(data.palabras_clave) ? data.palabras_clave : [] },
+                'aspecto'
+              );
+
+              const normalizeText = (value: string): string => value
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+              const toTitle = (value: string): string => value
+                .split('_')
+                .filter(Boolean)
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(' ');
+
+              const ensureAspectId = (aspecto: any): string => {
+                if (aspecto?.aspecto_id) return String(aspecto.aspecto_id);
+                if (aspecto?.id) return String(aspecto.id);
+                const fromName = normalizeText(String(aspecto?.name || aspecto?.nombre || aspecto?.shortName || 'aspecto'))
+                  .replace(/\s+/g, '_');
+                return `aspecto_${fromName || Date.now()}`;
+              };
+
               // 1. Guardar en héroe (solo los que tienen datos completos, no solo refs)
               const heroAspects = await WorkspaceService.loadHeroAspects(personaje.clase) || { aspectos: [] };
 
               aspectosData.forEach((aspecto: any) => {
-                const nombre = aspecto.nombre || aspecto.name;
-                if (!nombre) return; // solo ref sin datos, skip
-                const idx = heroAspects.aspectos.findIndex((a: any) => a.id === aspecto.aspecto_id || a.nombre === nombre || a.name === nombre);
-                const aspectoId = idx >= 0 ? heroAspects.aspectos[idx].id : (aspecto.id || aspecto.aspecto_id || `aspecto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-                const aspectoWithId = { ...aspecto, id: aspectoId };
+                const aspectoConTags = TagLinkingService.linkAspectTags(aspecto, tagMap);
+                const aspectoId = ensureAspectId(aspectoConTags);
+                const nombre = aspectoConTags.nombre || aspectoConTags.name;
+                const idx = heroAspects.aspectos.findIndex((a: any) => {
+                  const aName = normalizeText(String(a?.name || a?.nombre || ''));
+                  const inName = normalizeText(String(nombre || ''));
+                  return a.id === aspectoId || (!!aName && !!inName && aName === inName);
+                });
+                const resolvedId = idx >= 0 ? heroAspects.aspectos[idx].id : aspectoId;
+                const base: any = idx >= 0 ? heroAspects.aspectos[idx] : null;
+                const aspectoWithId = {
+                  ...(base || {}),
+                  ...aspectoConTags,
+                  id: resolvedId,
+                  aspecto_id: resolvedId,
+                  name: aspectoConTags.name || aspectoConTags.nombre || base?.name || `Aspecto ${toTitle(resolvedId.replace(/^aspecto_/, ''))}`,
+                  shortName: aspectoConTags.shortName || base?.shortName || toTitle(resolvedId.replace(/^aspecto_/, '')),
+                  effect: aspectoConTags.effect || base?.effect || '',
+                  category: aspectoConTags.category || base?.category || 'ofensivo',
+                  level: aspectoConTags.nivel_actual || aspectoConTags.level || base?.level || '1/21',
+                  tags: Array.isArray(aspectoConTags.tags) ? aspectoConTags.tags : (base?.tags || []),
+                  detalles: Array.isArray(aspectoConTags.detalles) ? aspectoConTags.detalles : (base?.detalles || [])
+                };
                 if (idx >= 0) heroAspects.aspectos[idx] = aspectoWithId;
                 else heroAspects.aspectos.push(aspectoWithId);
               });
 
               await WorkspaceService.saveHeroAspects(personaje.clase, heroAspects);
 
-              // 2. Crear refs (IDs del héroe o aspecto_id original)
+              // 2. Crear refs completas para personaje (upsert por aspecto_id)
               const aspectosRefs = aspectosData.map((a: any) => {
+                const incomingId = ensureAspectId(a);
                 const heroAspecto = heroAspects.aspectos.find((ha: any) =>
-                  ha.id === a.aspecto_id || ha.nombre === a.nombre || ha.name === a.nombre
+                  ha.id === incomingId || ha.id === a.aspecto_id || ha.id === a.id ||
+                  ha.name === a.nombre || ha.name === a.name || ha.shortName === a.shortName
                 );
-                return heroAspecto?.id || a.aspecto_id || a.id;
+                const aspectoId = heroAspecto?.id || incomingId;
+                if (!aspectoId) return null;
+                return {
+                  aspecto_id: String(aspectoId),
+                  nivel_actual: a.nivel_actual || a.level || '1/21',
+                  slot_equipado: a.slot_equipado,
+                  valores_actuales: a.valores_actuales || {}
+                };
               }).filter(Boolean);
 
-              const existingIds = new Set<string>((personaje.aspectos_refs || []).map((id: any) => String(id)));
-              personaje.aspectos_refs = [...(personaje.aspectos_refs || []), ...aspectosRefs.filter((id: string) => !existingIds.has(id))];
+              const aspectRefsById = new Map<string, { aspecto_id: string; nivel_actual: string; slot_equipado?: string; valores_actuales: Record<string, string> }>();
+              ((personaje.aspectos_refs || []) as Array<any>).forEach(ref => {
+                if (!ref) return;
+                if (typeof ref === 'string') {
+                  aspectRefsById.set(ref, {
+                    aspecto_id: ref,
+                    nivel_actual: '1/21',
+                    valores_actuales: {}
+                  });
+                  return;
+                }
 
-              personaje.fecha_actualizacion = new Date().toISOString();
-              await WorkspaceService.savePersonaje(personaje);
+                if (ref.aspecto_id) {
+                  aspectRefsById.set(String(ref.aspecto_id), {
+                    aspecto_id: String(ref.aspecto_id),
+                    nivel_actual: ref.nivel_actual || '1/21',
+                    slot_equipado: ref.slot_equipado,
+                    valores_actuales: ref.valores_actuales || {}
+                  });
+                }
+              });
+
+              (aspectosRefs as Array<{ aspecto_id: string; nivel_actual: string; slot_equipado?: string; valores_actuales: Record<string, string> }>).forEach(ref => {
+                aspectRefsById.set(ref.aspecto_id, ref);
+              });
+
+              const updatedPersonaje = {
+                ...personaje,
+                aspectos_refs: Array.from(aspectRefsById.values()),
+                fecha_actualizacion: new Date().toISOString()
+              };
+
+              await WorkspaceService.savePersonaje(updatedPersonaje);
+              syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
+              shouldReload = true;
             }
             break;
           }
@@ -898,12 +1046,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             personaje.fecha_actualizacion = new Date().toISOString();
             await WorkspaceService.savePersonaje(personaje);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
+            shouldReload = true;
             break;
           }
         }
       }
       
       setJsonText('');
+
+      if (shouldReload) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 250);
+      }
     } catch (error) {
       console.error('Error importando JSON:', error);
       showToast('❌ Error al procesar el JSON. Verifica el formato.', 'error');

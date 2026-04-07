@@ -5,47 +5,130 @@ import { ImageService } from './ImageService';
 export class WorkspaceService {
   private static workspaceConfig: WorkspaceConfig | null = null;
   private static fileSystemHandle: FileSystemDirectoryHandle | null = null;
+  private static readonly DB_NAME = 'd4builds_workspace_db';
+  private static readonly STORE_NAME = 'workspace_handles';
+  private static readonly SESSION_KEY_STORAGE = 'workspaceSessionKey';
+
+  private static getSessionKey(): string {
+    let key = sessionStorage.getItem(this.SESSION_KEY_STORAGE);
+    if (!key) {
+      key = `session_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem(this.SESSION_KEY_STORAGE, key);
+    }
+    return key;
+  }
+
+  private static async openWorkspaceDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.DB_NAME, 1);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+          db.createObjectStore(this.STORE_NAME);
+        }
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('No se pudo abrir IndexedDB'));
+    });
+  }
+
+  private static async saveHandleForSession(handle: FileSystemDirectoryHandle): Promise<void> {
+    const db = await this.openWorkspaceDB();
+    const key = this.getSessionKey();
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(this.STORE_NAME, 'readwrite');
+      const store = tx.objectStore(this.STORE_NAME);
+      const request = store.put(handle, key);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error || new Error('No se pudo guardar handle de sesión'));
+    });
+
+    db.close();
+  }
+
+  private static async loadHandleForSession(): Promise<FileSystemDirectoryHandle | null> {
+    const key = sessionStorage.getItem(this.SESSION_KEY_STORAGE);
+    if (!key) return null;
+
+    const db = await this.openWorkspaceDB();
+    const handle = await new Promise<FileSystemDirectoryHandle | null>((resolve, reject) => {
+      const tx = db.transaction(this.STORE_NAME, 'readonly');
+      const store = tx.objectStore(this.STORE_NAME);
+      const request = store.get(key);
+
+      request.onsuccess = () => resolve((request.result as FileSystemDirectoryHandle) || null);
+      request.onerror = () => reject(request.error || new Error('No se pudo leer handle de sesión'));
+    });
+
+    db.close();
+    return handle;
+  }
+
+  private static async initializeWorkspaceFromHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+    this.fileSystemHandle = handle;
+
+    const ruta = this.fileSystemHandle.name;
+
+    TagService.setFileSystemHandle(this.fileSystemHandle);
+    ImageService.setFileSystemHandle(this.fileSystemHandle);
+
+    await this.createWorkspaceStructure();
+
+    this.workspaceConfig = {
+      ruta,
+      fecha_creacion: new Date().toISOString(),
+      ultima_actualizacion: new Date().toISOString(),
+    };
+
+    await this.saveWorkspaceConfig();
+    await TagService.loadTags();
+
+    localStorage.setItem('workspaceName', ruta);
+  }
 
   // Solicitar acceso al directorio del workspace
   static async selectWorkspaceDirectory(): Promise<void> {
     try {
       // @ts-ignore - File System Access API
-      this.fileSystemHandle = await window.showDirectoryPicker({
+      const handle = await window.showDirectoryPicker({
         mode: 'readwrite',
       });
 
-      if (!this.fileSystemHandle) {
+      if (!handle) {
         throw new Error('No se pudo obtener acceso al directorio');
       }
 
-      const ruta = this.fileSystemHandle.name;
-      
-      // Configurar TagService con el handle del directorio
-      TagService.setFileSystemHandle(this.fileSystemHandle);
-      
-      // Configurar ImageService con el handle del directorio
-      ImageService.setFileSystemHandle(this.fileSystemHandle);
-      
-      // Crear estructura de carpetas
-      await this.createWorkspaceStructure();
-
-      // Guardar configuración
-      this.workspaceConfig = {
-        ruta,
-        fecha_creacion: new Date().toISOString(),
-        ultima_actualizacion: new Date().toISOString(),
-      };
-
-      await this.saveWorkspaceConfig();
-      
-      // Cargar tags del workspace
-      await TagService.loadTags();
-      
-      // Guardar handle en localStorage para persistencia
-      localStorage.setItem('workspaceName', ruta);
+      await this.initializeWorkspaceFromHandle(handle);
+      await this.saveHandleForSession(handle);
     } catch (error) {
       console.error('Error seleccionando workspace:', error);
       throw new Error('No se pudo acceder al directorio del workspace');
+    }
+  }
+
+  // Restaurar workspace automáticamente dentro de la misma sesión del navegador
+  static async restoreWorkspaceFromSession(): Promise<boolean> {
+    try {
+      const handle = await this.loadHandleForSession();
+      if (!handle) return false;
+
+      const permissionApiHandle = handle as unknown as {
+        queryPermission?: (descriptor: { mode: 'readwrite' }) => Promise<PermissionState>;
+      };
+      const permission = await permissionApiHandle.queryPermission?.({ mode: 'readwrite' });
+      if (permission !== 'granted') {
+        return false;
+      }
+
+      await this.initializeWorkspaceFromHandle(handle);
+      return true;
+    } catch (error) {
+      console.error('No se pudo restaurar workspace de sesión:', error);
+      return false;
     }
   }
 
@@ -302,7 +385,10 @@ export class WorkspaceService {
       const content = await file.text();
       return JSON.parse(content);
     } catch (error) {
-      console.error('Error cargando estadísticas de héroe:', error);
+      // Es normal que todavía no exista el archivo de estadísticas del héroe.
+      if ((error as DOMException)?.name !== 'NotFoundError') {
+        console.error('Error cargando estadísticas de héroe:', error);
+      }
       return null;
     }
   }

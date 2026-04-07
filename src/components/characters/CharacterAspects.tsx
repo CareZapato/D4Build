@@ -33,6 +33,10 @@ const CharacterAspects: React.FC<Props> = ({ personaje, onChange }) => {
     loadCharacterAspectsData();
   }, [aspectsRefs, availableAspects]);
 
+  useEffect(() => {
+    setAspectsRefs((personaje.aspectos_refs as any) || []);
+  }, [personaje.id, personaje.aspectos_refs]);
+
   const loadHeroAspects = async () => {
     try {
       const heroAspects = await WorkspaceService.loadHeroAspects(personaje.clase);
@@ -105,59 +109,100 @@ const CharacterAspects: React.FC<Props> = ({ personaje, onChange }) => {
       return;
     }
 
-    // Procesar y vincular tags si existen palabras_clave
-    let tagsProcessed = 0;
-    if (data.palabras_clave && Array.isArray(data.palabras_clave)) {
-      const { tagsProcessed: count } = await TagLinkingService.processAndLinkAllTags(
-        { palabras_clave: data.palabras_clave },
-        'aspecto'
-      );
-      tagsProcessed = count;
-      console.log(`${tagsProcessed} tags procesados para aspectos`);
-    }
+    // 1) Procesar palabras_clave globales y construir mapa de tags
+    const { tagMap, tagsProcessed } = await TagLinkingService.processAndLinkAllTags(
+      { palabras_clave: Array.isArray(data.palabras_clave) ? data.palabras_clave : [] },
+      'aspecto'
+    );
 
-    // Los aspectos equipados deben coincidir con aspectos del héroe
+    const normalizeAspectId = (raw: string): string => raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/aspecto\s+(de|del|de\s+la)\s+/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    // 2) Upsert en héroe con datos completos
     const heroAspects = await WorkspaceService.loadHeroAspects(personaje.clase);
-    if (!heroAspects) {
-      modal.showError('No hay aspectos maestros para esta clase. Importa primero los aspectos del héroe.');
-      return;
-    }
+    const updatedHeroAspects: { aspectos: any[] } = heroAspects || { aspectos: [] };
 
-    const updatedRefs = [...aspectsRefs];
-    
     let agregados = 0;
     let actualizados = 0;
 
-    data.aspectos_equipados.forEach((aspectEquip: any) => {
-      const heroAspect = heroAspects.aspectos.find(a => a.id === aspectEquip.aspecto_id);
-      if (!heroAspect) {
-        console.warn(`Aspecto ${aspectEquip.aspecto_id} no encontrado en datos del héroe`);
-        return;
-      }
-      
-      const existingRefIndex = updatedRefs.findIndex(ref => ref.aspecto_id === aspectEquip.aspecto_id);
-      
-      if (existingRefIndex >= 0) {
-        // Actualizar referencia existente
-        updatedRefs[existingRefIndex] = {
-          aspecto_id: aspectEquip.aspecto_id,
-          nivel_actual: aspectEquip.nivel_actual || '1/21',
-          slot_equipado: aspectEquip.slot_equipado,
-          valores_actuales: aspectEquip.valores_actuales || {}
-        };
+    const incomingAspects = (data.aspectos_equipados as any[]).map((aspectEquip: any) => {
+      const fallbackId = aspectEquip.name
+        ? `aspecto_${normalizeAspectId(aspectEquip.name)}`
+        : undefined;
+      const aspectoId = String(aspectEquip.aspecto_id || fallbackId || `aspecto_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+      const linked = TagLinkingService.linkAspectTags(aspectEquip, tagMap);
+
+      return {
+        ...linked,
+        aspecto_id: aspectoId,
+        id: aspectoId,
+        level: aspectEquip.nivel_actual || aspectEquip.level || '1/21'
+      };
+    });
+
+    incomingAspects.forEach((aspectEquip: any) => {
+      const existingIndex = updatedHeroAspects.aspectos.findIndex((a: any) => a.id === aspectEquip.id);
+      const base = existingIndex >= 0 ? updatedHeroAspects.aspectos[existingIndex] : null;
+
+      const mergedAspect = {
+        ...(base || {}),
+        id: aspectEquip.id,
+        name: aspectEquip.name || base?.name || aspectEquip.shortName || aspectEquip.id,
+        shortName: aspectEquip.shortName || base?.shortName || aspectEquip.name || aspectEquip.id,
+        effect: aspectEquip.effect || base?.effect || '',
+        level: aspectEquip.level || base?.level || '1/21',
+        category: aspectEquip.category || base?.category || 'ofensivo',
+        tags: Array.isArray(aspectEquip.tags) ? aspectEquip.tags : (base?.tags || []),
+        detalles: Array.isArray(aspectEquip.detalles) ? aspectEquip.detalles : (base?.detalles || [])
+      };
+
+      if (existingIndex >= 0) {
+        updatedHeroAspects.aspectos[existingIndex] = mergedAspect;
         actualizados++;
       } else {
-        // Agregar nueva referencia
-        updatedRefs.push({
-          aspecto_id: aspectEquip.aspecto_id,
-          nivel_actual: aspectEquip.nivel_actual || '1/21',
-          slot_equipado: aspectEquip.slot_equipado,
-          valores_actuales: aspectEquip.valores_actuales || {}
-        });
+        updatedHeroAspects.aspectos.push(mergedAspect);
         agregados++;
       }
     });
 
+    await WorkspaceService.saveHeroAspects(personaje.clase, updatedHeroAspects as any);
+    setAvailableAspects(updatedHeroAspects.aspectos as any);
+
+    // 3) Upsert refs del personaje por aspecto_id
+    const refsById = new Map<string, { aspecto_id: string; nivel_actual: string; slot_equipado?: string; valores_actuales: Record<string, string> }>();
+    (aspectsRefs || []).forEach((ref: any) => {
+      if (!ref) return;
+      if (typeof ref === 'string') {
+        refsById.set(ref, {
+          aspecto_id: ref,
+          nivel_actual: '1/21',
+          valores_actuales: {}
+        });
+      } else if (ref.aspecto_id) {
+        refsById.set(String(ref.aspecto_id), {
+          aspecto_id: String(ref.aspecto_id),
+          nivel_actual: ref.nivel_actual || '1/21',
+          slot_equipado: ref.slot_equipado,
+          valores_actuales: ref.valores_actuales || {}
+        });
+      }
+    });
+
+    incomingAspects.forEach((aspectEquip: any) => {
+      refsById.set(String(aspectEquip.aspecto_id), {
+        aspecto_id: String(aspectEquip.aspecto_id),
+        nivel_actual: aspectEquip.nivel_actual || aspectEquip.level || '1/21',
+        slot_equipado: aspectEquip.slot_equipado ?? undefined,
+        valores_actuales: aspectEquip.valores_actuales || {}
+      });
+    });
+
+    const updatedRefs = Array.from(refsById.values());
     setAspectsRefs(updatedRefs);
     onChange(updatedRefs);
     

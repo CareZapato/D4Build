@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Folder, AlertCircle } from 'lucide-react';
 import { WorkspaceService } from '../../services/WorkspaceService';
 
@@ -9,6 +9,24 @@ interface Props {
 const WorkspaceSelector: React.FC<Props> = ({ onWorkspaceLoaded }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const restoreWorkspace = async () => {
+      setLoading(true);
+      try {
+        const restored = await WorkspaceService.restoreWorkspaceFromSession();
+        if (restored) {
+          onWorkspaceLoaded();
+        }
+      } catch (err) {
+        console.error('Error restaurando workspace de sesión:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    restoreWorkspace();
+  }, [onWorkspaceLoaded]);
 
   const handleSelectWorkspace = async () => {
     setLoading(true);

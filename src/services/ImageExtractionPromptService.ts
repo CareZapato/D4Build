@@ -1015,18 +1015,29 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
   static generateCharacterAspectsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae la información de los aspectos legendarios que el PERSONAJE tiene EQUIPADOS en su build de Diablo 4.
 
-**⚠️ IMPORTANTE:**
+**⚠️ IMPORTANTE - SALIDA COMPLETA (NO RESUMIDA):**
 
-- Extrae SOLO los aspectos que el personaje tiene equipados en su equipo actual
-- Cada aspecto tiene valores que **VARÍAN** según el nivel/tier del aspecto imprinted
-- La descripción del efecto es fija, pero los **VALORES NUMÉRICOS** dependen del nivel
+- Extrae SOLO aspectos equipados visibles.
+- Cada aspecto DEBE incluir: nivel actual, categoría por color, efecto completo, valores actuales, detalles y tags.
+- NO devuelvas una versión mínima. Necesito datos explícitos por aspecto.
+
+**CATEGORÍA SEGÚN COLOR (OBLIGATORIO):**
+- 🔴 Rojo -> "ofensivo"
+- 🔵 Azul -> "defensivo"
+- 🟢 Verde -> "recurso"
+- 🟣 Morado -> "utilidad"
+- 🟡 Amarillo -> "movilidad"
 
 **Instrucciones:**
-1. Identifica cada aspecto equipado visible en la imagen (suelen estar en items de equipo)
-2. Extrae el nombre completo del aspecto
-3. Copia los valores numéricos EXACTOS que muestra en ese nivel
-4. Anota el nivel/tier del aspecto (formato X/21)
-5. Si es visible, determina el slot donde está equipado
+1. Identifica cada aspecto equipado visible en la imagen.
+2. Extrae nombre completo y nombre corto.
+3. Extrae el nivel actual del aspecto (formato X/21).
+4. Extrae la categoría usando el color del aspecto.
+5. Extrae el efecto/descripción completa con valores exactos.
+6. Extrae valores actuales en objeto clave/valor (snake_case).
+7. Extrae detalles explícitos del tooltip/texto de apoyo en array "detalles".
+8. Extrae tags por aspecto (palabras clave visibles en BLANCO/SUBRAYADAS) y también en palabras_clave global.
+9. Si el slot equipado es visible, inclúyelo; si no, usa null.
 
 **Formato JSON esperado:**
 
@@ -1034,104 +1045,108 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 {
   "aspectos_equipados": [
     {
-      "aspecto_id": "aspecto_tempestad_aceleradora",
-      "nivel_actual": "5/21",
+      "aspecto_id": "aspecto_recursos_abundantes",
+      "name": "Aspecto de Recursos Abundantes",
+      "shortName": "de Recursos Abundantes",
+      "nivel_actual": "15/21",
+      "category": "recurso",
+      "effect": "Cada punto de tu recurso principal por encima del 95% te otorga un 3.2% de aumento de daño, hasta un máximo del 64%.",
       "slot_equipado": "Amuleto",
       "valores_actuales": {
-        "velocidad_ataque": "15%",
-        "duracion": "3",
-        "max_acumulaciones": "5"
-      }
+        "danio_por_punto": "3.2%",
+        "danio_maximo": "64%",
+        "umbral_recurso": "95%"
+      },
+      "detalles": [
+        {
+          "atributo_ref": "danio_por_punto",
+          "atributo_nombre": "Daño por punto de recurso",
+          "texto": "Cada punto por encima del 95% otorga 3.2% de daño",
+          "valor": "3.2%",
+          "palabras_clave": ["recurso", "danio"]
+        },
+        {
+          "atributo_ref": "danio_maximo",
+          "atributo_nombre": "Daño máximo",
+          "texto": "hasta un máximo del 64%",
+          "valor": "64%",
+          "palabras_clave": ["danio_maximo"]
+        }
+      ],
+      "tags": ["recurso", "danio", "umbral"]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "recurso",
+      "texto_original": "recurso principal",
+      "significado": "Recurso usado por la clase para habilidades",
+      "categoria": "recurso",
+      "fuente": "aspecto"
     },
     {
-      "aspecto_id": "aspecto_renovacion",
-      "nivel_actual": "10/21",
-      "slot_equipado": "Pecho",
-      "valores_actuales": {
-        "recuperacion_recurso": "35%",
-        "barrera": "25%"
-      }
-    },
-    {
-      "aspecto_id": "aspecto_conductor",
-      "nivel_actual": "7/21",
-      "slot_equipado": "Botas",
-      "valores_actuales": {
-        "velocidad_movimiento": "25%",
-        "duracion": "3"
-      }
+      "tag": "danio",
+      "texto_original": "aumento de daño",
+      "significado": null,
+      "categoria": "atributo",
+      "fuente": "aspecto"
     }
   ]
 }
 \`\`\`
 
-**REGLAS:**
+**REGLAS CRÍTICAS:**
 
-1. **aspecto_id**: ID normalizado del aspecto maestro (sin "Aspecto", snake_case)
-   - Elimina "Aspecto de" / "Aspecto del" / "Aspecto de la"
-   - Convierte a snake_case
-   - Ejemplos: "aspecto_tempestad_aceleradora", "aspecto_renovacion", "aspecto_conductor"
+1. **aspecto_id**
+   - snake_case normalizado
+   - usar prefijo "aspecto_"
+   - basado en el nombre real del aspecto
 
-2. **nivel_actual**: El nivel/tier actual del aspecto equipado
-   - Formato: "X/21" (string)
-   - Los valores van típicamente de 1/21 a 21/21
-   - Si no es visible, puedes inferir por los valores o usar "?/21"
+2. **name y shortName**
+   - name: nombre completo (incluye "Aspecto de/del/de la")
+   - shortName: nombre abreviado sin el prefijo "Aspecto"
 
-3. **slot_equipado** (opcional): Dónde está equipado
-   - Ejemplos: "Casco", "Pecho", "Guantes", "Pantalones", "Botas", "Amuleto", "Anillo 1", "Anillo 2", "Arma"
-   - Si no es visible, usa null
+3. **nivel_actual**
+   - formato EXACTO "X/21"
+   - obligatorio en cada aspecto
 
-4. **valores_actuales**: Valores EXACTOS que muestra el aspecto en ese nivel
-   - Clave descriptiva: nombre del stat que varía (snake_case)
-   - Valor: el valor numérico ACTUAL (solo el número, sin explicación)
-   - Unidades: incluir "%" si es porcentaje, números simples para segundos/cantidad
-   - Solo incluir valores que VARÍAN con el nivel (no constantes)
+4. **category**
+   - obligatoria
+   - derivada del color del aspecto
+   - solo: ofensivo | defensivo | movilidad | recurso | utilidad
 
-5. **Valores variables típicos que debes capturar**:
-   - Porcentajes de daño, velocidad, reducción, etc.
-   - Duraciones en segundos  
-   - Cantidades numéricas
-   - Límites de acumulación
-   - **NO incluir** texto descriptivo fijo ni mecánicas que no escalan
+5. **effect**
+   - texto completo del efecto con números exactos
+   - no resumir ni inventar
 
-**EJEMPLO COMPLETO:**
+6. **valores_actuales**
+   - valores exactos del aspecto en ese nivel
+   - incluir % cuando aplique
+   - claves en snake_case
 
-Aspecto mostrado en item del juego:
-"Aspecto de Recursos Abundantes (15/21) en Amuleto: Cada punto de tu recurso principal por encima del 95% te otorga un 3.2% de aumento de daño, hasta un máximo del 64%."
+7. **detalles**
+   - obligatorio (puede ser [] si no hay detalle visible)
+   - cada detalle debe incluir: atributo_ref, atributo_nombre, texto
+   - agregar valor y palabras_clave cuando estén visibles
 
-JSON correspondiente:
-\`\`\`json
-{
-  "aspecto_id": "aspecto_recursos_abundantes",
-  "nivel_actual": "15/21",
-  "slot_equipado": "Amuleto",
-  "valores_actuales": {
-    "danio_por_punto": "3.2%",
-    "danio_maximo": "64%",
-    "umbral_recurso": "95%"
-  }
-}
-\`\`\`
-
-**CASOS ESPECIALES:**
-
-- Si un aspecto NO tiene valores que escalen: usa {} vacío para valores_actuales
-- Si solo muestra el nivel pero no los stats exactos: captura solo aspecto_id, nivel_actual y slot
-- Si un aspecto tiene múltiples efectos escalables: incluye todos en valores_actuales
-- Si hay aspectos duplicados (ej: 2 anillos): identificar como slot diferentes
+8. **tags y palabras_clave**
+   - tags por aspecto: array de strings normalizados
+   - palabras_clave global: objetos estructurados
+   - usar solo palabras visibles (especialmente resaltadas)
 
 **VALIDACIONES:**
 
-- ✅ aspecto_id DEBE coincidir con IDs de maestros (usa snake_case, sin "Aspecto")
-- ✅ nivel_actual DEBE ser formato "X/21" (string)
-- ✅ valores_actuales son los números ACTUALES del aspecto equipado, no fórmulas
-- ✅ No incluir descripción completa del efecto (solo valores numéricos)
-- ✅ Captura TODOS los aspectos visibles en la imagen
+- ✅ Cada aspecto debe incluir: aspecto_id, name, shortName, nivel_actual, category, effect, valores_actuales, detalles, tags
+- ✅ category debe salir del color del aspecto
+- ✅ nivel_actual debe ser "X/21"
+- ✅ devolver TODOS los aspectos equipados visibles
+- ✅ mantener precisión literal de números y porcentajes
 
-**NO captures**: 
-- La descripción completa del efecto (eso está en datos maestros de héroe)
-- Tags/palabras clave (también están en datos maestros)
-- Información fija que no varía con el nivel`;
+**NO hacer:**
+
+- ❌ No devolver solo aspecto_id + nivel_actual
+- ❌ No omitir category, effect, detalles o tags
+- ❌ No inventar valores que no estén visibles`;
   }
 
   // Copiar prompt al portapapeles
