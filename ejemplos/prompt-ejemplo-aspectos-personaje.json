@@ -1,22 +1,74 @@
 {
   "aspectos_equipados": [
     {
-      "aspecto_id": "aspecto_retribucion",
-      "nivel_actual": "5/21",
+      "aspecto_id": "aspecto_bastion",
+      "name": "Aspecto del Bastion",
+      "shortName": "del Bastion",
+      "nivel_actual": "19/21",
+      "category": "defensivo",
+      "effect": "Ya no puedes esquivar, pero tu probabilidad de bloqueo aumenta un 28% [10 - 30]%.",
       "slot_equipado": "Amuleto",
       "valores_actuales": {
-        "probabilidad_bloqueo": "15%",
-        "danio_rayo": "300%"
-      }
+        "probabilidad_bloqueo": "28%"
+      },
+      "detalles": [
+        {
+          "atributo_ref": "probabilidad_bloqueo",
+          "atributo_nombre": "Probabilidad de bloqueo",
+          "texto": "tu probabilidad de bloqueo aumenta un 28%",
+          "valor": "28%",
+          "palabras_clave": [
+            "bloqueo"
+          ]
+        }
+      ],
+      "tags": [
+        "bloqueo"
+      ]
     },
     {
-      "aspecto_id": "aspecto_hierro_sagrado",
-      "nivel_actual": "7/21",
-      "slot_equipado": "Pecho",
+      "aspecto_id": "aspecto_acelerante",
+      "name": "Aspecto Acelerante",
+      "shortName": "Acelerante",
+      "nivel_actual": "3/21",
+      "category": "ofensivo",
+      "effect": "Los golpes criticos con habilidades principales aumentan tu velocidad de ataque un 12.0% [10.0 - 30.0]%.",
+      "slot_equipado": "Anillo 1",
       "valores_actuales": {
-        "reduccion_por_enemigo": "10%",
-        "reduccion_maxima": "50%"
-      }
+        "velocidad_ataque": "12.0%"
+      },
+      "detalles": [
+        {
+          "atributo_ref": "velocidad_ataque",
+          "atributo_nombre": "Velocidad de ataque",
+          "texto": "aumentan tu velocidad de ataque un 12.0%",
+          "valor": "12.0%",
+          "palabras_clave": [
+            "golpe_critico",
+            "velocidad_ataque"
+          ]
+        }
+      ],
+      "tags": [
+        "golpe_critico",
+        "velocidad_ataque"
+      ]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "bloqueo",
+      "texto_original": "bloqueo",
+      "significado": "Reduce o evita dano recibido",
+      "categoria": "defensivo",
+      "fuente": "aspecto"
+    },
+    {
+      "tag": "golpe_critico",
+      "texto_original": "golpes criticos",
+      "significado": "Impacto con dano aumentado por critico",
+      "categoria": "atributo",
+      "fuente": "aspecto"
     }
   ]
 }

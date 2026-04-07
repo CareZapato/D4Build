@@ -33,7 +33,7 @@ Contiene ejemplos de:
 Contiene ejemplos de:
 - 10 aspectos organizados por categorías
 - 5 categorías: Ofensivo, Defensivo, Recurso, Utilidad, Movilidad
-- Keywords y tags para búsqueda fácil
+- Tags y detalles para búsqueda y trazabilidad
 - Niveles de aspecto
 
 **Formato del JSON:**
@@ -47,7 +47,14 @@ Contiene ejemplos de:
       "effect": "Descripción del efecto",
       "level": "1/21",
       "category": "ofensivo",
-      "keywords": ["palabra1", "palabra2"],
+      "detalles": [
+        {
+          "atributo_ref": "danio_maximo",
+          "atributo_nombre": "Daño máximo",
+          "texto": "hasta un máximo del 40%",
+          "valor": "40%"
+        }
+      ],
       "tags": ["tag1", "tag2"]
     }
   ]
@@ -72,4 +79,4 @@ Contiene ejemplos de:
 ## Personalización
 
 Puedes editar estos archivos JSON para agregar tus propias habilidades, glifos y aspectos, 
-siguiendo la misma estructura que se muestra en los ejemplos.
+siguiendo la estructura actual de ejemplos y prompts enriquecidos.

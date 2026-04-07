@@ -1,52 +1,66 @@
 {
   "aspectos": [
     {
-      "id": "aspecto_retribucion",
-      "name": "Aspecto de Retribución",
-      "shortName": "de Retribución",
-      "effect": "El Bloqueo tiene un 15% de probabilidad de arrojar un rayo sagrado que inflige 300% de daño a enemigos.",
-      "level": "1/21",
-      "category": "ofensivo",
+      "id": "aspecto_bastion",
+      "name": "Aspecto del Bastion",
+      "shortName": "del Bastion",
+      "effect": "Ya no puedes esquivar, pero tu probabilidad de bloqueo aumenta un 28% [10 - 30]%.",
+      "level": "19/21",
+      "category": "defensivo",
       "tags": [
-        "bloqueo",
-        "rayo_sagrado",
-        "danio"
+        "bloqueo"
+      ],
+      "detalles": [
+        {
+          "atributo_ref": "probabilidad_bloqueo",
+          "atributo_nombre": "Probabilidad de bloqueo",
+          "texto": "tu probabilidad de bloqueo aumenta un 28%",
+          "valor": "28%"
+        }
       ]
     },
     {
-      "id": "aspecto_hierro_sagrado",
-      "name": "Aspecto de Hierro Sagrado",
-      "shortName": "de Hierro Sagrado",
-      "effect": "Ganas un 10% de reducción de daño por cada enemigo cercano, hasta un máximo del 50%.",
-      "level": "1/21",
-      "category": "defensivo",
+      "id": "aspecto_acelerante",
+      "name": "Aspecto Acelerante",
+      "shortName": "Acelerante",
+      "effect": "Los golpes criticos con habilidades principales aumentan tu velocidad de ataque un 12.0% [10.0 - 30.0]%.",
+      "level": "3/21",
+      "category": "ofensivo",
       "tags": [
-        "reduccion_de_danio",
-        "enemigo_cercano"
+        "golpe_critico",
+        "velocidad_ataque"
+      ],
+      "detalles": [
+        {
+          "atributo_ref": "velocidad_ataque",
+          "atributo_nombre": "Velocidad de ataque",
+          "texto": "aumentan tu velocidad de ataque un 12.0%",
+          "valor": "12.0%"
+        }
       ]
     }
   ],
   "palabras_clave": [
     {
       "tag": "bloqueo",
-      "texto_original": "Bloqueo",
-      "significado": "Probabilidad de bloquear parte o todo el daño recibido.",
+      "texto_original": "bloqueo",
+      "significado": "Probabilidad de bloquear parte o todo el dano recibido.",
       "categoria": "defensivo",
-      "fuente": "tooltip"
-    },
-    {
-      "tag": "rayo_sagrado",
-      "texto_original": "rayo sagrado",
-      "significado": null,
-      "categoria": "tipo_de_danio",
       "fuente": "aspecto"
     },
     {
-      "tag": "reduccion_de_danio",
-      "texto_original": "reducción de daño",
-      "significado": "Reduce el daño recibido de las fuentes de ataque.",
-      "categoria": "defensivo",
-      "fuente": "tooltip"
+      "tag": "golpe_critico",
+      "texto_original": "golpes criticos",
+      "significado": null,
+      "categoria": "atributo",
+      "fuente": "aspecto"
+    },
+    {
+      "tag": "velocidad_ataque",
+      "texto_original": "velocidad de ataque",
+      "significado": "Incrementa la frecuencia de ataque.",
+      "categoria": "atributo",
+      "fuente": "aspecto"
     }
   ]
 }

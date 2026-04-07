@@ -1,6 +1,6 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.1.1-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.4.3-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
@@ -129,7 +129,14 @@ El sistema acepta dos formatos:
       "effect": "El Bloqueo tiene un 15% de probabilidad...",
       "level": "1/21",
       "category": "ofensivo",
-      "keywords": ["bloqueo", "rayo", "daño"],
+      "detalles": [
+        {
+          "atributo_ref": "probabilidad_bloqueo",
+          "atributo_nombre": "Probabilidad de bloqueo",
+          "texto": "aumenta un 15%",
+          "valor": "15%"
+        }
+      ],
       "tags": ["holy", "damage"]
     }
   ]

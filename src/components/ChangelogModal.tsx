@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">7 de Abril, 2026</p>
+                <p className="text-d4-text font-semibold">6 de Abril, 2026</p>
               </div>
             </div>
           </div>
@@ -68,42 +68,41 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Version 0.4.6 */}
+        {/* Version 0.4.3 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
-            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.6</h3>
-            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-teal-600/20 text-green-300 px-2 py-1 rounded">Correcciones de Importación</span>
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.3</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-teal-600/20 text-green-300 px-2 py-1 rounded">Prompts + Importación Enriquecida</span>
           </div>
 
           <div className="space-y-4">
-            {/* Fix prompt estadísticas */}
+            {/* Prompts unificados */}
             <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
               <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
-                🔧 Prompt de Estadísticas Corregido
+                🔧 Prompts de Captura y Personaje Unificados
               </h4>
               <p className="text-sm text-d4-text mb-3">
-                El prompt ahora genera JSON simple y directo que guarda y muestra correctamente en la web
+                Los prompts de captura ahora replican la lógica completa de las secciones de personaje, sin versiones resumidas.
               </p>
               <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
-                <li><strong>Prompt simplificado</strong>: Pide valores numéricos directos, sin arrays de detalles ni palabras_clave anidadas</li>
-                <li><strong>Fuente unificada</strong>: Modal de captura y sección Estadísticas usan exactamente el mismo prompt (V2)</li>
-                <li><strong>convertV2ToV1 arreglado</strong>: Detecta y extrae correctamente secciones camelCase objeto del JSON</li>
-                <li><strong>Estadísticas = solo Personaje</strong>: Eliminada la opción "Héroe" del selector de tipo para estadísticas</li>
+                <li><strong>Aspectos de personaje enriquecidos</strong>: nivel, categoría por color, effect, detalles y tags por aspecto.</li>
+                <li><strong>Captura = Personaje</strong>: la generación de prompt en modal usa la misma fuente que las secciones de personaje.</li>
+                <li><strong>Límite de extracción</strong>: se mantiene consistente en los prompts de captura y personaje.</li>
               </ul>
             </div>
 
-            {/* Fix import skills/glifos/aspectos */}
+            {/* Importación robusta */}
             <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
               <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                🔗 Importación de Skills, Glifos y Aspectos Corregida
+                🔗 Importación en Modal Corregida y Persistente
               </h4>
               <p className="text-sm text-d4-text mb-3">
-                Al importar desde el modal de capturas para un personaje, ahora se guarda en el héroe Y se crean las referencias correctamente
+                Importar desde captura ahora guarda correctamente en maestros del héroe y crea/actualiza referencias del personaje sin perder sincronía.
               </p>
               <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
-                <li><strong>Habilidades</strong>: Guarda en el héroe + crea refs con formato correcto <code className="text-xs bg-d4-surface px-1 rounded">{`{skill_id, modificadores_ids, nivel_actual}`}</code></li>
-                <li><strong>Glifos</strong>: Guarda en el héroe + genera IDs persistentes + crea refs <code className="text-xs bg-d4-surface px-1 rounded">{`{id, nivel_actual}`}</code></li>
-                <li><strong>Aspectos</strong>: Guarda datos completos en el héroe + refs por ID</li>
+                <li><strong>Skills y glifos</strong>: upsert en héroe + upsert de referencias en personaje.</li>
+                <li><strong>Aspectos</strong>: guarda detalle completo en héroe (effect, category, tags, detalles, level) y refs por aspecto_id.</li>
+                <li><strong>Refresh inteligente</strong>: tras importar JSON desde captura, recarga sin pedir carpeta nuevamente en la sesión.</li>
               </ul>
             </div>
 
