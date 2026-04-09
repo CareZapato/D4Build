@@ -1,0 +1,166 @@
+{
+  "estadisticas": {
+    "moneda": {
+      "oro": {
+        "valor": 415224377,
+        "atributo_ref": "oro",
+        "atributo_nombre": "Oro",
+        "detalles": [
+          {
+            "atributo_ref": "oro",
+            "atributo_nombre": "Oro",
+            "texto": "La moneda principal de Santuario, que usa la mayoría de los mercaderes y artesanos.",
+            "palabras_clave": ["moneda"]
+          },
+          {
+            "atributo_ref": "oro",
+            "atributo_nombre": "Oro",
+            "texto": "Se obtiene de muchas actividades de Santuario y al vender objetos.",
+            "palabras_clave": ["economia"]
+          }
+        ]
+      },
+      "obolos": {
+        "valor": 1962,
+        "maximo": 2500,
+        "atributo_ref": "obolos",
+        "atributo_nombre": "Óbolos Murmurantes",
+        "detalles": [
+          {
+            "atributo_ref": "obolos",
+            "atributo_nombre": "Óbolos Murmurantes",
+            "texto": "Se usan para comprar objetos del Proveedor de Curiosidades.",
+            "palabras_clave": ["proveedor", "curiosidades"]
+          },
+          {
+            "atributo_ref": "obolos",
+            "atributo_nombre": "Óbolos Murmurantes",
+            "texto": "Se obtienen en eventos aleatorios en Santuario.",
+            "palabras_clave": ["eventos"]
+          }
+        ]
+      },
+      "polvoRojo": {
+        "valor": 2768,
+        "atributo_ref": "polvoRojo",
+        "atributo_nombre": "Polvo Rojo",
+        "detalles": [
+          {
+            "atributo_ref": "polvoRojo",
+            "atributo_nombre": "Polvo Rojo",
+            "texto": "Se usa para comprar objetos de los mercaderes JcJ en las Estepas Áridas de Kehjistán.",
+            "palabras_clave": ["jcj"]
+          },
+          {
+            "atributo_ref": "polvoRojo",
+            "atributo_nombre": "Polvo Rojo",
+            "texto": "Se puede obtener en los Altares de Extracción al purificar Semillas del Odio.",
+            "palabras_clave": ["semillas_del_odio"]
+          },
+          {
+            "atributo_ref": "polvoRojo",
+            "atributo_nombre": "Polvo Rojo",
+            "texto": "Las Semillas del Odio solo se pueden obtener en las zonas JcJ.",
+            "palabras_clave": ["jcj"]
+          }
+        ]
+      },
+      "marcasPalidas": {
+        "valor": 1180,
+        "atributo_ref": "marcasPalidas",
+        "atributo_nombre": "Marcas Pálidas",
+        "detalles": [
+          {
+            "atributo_ref": "marcasPalidas",
+            "atributo_nombre": "Marcas Pálidas",
+            "texto": "Sirven para hacer trueques en el Escondite de Mercenarios.",
+            "palabras_clave": ["mercenarios"]
+          },
+          {
+            "atributo_ref": "marcasPalidas",
+            "atributo_nombre": "Marcas Pálidas",
+            "texto": "Se obtienen aumentando tu nivel de Afinidad con los mercenarios y completando eventos.",
+            "palabras_clave": ["afinidad"]
+          },
+          {
+            "atributo_ref": "marcasPalidas",
+            "atributo_nombre": "Marcas Pálidas",
+            "texto": "El trueque pasa a estar disponible tras alcanzar Afinidad de rango 5.",
+            "palabras_clave": ["afinidad"]
+          }
+        ]
+      },
+      "monedasDelAlcazar": {
+        "valor": 890,
+        "atributo_ref": "monedasDelAlcazar",
+        "atributo_nombre": "Monedas del Alcázar",
+        "detalles": [
+          {
+            "atributo_ref": "monedasDelAlcazar",
+            "atributo_nombre": "Monedas del Alcázar",
+            "texto": "Se usan para comprar objetos del mercader del Alcázar Oscuro.",
+            "palabras_clave": ["alcazar"]
+          },
+          {
+            "atributo_ref": "monedasDelAlcazar",
+            "atributo_nombre": "Monedas del Alcázar",
+            "texto": "Se obtienen al completar actividades en el Alcázar Oscuro.",
+            "palabras_clave": ["alcazar"]
+          }
+        ]
+      },
+      "favor": {
+        "valor": 99,
+        "atributo_ref": "favor",
+        "atributo_nombre": "Favor de Relicario",
+        "detalles": [
+          {
+            "atributo_ref": "favor",
+            "atributo_nombre": "Favor de Relicario",
+            "texto": "Se usa para obtener recompensas en el Pase de Batalla de Relicario.",
+            "palabras_clave": ["pase_de_batalla"]
+          },
+          {
+            "atributo_ref": "favor",
+            "atributo_nombre": "Favor de Relicario",
+            "texto": "Mata monstruos y completa gestas para obtener Favor.",
+            "palabras_clave": ["progreso"]
+          }
+        ]
+      },
+      "carneFresca": {
+        "valor": 18657,
+        "atributo_ref": "carneFresca",
+        "atributo_nombre": "Carne Fresca",
+        "detalles": [
+          {
+            "atributo_ref": "carneFresca",
+            "atributo_nombre": "Carne Fresca",
+            "texto": "Se cambia por objetos ensangrentados con Kael Rills.",
+            "palabras_clave": ["intercambio"]
+          }
+        ]
+      }
+    }
+  },
+  "palabras_clave": [
+    {
+      "tag": "jcj",
+      "texto_original": "JcJ",
+      "significado": "Jugador contra jugador",
+      "categoria": "modo_juego"
+    },
+    {
+      "tag": "afinidad",
+      "texto_original": "Afinidad",
+      "significado": "Nivel de relación con mercenarios",
+      "categoria": "progreso"
+    },
+    {
+      "tag": "pase_de_batalla",
+      "texto_original": "Pase de Batalla",
+      "significado": "Sistema de recompensas progresivas",
+      "categoria": "progreso"
+    }
+  ]
+}

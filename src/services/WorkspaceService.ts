@@ -139,6 +139,12 @@ export class WorkspaceService {
     try {
       await this.fileSystemHandle.getDirectoryHandle('heroes', { create: true });
       await this.fileSystemHandle.getDirectoryHandle('personajes', { create: true });
+      const imagesDir = await this.fileSystemHandle.getDirectoryHandle('imagenes', { create: true });
+      await imagesDir.getDirectoryHandle('skills', { create: true });
+      await imagesDir.getDirectoryHandle('glifos', { create: true });
+      await imagesDir.getDirectoryHandle('aspectos', { create: true });
+      await imagesDir.getDirectoryHandle('estadisticas', { create: true });
+      await imagesDir.getDirectoryHandle('otros', { create: true });
     } catch (error) {
       console.error('Error creando estructura:', error);
     }

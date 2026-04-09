@@ -1007,6 +1007,25 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 - **Palabras blancas/subrayadas:** Identifícalas en los detalles y agrégalas a palabras_clave
 - **Contribución:** Si menciona "de objetos", "por Paragón", etc., usa el campo contribucion
 - **Valores:** Pueden ser números o strings con "%" 
+- **MONEDA (Estructura alternativa):** Si extraes tooltips de moneda, puedes usar estructura enriquecida:
+  \`\`\`json
+  "moneda": {
+    "oro": {
+      "valor": 415224377,
+      "atributo_ref": "oro",
+      "atributo_nombre": "Oro",
+      "detalles": [{"atributo_ref": "oro", "atributo_nombre": "Oro", "texto": "La moneda principal...", "palabras_clave": ["moneda"]}]
+    },
+    "obolos": {
+      "valor": 1962,
+      "maximo": 2500,
+      "atributo_ref": "obolos",
+      "atributo_nombre": "Óbolos Murmurantes",
+      "detalles": [...]
+    }
+  }
+  \`\`\`
+  El sistema extrae automáticamente el campo "valor" de cada moneda.
 - Si un campo no está visible, usa null u omite el campo
 - Incluye TODAS las secciones visibles en la imagen`;
   }

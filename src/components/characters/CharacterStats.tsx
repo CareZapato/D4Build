@@ -31,6 +31,34 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<any>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  
+  // Helper para extraer el valor de moneda (solo para mostrar, no para guardar)
+  const getMonedaValue = (field: any): string | number => {
+    if (field === undefined || field === null) return '';
+    if (typeof field === 'object' && 'valor' in field) return field.valor;
+    return field;
+  };
+  
+  // Helper para extraer detalles de estructura enriquecida (personaje)
+  const getMonedaDetalles = (field: any): any[] => {
+    if (field && typeof field === 'object' && 'detalles' in field) {
+      return field.detalles || [];
+    }
+    return [];
+  };
+  
+  // Helper para extraer descripción de estructura enriquecida (personaje)
+  const getMonedaDescripcion = (field: any): string | undefined => {
+    if (field && typeof field === 'object' && 'atributo_nombre' in field) {
+      // Podríamos construir una descripción desde los detalles
+      const detalles = getMonedaDetalles(field);
+      if (detalles.length > 0) {
+        return detalles.map(d => d.texto).join(' ');
+      }
+    }
+    return undefined;
+  };
+  
   const [estadisticas, setEstadisticas] = useState<Estadisticas>(
     personaje.estadisticas || {}
   );
@@ -60,6 +88,11 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   useEffect(() => {
     loadHeroStats();
   }, [personaje.clase]);
+
+  // Sincronizar estadísticas cuando cambia el personaje (desde fuera)
+  useEffect(() => {
+    setEstadisticas(personaje.estadisticas || {});
+  }, [personaje.id]);
 
   // Complementar tooltips con detalles del JSON del personaje (sin depender solo del héroe)
   useEffect(() => {
@@ -260,6 +293,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       if (v2Stats.utilidad && !Array.isArray(v2Stats.utilidad)) stats.utilidad = v2Stats.utilidad;
       if (v2Stats.armaduraYResistencias) stats.armaduraYResistencias = v2Stats.armaduraYResistencias;
       if (v2Stats.jcj) stats.jcj = v2Stats.jcj;
+      // Preservar moneda con su estructura completa (detalles incluidos)
       if (v2Stats.moneda) stats.moneda = v2Stats.moneda;
       return {
         stats,
@@ -580,6 +614,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
         if (current?.obolos || incoming?.obolos) {
           merged.obolos = { ...(current?.obolos || {}), ...(incoming?.obolos || {}) };
         }
+        // NO normalizar - preservar estructura completa con detalles
         return merged;
       };
 
@@ -726,26 +761,62 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   };
 
   const updateMoneda = (field: string, value: string | number) => {
-    setEstadisticas(prev => ({
-      ...prev,
-      moneda: {
-        ...prev.moneda,
-        [field]: value
+    setEstadisticas(prev => {
+      const current = prev.moneda?.[field as keyof typeof prev.moneda];
+      let newValue: any;
+      
+      // Si existe estructura enriquecida, preservarla y actualizar solo el valor
+      if (current && typeof current === 'object' && 'valor' in current) {
+        newValue = { ...current, valor: value };
+      } else {
+        // Si no hay estructura, guardar valor simple
+        newValue = value;
       }
-    }));
+      
+      return {
+        ...prev,
+        moneda: {
+          ...prev.moneda,
+          [field]: newValue
+        }
+      };
+    });
   };
 
   const updateObolos = (field: string, value: number | string) => {
-    setEstadisticas(prev => ({
-      ...prev,
-      moneda: {
-        ...prev.moneda,
-        obolos: {
-          ...prev.moneda?.obolos,
-          [field]: typeof value === 'string' ? parseFloat(value) || 0 : value
+    setEstadisticas(prev => {
+      const current = prev.moneda?.obolos;
+      let newObolos: any;
+      
+      // Si existe estructura enriquecida, preservarla
+      if (current && typeof current === 'object') {
+        if ('valor' in current && field === 'actual') {
+          // Estructura enriquecida: actualizar 'valor' para 'actual'
+          newObolos = { 
+            ...current, 
+            valor: typeof value === 'string' ? parseFloat(value) || 0 : value,
+            actual: typeof value === 'string' ? parseFloat(value) || 0 : value
+          };
+        } else {
+          // Estructura simple o actualizando 'maximo'
+          newObolos = { 
+            ...current, 
+            [field]: typeof value === 'string' ? parseFloat(value) || 0 : value 
+          };
         }
+      } else {
+        // Nueva estructura simple
+        newObolos = { [field]: typeof value === 'string' ? parseFloat(value) || 0 : value };
       }
-    }));
+      
+      return {
+        ...prev,
+        moneda: {
+          ...prev.moneda,
+          obolos: newObolos
+        }
+      };
+    });
   };
 
   const updateAtributosPrincipales = (field: string, value: number | string) => {
@@ -1291,61 +1362,61 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <StatField 
               label="Oro" 
-              value={estadisticas.moneda?.oro || ''} 
+              value={getMonedaValue(estadisticas.moneda?.oro) || ''} 
               onChange={(v) => updateMoneda('oro', v)}
               type="text"
-              descripcion={heroStats.get('oro')?.descripcion}
-              detalles={heroStats.get('oro')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.oro) || heroStats.get('oro')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.oro).length > 0 ? getMonedaDetalles(estadisticas.moneda?.oro) : heroStats.get('oro')?.detalles}
             />
             <StatField 
               label="Obolos Actual" 
-              value={estadisticas.moneda?.obolos?.actual || ''} 
+              value={getMonedaValue(estadisticas.moneda?.obolos?.actual) || getMonedaValue(estadisticas.moneda?.obolos?.valor) || ''} 
               onChange={(v) => updateObolos('actual', v)}
-              descripcion={heroStats.get('obolos')?.descripcion}
-              detalles={heroStats.get('obolos')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.obolos) || heroStats.get('obolos')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.obolos).length > 0 ? getMonedaDetalles(estadisticas.moneda?.obolos) : heroStats.get('obolos')?.detalles}
             />
             <StatField 
               label="Obolos Máximo" 
-              value={estadisticas.moneda?.obolos?.maximo || ''} 
+              value={getMonedaValue(estadisticas.moneda?.obolos?.maximo) || ''} 
               onChange={(v) => updateObolos('maximo', v)}
-              descripcion={heroStats.get('obolos')?.descripcion}
-              detalles={heroStats.get('obolos')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.obolos) || heroStats.get('obolos')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.obolos).length > 0 ? getMonedaDetalles(estadisticas.moneda?.obolos) : heroStats.get('obolos')?.detalles}
             />
             <StatField 
               label="Polvo Rojo" 
-              value={estadisticas.moneda?.polvoRojo || ''} 
+              value={getMonedaValue(estadisticas.moneda?.polvoRojo) || ''} 
               onChange={(v) => updateMoneda('polvoRojo', v)}
-              descripcion={heroStats.get('polvo rojo')?.descripcion}
-              detalles={heroStats.get('polvo rojo')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.polvoRojo) || heroStats.get('polvo rojo')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.polvoRojo).length > 0 ? getMonedaDetalles(estadisticas.moneda?.polvoRojo) : heroStats.get('polvo rojo')?.detalles}
             />
             <StatField 
               label="Marcas Pálidas" 
-              value={estadisticas.moneda?.marcasPalidas || ''} 
+              value={getMonedaValue(estadisticas.moneda?.marcasPalidas) || ''} 
               onChange={(v) => updateMoneda('marcasPalidas', v)}
-              descripcion={heroStats.get('marcas pálidas')?.descripcion}
-              detalles={heroStats.get('marcas pálidas')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.marcasPalidas) || heroStats.get('marcas pálidas')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.marcasPalidas).length > 0 ? getMonedaDetalles(estadisticas.moneda?.marcasPalidas) : heroStats.get('marcas pálidas')?.detalles}
             />
             <StatField 
               label="Monedas Alcázar" 
-              value={estadisticas.moneda?.monedasDelAlcazar || ''} 
+              value={getMonedaValue(estadisticas.moneda?.monedasDelAlcazar) || ''} 
               onChange={(v) => updateMoneda('monedasDelAlcazar', v)}
-              descripcion={heroStats.get('monedas alcázar')?.descripcion}
-              detalles={heroStats.get('monedas alcázar')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.monedasDelAlcazar) || heroStats.get('monedas alcázar')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.monedasDelAlcazar).length > 0 ? getMonedaDetalles(estadisticas.moneda?.monedasDelAlcazar) : heroStats.get('monedas alcázar')?.detalles}
             />
             <StatField 
               label="Favor" 
-              value={estadisticas.moneda?.favor || ''} 
+              value={getMonedaValue(estadisticas.moneda?.favor) || ''} 
               onChange={(v) => updateMoneda('favor', v)}
-              descripcion={heroStats.get('favor')?.descripcion}
-              detalles={heroStats.get('favor')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.favor) || heroStats.get('favor')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.favor).length > 0 ? getMonedaDetalles(estadisticas.moneda?.favor) : heroStats.get('favor')?.detalles}
             />
             <StatField 
               label="Carne Fresca" 
-              value={estadisticas.moneda?.carneFresca || ''} 
+              value={getMonedaValue(estadisticas.moneda?.carneFresca) || ''} 
               onChange={(v) => updateMoneda('carneFresca', v)}
               type="text"
-              descripcion={heroStats.get('carne fresca')?.descripcion}
-              detalles={heroStats.get('carne fresca')?.detalles}
+              descripcion={getMonedaDescripcion(estadisticas.moneda?.carneFresca) || heroStats.get('carne fresca')?.descripcion}
+              detalles={getMonedaDetalles(estadisticas.moneda?.carneFresca).length > 0 ? getMonedaDetalles(estadisticas.moneda?.carneFresca) : heroStats.get('carne fresca')?.detalles}
             />
           </div>
         )}

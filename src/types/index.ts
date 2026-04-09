@@ -325,16 +325,27 @@ export interface JcJ {
 export interface Obolos {
   actual?: number;
   maximo?: number;
+  valor?: number;  // Para estructura enriquecida (equivalente a 'actual')
+  atributo_ref?: string;  // Para estructura enriquecida
+  atributo_nombre?: string;  // Para estructura enriquecida
+  detalles?: DetalleEstadistica[];  // Para estructura enriquecida
+}
+
+export interface MonedaField {
+  valor: number | string;
+  atributo_ref: string;
+  atributo_nombre: string;
+  detalles?: DetalleEstadistica[];
 }
 
 export interface Moneda {
-  oro?: string;
+  oro?: string | MonedaField;
   obolos?: Obolos;
-  polvoRojo?: number;
-  marcasPalidas?: number;
-  monedasDelAlcazar?: number;
-  favor?: number;
-  carneFresca?: string;
+  polvoRojo?: number | MonedaField;
+  marcasPalidas?: number | MonedaField;
+  monedasDelAlcazar?: number | MonedaField;
+  favor?: number | MonedaField;
+  carneFresca?: string | MonedaField;
 }
 
 export interface AtributosPrincipales {
