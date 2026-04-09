@@ -12,7 +12,7 @@ interface Props {
 const PromptGenerator: React.FC<Props> = ({ personajes }) => {
   const modal = useModal();
   const [selectedPersonaje, setSelectedPersonaje] = useState<string>('');
-  const [promptType, setPromptType] = useState<'custom' | 'synergy' | 'optimization'>('custom');
+  const [promptType, setPromptType] = useState<'custom' | 'synergy' | 'optimization' | 'deepAnalysis' | 'poolComparison'>('custom');
   const [customQuestion, setCustomQuestion] = useState('');
   const [includeSkills, setIncludeSkills] = useState(true);
   const [includeGlyphs, setIncludeGlyphs] = useState(true);
@@ -33,6 +33,10 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
       prompt = await PromptService.generateSynergyPrompt(personaje);
     } else if (promptType === 'optimization') {
       prompt = await PromptService.generateOptimizationPrompt(personaje);
+    } else if (promptType === 'deepAnalysis') {
+      prompt = await PromptService.generateDeepAnalysisPrompt(personaje);
+    } else if (promptType === 'poolComparison') {
+      prompt = await PromptService.generatePoolComparisonPrompt(personaje);
     } else {
       prompt = await PromptService.generatePrompt(personaje, {
         incluir_habilidades: includeSkills,
@@ -136,6 +140,34 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
                   <div>
                     <div className="text-d4-text font-medium">Optimización de Build</div>
                     <div className="text-xs text-d4-text-dim">Obtén recomendaciones para mejorar el build</div>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-d4-border transition-colors">
+                  <input
+                    type="radio"
+                    name="promptType"
+                    value="deepAnalysis"
+                    checked={promptType === 'deepAnalysis'}
+                    onChange={() => setPromptType('deepAnalysis')}
+                  />
+                  <div>
+                    <div className="text-d4-text font-medium">🎯 Análisis Profundo</div>
+                    <div className="text-xs text-d4-text-dim">Evaluación completa con scoring y prioridades</div>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-d4-border transition-colors">
+                  <input
+                    type="radio"
+                    name="promptType"
+                    value="poolComparison"
+                    checked={promptType === 'poolComparison'}
+                    onChange={() => setPromptType('poolComparison')}
+                  />
+                  <div>
+                    <div className="text-d4-text font-medium">🔄 Comparación con Pool</div>
+                    <div className="text-xs text-d4-text-dim">Compara equipado vs todo lo disponible</div>
                   </div>
                 </label>
               </div>

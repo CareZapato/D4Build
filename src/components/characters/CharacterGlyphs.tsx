@@ -192,8 +192,12 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     await WorkspaceService.saveHeroGlyphs(personaje.clase, updatedHeroGlyphs);
     setAvailableGlyphs(updatedHeroGlyphs.glifos);
 
+    // CRÍTICO: Leer referencias del disco para evitar sobrescribir datos
+    const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+    const existingRefs = personajeFromDisk?.glifos_refs || [];
+
     // Ahora actualizar referencias del personaje (actualizar nivel o agregar nuevos)
-    const updatedRefs = [...glyphsRefs];
+    const updatedRefs = [...existingRefs];  // Usar referencias del DISCO
     
     glifosConTags.forEach((glyph: any) => {
       const heroGlyph = updatedHeroGlyphs.glifos.find(g => g.nombre === glyph.nombre);

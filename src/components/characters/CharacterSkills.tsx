@@ -493,13 +493,17 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       };
     }).filter((ref): ref is { skill_id: string; puntos_asignados: number } => ref !== null);
 
+    // CRÍTICO: Leer referencias del disco para evitar sobrescribir datos
+    const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+    const existingRefs = personajeFromDisk?.habilidades_refs || { activas: [], pasivas: [] };
+
     // Upsert por skill_id: si ya existe, se actualiza (nivel/modificadores), si no existe, se agrega.
     const activeById = new Map<string, { skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>();
-    skillsRefs.activas.forEach(ref => activeById.set(ref.skill_id, ref));
+    existingRefs.activas.forEach(ref => activeById.set(ref.skill_id, ref));  // Referencias del DISCO
     newActiveRefs.forEach(ref => activeById.set(ref.skill_id, ref));
 
     const passiveById = new Map<string, { skill_id: string; puntos_asignados?: number }>();
-    skillsRefs.pasivas.forEach(ref => {
+    existingRefs.pasivas.forEach(ref => {
       const normalized = typeof ref === 'string' ? { skill_id: ref, puntos_asignados: undefined } : ref;
       passiveById.set(normalized.skill_id, normalized);
     });

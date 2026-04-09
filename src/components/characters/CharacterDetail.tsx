@@ -54,7 +54,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     setSaving(true);
     try {
       editedPersonaje.fecha_actualizacion = new Date().toISOString();
-      await WorkspaceService.savePersonaje(editedPersonaje);
+      await WorkspaceService.savePersonajeMerge(editedPersonaje);
       setEditMode(false);
       setHasChanges(false);
       onUpdate();
@@ -77,7 +77,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
         fecha_actualizacion: new Date().toISOString(),
       };
       
-      await WorkspaceService.savePersonaje(updatedPersonaje);
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
       setEditedPersonaje(updatedPersonaje);
       setEditMode(false);
       setHasChanges(false);
@@ -112,9 +112,9 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     // Actualizar estado local
     setEditedPersonaje(updatedPersonaje);
     
-    // Guardar automáticamente
+    // Guardar automáticamente con merge seguro
     try {
-      await WorkspaceService.savePersonaje(updatedPersonaje);
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
       onUpdate();
     } catch (error) {
       console.error('Error guardando estadísticas:', error);
@@ -135,9 +135,9 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     // Actualizar estado local
     setEditedPersonaje(updatedPersonaje);
     
-    // Guardar automáticamente
+    // Guardar automáticamente con merge seguro
     try {
-      await WorkspaceService.savePersonaje(updatedPersonaje);
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
       onUpdate();
     } catch (error) {
       console.error('Error guardando glifos:', error);
@@ -161,9 +161,9 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     // Actualizar estado local
     setEditedPersonaje(updatedPersonaje);
     
-    // Guardar automáticamente
+    // Guardar automáticamente con merge seguro
     try {
-      await WorkspaceService.savePersonaje(updatedPersonaje);
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
       onUpdate();
     } catch (error) {
       console.error('Error guardando habilidades:', error);
@@ -182,9 +182,9 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     // Actualizar estado local
     setEditedPersonaje(updatedPersonaje);
     
-    // Guardar automáticamente
+    // Guardar automáticamente con merge seguro
     try {
-      await WorkspaceService.savePersonaje(updatedPersonaje);
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
       onUpdate();
     } catch (error) {
       console.error('Error guardando aspectos:', error);

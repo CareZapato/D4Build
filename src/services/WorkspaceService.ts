@@ -189,7 +189,65 @@ export class WorkspaceService {
     return this.workspaceConfig;
   }
 
-  // Guardar personaje
+  // Guardar personaje con merge seguro (lee el archivo actual primero)
+  static async savePersonajeMerge(personaje: Personaje): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const personajesDir = await this.fileSystemHandle.getDirectoryHandle('personajes');
+      
+      // Intentar leer el personaje existente del disco
+      let existingPersonaje: Personaje | null = null;
+      try {
+        const fileHandle = await personajesDir.getFileHandle(`${personaje.id}.json`);
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        existingPersonaje = JSON.parse(content);
+      } catch (error) {
+        // El archivo no existe, es un personaje nuevo
+        console.log('Creando nuevo personaje');
+      }
+
+      // Si existe, hacer merge preservando datos no incluidos en el update
+      let mergedPersonaje = personaje;
+      if (existingPersonaje) {
+        mergedPersonaje = {
+          ...existingPersonaje,        // Base: datos del disco (más recientes)
+          ...personaje,                // Sobrescribir con cambios nuevos
+          fecha_actualizacion: new Date().toISOString(),
+          
+          // Merge arrays de referencias: preservar existentes + agregar nuevos
+          habilidades_refs: personaje.habilidades_refs || existingPersonaje.habilidades_refs,
+          glifos_refs: personaje.glifos_refs || existingPersonaje.glifos_refs,
+          aspectos_refs: personaje.aspectos_refs || existingPersonaje.aspectos_refs,
+          estadisticas_refs: personaje.estadisticas_refs || existingPersonaje.estadisticas_refs,
+          
+          // DEEP MERGE de estadisticas: fusionar propiedades internas (moneda, defensivo, etc.)
+          estadisticas: personaje.estadisticas ? {
+            ...existingPersonaje.estadisticas,  // Preservar estadísticas existentes del disco
+            ...personaje.estadisticas,           // Agregar/actualizar con nuevas estadísticas
+          } : existingPersonaje.estadisticas,
+        };
+      }
+
+      // Guardar
+      const fileHandle = await personajesDir.getFileHandle(`${mergedPersonaje.id}.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(mergedPersonaje, null, 2));
+      await writable.close();
+
+      // Actualizar fecha de modificación del workspace
+      if (this.workspaceConfig) {
+        this.workspaceConfig.ultima_actualizacion = new Date().toISOString();
+        await this.saveWorkspaceConfig();
+      }
+    } catch (error) {
+      console.error('Error guardando personaje con merge:', error);
+      throw error;
+    }
+  }
+
+  // Guardar personaje (método original - simple sobrescritura)
   static async savePersonaje(personaje: Personaje): Promise<void> {
     if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
 

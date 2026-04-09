@@ -827,8 +827,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               });
               pasivasRefs.forEach(ref => passiveById.set(ref.skill_id, ref));
 
+              // CRÍTICO: Leer personaje del disco para preservar otros datos
+              const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
               const updatedPersonaje = {
-                ...personaje,
+                ...(personajeFromDisk || personaje),
                 habilidades_refs: {
                   activas: Array.from(activeById.values()),
                   pasivas: Array.from(passiveById.values())
@@ -836,7 +838,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 fecha_actualizacion: new Date().toISOString()
               };
 
-              await WorkspaceService.savePersonaje(updatedPersonaje);
+              await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades guardadas en ${personaje.nombre}`, 'success');
               shouldReload = true;
@@ -878,13 +880,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
               });
 
+              // CRÍTICO: Leer personaje del disco para preservar otros datos
+              const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
               const updatedPersonaje = {
-                ...personaje,
+                ...(personajeFromDisk || personaje),
                 glifos_refs: Array.from(glyphRefsById.values()),
                 fecha_actualizacion: new Date().toISOString()
               };
 
-              await WorkspaceService.savePersonaje(updatedPersonaje);
+              await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${nuevosRefs.length} glifos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
@@ -997,13 +1001,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 aspectRefsById.set(ref.aspecto_id, ref);
               });
 
+              // CRÍTICO: Leer personaje del disco para preservar otros datos
+              const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
               const updatedPersonaje = {
-                ...personaje,
+                ...(personajeFromDisk || personaje),
                 aspectos_refs: Array.from(aspectRefsById.values()),
                 fecha_actualizacion: new Date().toISOString()
               };
 
-              await WorkspaceService.savePersonaje(updatedPersonaje);
+              await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
@@ -1040,11 +1046,23 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               parsedNivel = rest.atributosPrincipales?.nivel;
             }
 
-            personaje.estadisticas = statsToSave;
-            if (parsedNivel !== undefined) personaje.nivel = parsedNivel;
-            if (parsedNivelParagon !== undefined) personaje.nivel_paragon = parsedNivelParagon;
-            personaje.fecha_actualizacion = new Date().toISOString();
-            await WorkspaceService.savePersonaje(personaje);
+            // CRÍTICO: Leer personaje del disco y hacer DEEP MERGE de estadísticas
+            const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+            const basePersonaje = personajeFromDisk || personaje;
+            
+            const updatedPersonaje = {
+              ...basePersonaje,
+              estadisticas: {
+                ...basePersonaje.estadisticas,  // Preservar secciones existentes (moneda, etc.)
+                ...statsToSave                  // Agregar/actualizar nuevas secciones
+              },
+              ...(parsedNivel !== undefined && { nivel: parsedNivel }),
+              ...(parsedNivelParagon !== undefined && { nivel_paragon: parsedNivelParagon }),
+              fecha_actualizacion: new Date().toISOString()
+            };
+            
+            await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+            syncUpdatedPersonajeInContext(updatedPersonaje);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
             shouldReload = true;
             break;

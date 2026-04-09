@@ -618,8 +618,12 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
         return merged;
       };
 
+      // CRÍTICO: Leer personaje del disco para obtener estadísticas más recientes
+      const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+      const estadisticasFromDisk = personajeFromDisk?.estadisticas || {};
+
       const JSONObjects = parseMultipleJSON(pendingImportData);
-      let mergedStats: Estadisticas = { ...estadisticas };
+      let mergedStats: Estadisticas = { ...estadisticasFromDisk };  // USAR DISCO en lugar de estado
       let extractedNivel: number | undefined;
       let extractedNivelParagon: number | undefined;
       let allTags: Tag[] = [];
