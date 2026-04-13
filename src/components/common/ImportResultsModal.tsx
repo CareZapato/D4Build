@@ -61,7 +61,6 @@ const ImportResultsModal: React.FC<ImportResultsModalProps> = ({
   if (!isOpen || !results) return null;
 
   const hasErrors = results.validationErrors.some(e => e.severity === 'error');
-  const hasWarnings = results.validationErrors.some(e => e.severity === 'warning');
 
   const getCategoryLabel = (category: string): string => {
     const labels: Record<string, string> = {

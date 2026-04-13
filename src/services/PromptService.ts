@@ -606,30 +606,6 @@ Identifica:
     return prompt;
   }
 
-  // Helper: Enriquecer datos con información de tags
-  private static enrichWithTags(tags: any[]): string {
-    if (!tags || tags.length === 0) return '';
-    
-    let tagInfo = '\n  - **Tags relevantes**:\n';
-    for (const tag of tags) {
-      if (typeof tag === 'object' && tag.tag) {
-        tagInfo += `    - \`${tag.tag}\``;
-        if (tag.significado) {
-          tagInfo += `: ${tag
-
-.significado}`;
-        }
-        if (tag.descripcion_jugabilidad) {
-          tagInfo += ` | ${tag.descripcion_jugabilidad}`;
-        }
-        tagInfo += '\n';
-      } else if (typeof tag === 'string') {
-        tagInfo += `    - \`${tag}\`\n`;
-      }
-    }
-    return tagInfo;
-  }
-
   // Helper: Dividir prompt largo en múltiples partes
   static splitIntoMultiplePrompts(prompt: string, maxTokens: number = 8000): string[] {
     // Estimación: ~4 caracteres por token
