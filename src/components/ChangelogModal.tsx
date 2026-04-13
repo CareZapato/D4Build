@@ -68,6 +68,115 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.4.12 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.12</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-emerald-300 px-2 py-1 rounded">Control Manual + Reporte Inteligente</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-emerald-300 mb-2 flex items-center gap-2">
+                ✅ Finalizar Proceso Bajo Demanda
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>El modal de reporte ahora incluye botón <strong>Finalizar proceso</strong> para continuar cuando el usuario quiera</li>
+                <li>Se eliminaron recargas automáticas que cerraban el reporte antes de poder leerlo</li>
+                <li>El usuario controla cuándo cerrar/reload tras revisar el resultado</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                📊 Reporte de Importación Más Preciso
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Se muestra cuántos <strong>elementos trae el JSON</strong> antes del merge final</li>
+                <li>El resumen diferencia claramente elementos <strong>nuevos, actualizados y repetidos</strong></li>
+                <li>La lista de <strong>JSONs procesados</strong> aparece en un bloque expandible colapsado por defecto</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                ♻️ Ejecución desde Galería sin Duplicados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Al ejecutar JSON individual o por lotes desde galería, se procesa contra datos existentes <strong>sin auto-guardar una nueva copia</strong></li>
+                <li>Se evita la creación innecesaria de archivos adicionales al final de la importación</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.10 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.10</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-cyan-300 px-2 py-1 rounded">Edición Galería + Importación Masiva Detallada</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                ✏️ Editar desde Galería Corregido
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Botón Editar ahora carga correctamente la imagen en el <strong>preview</strong> de captura</li>
+                <li>También carga el JSON de importación cuando existe</li>
+                <li>Permite modificar y actualizar datos guardados desde el gestor de capturas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                📂 Botones de Importación Masiva Reubicados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Junto al título de galería: botón para importar todos los JSONs de la categoría actual</li>
+                <li>Fuera del cuadro de galería (abajo): botón <strong>Importar todos los datos guardados</strong> para todas las categorías</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                📊 Progreso y Confirmación Detallados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Barra de progreso con texto dinámico de la tarea actual</li>
+                <li>Indicadores en vivo de JSONs procesados y elementos importados</li>
+                <li>Resumen final por categoría en el modal de confirmación</li>
+                <li>Errores detallados con información de dónde y qué falló</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                📈 Completitud y Prompt Mejorados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>La barra de completitud de personajes ahora parte en <strong>60%</strong> y no cuenta nombre/clase</li>
+                <li>Las estadísticas suman progreso de forma incremental aunque la categoría esté incompleta</li>
+                <li>En el modal de captura, el panel de Prompt queda <strong>activo por defecto</strong></li>
+                <li>El botón Prompt muestra indicador visual de expandir/contraer</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🧪 Corrección de Importación JSON + Detección de Repetidos
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Corregida la ejecución desde galería para leer JSON como texto y evitar falsos "JSON no disponible"</li>
+                <li>El resumen de importación ahora distingue: <strong>agregados, actualizados y repetidos</strong></li>
+                <li>Se muestran detalles expandibles con nombres de elementos por categoría</li>
+                <li>Se agregaron logs detallados para diagnóstico en importación individual y por categoría</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.4.9 */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
@@ -129,6 +238,18 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
                 <li>Al seleccionar una imagen de galería que tiene JSON: <strong>carga imagen en visor y JSON en textarea</strong></li>
                 <li>Permite completar o re-procesar una imagen con el JSON previo como base</li>
                 <li>Si la imagen no tiene JSON, abre el panel para procesar desde cero con IA</li>
+              </ul>
+            </div>
+
+            {/* Edición directa y ejecución global */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                ✏️ Edición Directa + Batch Global Mejorado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Nuevo botón <strong>Editar</strong> por elemento en galería para llevarlo a la vista de captura</li>
+                <li>Editar carga automáticamente los datos disponibles: <strong>imagen, JSON o ambos</strong></li>
+                <li>El botón <strong>Ejecutar Todo (Todas)</strong> ahora procesa JSONs de todas las categorías, incluyendo entradas JSON-only</li>
               </ul>
             </div>
           </div>

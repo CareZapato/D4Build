@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
@@ -40,7 +40,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
   const [showGallery, setShowGallery] = useState(false);
-  const [showPromptPanel, setShowPromptPanel] = useState(false);
+  const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('heroe');
   const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -66,13 +66,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Estados para modal de resultados de importación
   const [showImportResults, setShowImportResults] = useState(false);
   const [importResults, setImportResults] = useState<ImportResultDetails | null>(null);
+  const [pendingFinalizeAction, setPendingFinalizeAction] = useState<'reload' | null>(null);
   
   // Estados para visualización de imágenes y ejecución masiva
   const [viewerImage, setViewerImage] = useState<{ url: string; name: string } | null>(null);
   const [showEmptyWarning, setShowEmptyWarning] = useState(false);
   const [pendingSaveData, setPendingSaveData] = useState<{ image: Blob; json: string; imageName: string } | null>(null);
   const [executingBatch, setExecutingBatch] = useState(false);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, category: '' });
+  const [batchProgress, setBatchProgress] = useState({
+    current: 0,
+    total: 0,
+    category: '',
+    message: '',
+    processedJsons: 0,
+    processedItems: 0
+  });
   const [manualElementCount, setManualElementCount] = useState<number | null>(null); // Override manual para cantidad de elementos
   const [promptTextExpanded, setPromptTextExpanded] = useState(false); // Toggle texto del prompt en móvil
   const [lastSavedImageName, setLastSavedImageName] = useState<string | null>(null); // Nombre del último PNG guardado
@@ -124,7 +132,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       capturedImages.forEach(img => URL.revokeObjectURL(img.url));
       if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
       setCapturedImages([]);
-      setShowPromptPanel(false);
+      setShowPromptPanel(true);
       setComposedImageUrl(null);
       setShowGallery(false);
       setSelectedGalleryImage(null);
@@ -814,6 +822,61 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  // Editar entrada de galería en la vista de captura (visor + importación)
+  const editGalleryEntry = async (entry: { nombre: string; url: string; hasJSON?: boolean; isJSONOnly?: boolean }) => {
+    try {
+      setSelectedGalleryImage(null);
+      setSelectedGalleryImageBlob(null);
+
+      if (!entry.isJSONOnly) {
+        const blob = await ImageService.loadImage(selectedCategory, entry.nombre);
+        if (!blob) {
+          showToast('❌ No se pudo cargar la imagen para editar', 'error');
+          return;
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        if (composedImageUrl) {
+          URL.revokeObjectURL(composedImageUrl);
+        }
+
+        setCapturedImages([
+          {
+            id: `gallery_edit_${Date.now()}`,
+            blob,
+            url: objectUrl,
+            isComplete: true
+          }
+        ]);
+        setComposedImageUrl(objectUrl);
+      } else {
+        setCapturedImages([]);
+        setComposedImageUrl(null);
+      }
+
+      if (entry.hasJSON) {
+        const jsonContent = await ImageService.loadJSONText(selectedCategory, entry.nombre);
+        setJsonText(jsonContent || '');
+      } else {
+        setJsonText('');
+      }
+
+      setShowGallery(false);
+      setShowPromptPanel(true);
+
+      if (entry.isJSONOnly) {
+        showToast('✏️ Modo edición: JSON cargado en importación (sin imagen)', 'info');
+      } else if (entry.hasJSON) {
+        showToast('✏️ Modo edición: imagen y JSON cargados en captura', 'success');
+      } else {
+        showToast('✏️ Modo edición: imagen cargada en captura', 'success');
+      }
+    } catch (error) {
+      console.error('Error abriendo entrada para edición:', error);
+      showToast('❌ No se pudo abrir la entrada para edición', 'error');
+    }
+  };
+
   // ============================================================================
   // DEEP MERGE UTILITY - Fusión profunda de objetos
   // ============================================================================
@@ -973,21 +1036,172 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     return normalized;
   };
 
+  const stripSystemFields = (value: any): any => {
+    if (Array.isArray(value)) return value.map(stripSystemFields);
+    if (value && typeof value === 'object') {
+      const result: Record<string, any> = {};
+      Object.entries(value).forEach(([key, val]) => {
+        if (key === 'id') return;
+        result[key] = stripSystemFields(val);
+      });
+      return result;
+    }
+    return value;
+  };
+
+  const areEquivalentContent = (a: any, b: any): boolean => {
+    try {
+      return JSON.stringify(stripSystemFields(a)) === JSON.stringify(stripSystemFields(b));
+    } catch {
+      return false;
+    }
+  };
+
+  const countInputElements = (category: ImageCategory, data: any): number => {
+    switch (category) {
+      case 'skills':
+        return (data?.habilidades_activas?.length || 0) + (data?.habilidades_pasivas?.length || 0);
+      case 'glifos':
+        return data?.glifos?.length || 0;
+      case 'aspectos':
+        return (data?.aspectos?.length || 0) + (data?.aspectos_equipados?.length || 0);
+      case 'estadisticas': {
+        const stats = data?.estadisticas && typeof data.estadisticas === 'object' ? data.estadisticas : data;
+        const countLeaf = (value: any): number => {
+          if (value === null || value === undefined || value === '') return 0;
+          if (Array.isArray(value)) return value.reduce((acc, item) => acc + countLeaf(item), 0);
+          if (typeof value === 'object') {
+            if ('valor' in value) return countLeaf(value.valor);
+            return Object.values(value).reduce<number>((acc, item) => acc + countLeaf(item), 0);
+          }
+          return 1;
+        };
+        return countLeaf(stats);
+      }
+      default:
+        return Object.keys(data || {}).length;
+    }
+  };
+
+  const getStatsSectionLabel = (section: string): string => {
+    const labels: Record<string, string> = {
+      personaje: 'Personaje',
+      atributosPrincipales: 'Atributos',
+      defensivo: 'Defensivo',
+      ofensivo: 'Ofensivo',
+      utilidad: 'Utilidad',
+      armaduraYResistencias: 'Armadura y Resistencias',
+      jcj: 'JcJ',
+      moneda: 'Moneda'
+    };
+    return labels[section] || section;
+  };
+
+  const collectStatsEntries = (statsData: any): Array<{ section: string; name: string }> => {
+    if (!statsData || typeof statsData !== 'object') return [];
+
+    const entries: Array<{ section: string; name: string }> = [];
+
+    Object.entries(statsData).forEach(([section, sectionValue]) => {
+      if (!sectionValue || typeof sectionValue !== 'object' || Array.isArray(sectionValue)) {
+        entries.push({ section, name: getStatsSectionLabel(section) });
+        return;
+      }
+
+      const children = Object.entries(sectionValue as Record<string, any>);
+      if (children.length === 0) {
+        entries.push({ section, name: getStatsSectionLabel(section) });
+        return;
+      }
+
+      let pushedChildren = 0;
+      children.forEach(([childKey, childValue]) => {
+        if (childValue && typeof childValue === 'object' && !Array.isArray(childValue)) {
+          const childName = childValue.atributo_nombre || childValue.atributo_ref || childKey;
+          entries.push({ section, name: String(childName) });
+          pushedChildren++;
+        }
+      });
+
+      if (pushedChildren === 0) {
+        entries.push({ section, name: getStatsSectionLabel(section) });
+      }
+    });
+
+    const seen = new Set<string>();
+    return entries.filter(entry => {
+      const key = `${entry.section}::${entry.name}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const buildItemDetails = (
+    category: ImageCategory,
+    added: string[] = [],
+    updated: string[] = [],
+    repeated: string[] = []
+  ): Array<{ name: string; category: string; status: 'agregado' | 'actualizado' | 'repetido' }> => {
+    const categoryLabel = CATEGORIES.find(c => c.value === category)?.label || category;
+    const parseEntry = (entry: string) => {
+      const parts = entry.split(':');
+      if (parts.length > 1) {
+        const subtype = parts[0].trim();
+        const name = parts.slice(1).join(':').trim();
+        return {
+          name: name || entry,
+          category: `${categoryLabel} (${subtype})`
+        };
+      }
+      return { name: entry, category: categoryLabel };
+    };
+
+    return [
+      ...added.map(item => {
+        const parsed = parseEntry(item);
+        return { ...parsed, status: 'agregado' as const };
+      }),
+      ...updated.map(item => {
+        const parsed = parseEntry(item);
+        return { ...parsed, status: 'actualizado' as const };
+      }),
+      ...repeated.map(item => {
+        const parsed = parseEntry(item);
+        return { ...parsed, status: 'repetido' as const };
+      })
+    ];
+  };
+
   // Importar JSON resultante
-  const handleImportJSON = async (): Promise<ImportResultDetails> => {
+  const handleImportJSON = async (options?: { jsonOverride?: string; skipAutoSave?: boolean }): Promise<ImportResultDetails> => {
+    const jsonPayload = (options?.jsonOverride ?? jsonText ?? '').trim();
+    const skipAutoSave = options?.skipAutoSave ?? false;
+    const effectiveCategory = selectedCategory;
+    const effectivePromptType: 'heroe' | 'personaje' = effectiveCategory === 'estadisticas' ? 'personaje' : promptType;
+    const effectivePersonajeId = selectedPersonajeId || selectedPersonaje?.id || personajes[0]?.id || null;
+    const effectiveClase = selectedClase || selectedPersonaje?.clase || availableClasses[0] || '';
     console.log('🔵 [handleImportJSON] Iniciando importación...');
-    console.log('📝 [handleImportJSON] Categoría:', selectedCategory);
-    console.log('👤 [handleImportJSON] Tipo de prompt:', promptType);
+    console.log('📝 [handleImportJSON] Categoría:', effectiveCategory);
+    console.log('👤 [handleImportJSON] Tipo de prompt:', effectivePromptType);
+    console.log('📏 [handleImportJSON] Longitud JSON payload:', jsonPayload.length);
+    console.log('🎯 [handleImportJSON] Contexto efectivo:', {
+      personajeId: effectivePersonajeId,
+      clase: effectiveClase,
+      selectedPersonajeId,
+      selectedClase
+    });
     
     // Validación inicial
-    if (!jsonText.trim()) {
+    if (!jsonPayload) {
+      console.error('❌ [handleImportJSON] Abortado: payload JSON vacío');
       const errorResult: ImportResultDetails = {
         success: false,
-        category: selectedCategory,
-        promptType,
+        category: effectiveCategory,
+        promptType: effectivePromptType,
         targetName: '',
         validationErrors: [],
-        rawJSON: jsonText,
+        rawJSON: options?.jsonOverride ?? jsonText,
         errorMessage: 'No hay JSON para importar'
       };
       showToast('❌ Ingresa un JSON válido', 'error');
@@ -1002,12 +1216,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       // 1. PARSEAR JSON
       console.log('📦 [handleImportJSON] Parseando JSON...');
-      parsedData = JSON.parse(jsonText);
+      parsedData = JSON.parse(jsonPayload);
       console.log('✅ [handleImportJSON] JSON parseado correctamente:', parsedData);
       
       // 2. VALIDAR ESTRUCTURA
       console.log('🔍 [handleImportJSON] Validando estructura del JSON...');
-      const validation = validateJSONByCategory(selectedCategory, parsedData);
+      const validation = validateJSONByCategory(effectiveCategory, parsedData);
       console.log('📊 [handleImportJSON] Resultado de validación:', validation);
       console.log('   - Válido:', validation.isValid);
       console.log('   - Errores:', validation.errors.length);
@@ -1018,11 +1232,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (!validation.isValid) {
         const errorResult: ImportResultDetails = {
           success: false,
-          category: selectedCategory,
-          promptType,
-          targetName: promptType === 'heroe' ? selectedClase : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || ''),
+          category: effectiveCategory,
+          promptType: effectivePromptType,
+          targetName: effectivePromptType === 'heroe' ? effectiveClase : (personajes.find(p => p.id === effectivePersonajeId)?.nombre || ''),
           validationErrors: [...validation.errors, ...validation.warnings],
-          rawJSON: jsonText,
+          rawJSON: options?.jsonOverride ?? jsonText,
           parsedJSON: parsedData,
           errorMessage: 'El JSON no tiene la estructura esperada'
         };
@@ -1031,19 +1245,24 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
       
       const data = parsedData;
+      const totalInputItems = countInputElements(effectiveCategory, data);
       let itemsImported = 0;
       let itemsUpdated = 0;
+      let itemsRepeated = 0;
       const fieldsAdded: string[] = [];
+      const addedItems: string[] = [];
+      const updatedItemsList: string[] = [];
+      const repeatedItems: string[] = [];
       
-      if (promptType === 'heroe') {
+      if (effectivePromptType === 'heroe') {
         // =============== GUARDAR EN HÉROE ===============
         console.log('🦸 [handleImportJSON] Modo: Guardar en héroe');
         
-        if (!selectedClase) {
+        if (!effectiveClase) {
           const errorResult: ImportResultDetails = {
             success: false,
-            category: selectedCategory,
-            promptType,
+            category: effectiveCategory,
+            promptType: effectivePromptType,
             targetName: '',
             validationErrors: validation.warnings,
             rawJSON: jsonText,
@@ -1055,10 +1274,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           return errorResult;
         }
 
-        const clase = selectedClase;
+        const clase = effectiveClase;
         console.log('📄 [handleImportJSON] Clase seleccionada:', clase);
         
-        switch (selectedCategory) {
+        switch (effectiveCategory) {
           case 'skills':
             console.log('⚔️ [handleImportJSON] Importando habilidades...');
             if (data.habilidades_activas || data.habilidades_pasivas) {
@@ -1077,11 +1296,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const skillId = idx >= 0 ? heroSkills.habilidades_activas[idx].id : (skill.id || `skill_activa_${skill.nombre.toLowerCase().replace(/\s+/g, '_')}`);
                 const skillWithId = { ...skill, id: skillId };
                 if (idx >= 0) {
-                  heroSkills.habilidades_activas[idx] = skillWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroSkills.habilidades_activas[idx], skillWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(`Activa: ${skill.nombre}`);
+                  } else {
+                    heroSkills.habilidades_activas[idx] = skillWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(`Activa: ${skill.nombre}`);
+                  }
                 } else {
                   heroSkills.habilidades_activas.push(skillWithId);
                   itemsImported++;
+                  addedItems.push(`Activa: ${skill.nombre}`);
                 }
                 fieldsAdded.push(`Activa: ${skill.nombre}`);
               });
@@ -1092,11 +1318,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${skill.nombre.toLowerCase().replace(/\s+/g, '_')}`);
                 const skillWithId = { ...skill, id: skillId };
                 if (idx >= 0) {
-                  heroSkills.habilidades_pasivas[idx] = skillWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroSkills.habilidades_pasivas[idx], skillWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(`Pasiva: ${skill.nombre}`);
+                  } else {
+                    heroSkills.habilidades_pasivas[idx] = skillWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(`Pasiva: ${skill.nombre}`);
+                  }
                 } else {
                   heroSkills.habilidades_pasivas.push(skillWithId);
                   itemsImported++;
+                  addedItems.push(`Pasiva: ${skill.nombre}`);
                 }
                 fieldsAdded.push(`Pasiva: ${skill.nombre}`);
               });
@@ -1120,11 +1353,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${glyph.nombre.toLowerCase().replace(/\s+/g, '_')}`);
                 const glyphWithId = { ...glyph, id: glyphId };
                 if (idx >= 0) {
-                  heroGlyphs.glifos[idx] = glyphWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroGlyphs.glifos[idx], glyphWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(glyph.nombre);
+                  } else {
+                    heroGlyphs.glifos[idx] = glyphWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(glyph.nombre);
+                  }
                 } else {
                   heroGlyphs.glifos.push(glyphWithId);
                   itemsImported++;
+                  addedItems.push(glyph.nombre);
                 }
                 fieldsAdded.push(glyph.nombre);
               });
@@ -1155,11 +1395,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const aspectId = idx >= 0 ? heroAspects.aspectos[idx].id : (aspect.id || `aspecto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
                 const aspectWithId = { ...aspect, id: aspectId };
                 if (idx >= 0) {
-                  heroAspects.aspectos[idx] = aspectWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroAspects.aspectos[idx], aspectWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(aspectName);
+                  } else {
+                    heroAspects.aspectos[idx] = aspectWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(aspectName);
+                  }
                 } else {
                   heroAspects.aspectos.push(aspectWithId);
                   itemsImported++;
+                  addedItems.push(aspectName);
                 }
                 fieldsAdded.push(aspectName);
               });
@@ -1173,9 +1420,20 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           
           case 'estadisticas':
             console.log('📊 [handleImportJSON] Importando estadísticas de héroe...');
-            fieldsAdded.push(...Object.keys(data));
+            const currentHeroStats = await WorkspaceService.loadHeroStats(clase);
+            const incomingHeroStats = data?.estadisticas && typeof data.estadisticas === 'object' ? data.estadisticas : data;
+            const normalizedIncomingHeroStats = normalizeStatsFieldNames(incomingHeroStats || {});
+            const heroStatsEntries = collectStatsEntries(normalizedIncomingHeroStats);
+            if (areEquivalentContent(currentHeroStats || {}, normalizedIncomingHeroStats || {})) {
+              itemsRepeated += heroStatsEntries.length || 1;
+              repeatedItems.push(...heroStatsEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
+            } else {
+              itemsUpdated += heroStatsEntries.length || 1;
+              updatedItemsList.push(...heroStatsEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
+            }
+            fieldsAdded.push(...heroStatsEntries.map(entry => `${entry.section}.${entry.name}`));
             
-            await WorkspaceService.saveHeroStats(clase, data);
+            await WorkspaceService.saveHeroStats(clase, normalizedIncomingHeroStats);
             console.log('✅ [handleImportJSON] Estadísticas guardadas');
             showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
             shouldReload = true;
@@ -1184,14 +1442,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         const heroResult: ImportResultDetails = {
           success: true,
-          category: selectedCategory,
+          category: effectiveCategory,
           promptType: 'heroe',
           targetName: clase,
+          jsonInputsProcessed: 1,
           itemsImported,
-          itemsUpdated: 0,
+          itemsUpdated,
+          itemsSkipped: itemsRepeated,
+          addedItems,
+          updatedItemsList,
+          repeatedItems,
+          itemDetails: buildItemDetails(effectiveCategory, addedItems, updatedItemsList, repeatedItems),
           fieldsAdded,
           validationErrors: validation.warnings,
-          rawJSON: jsonText,
+          rawJSON: options?.jsonOverride ?? jsonText,
+          totalInputItems,
           parsedJSON: parsedData
         };
         
@@ -1203,10 +1468,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           if (composedImageUrl) {
             const response = await fetch(composedImageUrl);
             const blob = await response.blob();
-            const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+            const categoryLabel = CATEGORIES.find(c => c.value === effectiveCategory)?.label || effectiveCategory;
             const nombre = `${categoryLabel.toLowerCase()}_${Date.now()}.png`;
             
-            setPendingSaveData({ image: blob, json: jsonText, imageName: nombre });
+            setPendingSaveData({ image: blob, json: jsonPayload, imageName: nombre });
             setShowEmptyWarning(true);
             setImporting(false);
             return heroResult;
@@ -1216,13 +1481,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         
         // Auto-guardar JSON + imagen en galería tras importación exitosa
-        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
-          await autoSaveJSONAfterImport(jsonText);
+        if (!skipAutoSave && (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0)) {
+          await autoSaveJSONAfterImport(options?.jsonOverride ?? jsonText);
         }
         
         setJsonText('');
         if (shouldReload) {
-          setTimeout(() => window.location.reload(), 250);
+          console.log('⏸️ [handleImportJSON] Recarga diferida: esperando confirmación del usuario en el modal');
+          setPendingFinalizeAction('reload');
         }
         setImporting(false);
         return heroResult;
@@ -1231,14 +1497,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         // =============== GUARDAR EN PERSONAJE ===============
         console.log('🎮 [handleImportJSON] Modo: Guardar en personaje');
         
-        if (!selectedPersonajeId) {
+        if (!effectivePersonajeId) {
           const errorResult: ImportResultDetails = {
             success: false,
-            category: selectedCategory,
-            promptType,
+            category: effectiveCategory,
+            promptType: effectivePromptType,
             targetName: '',
             validationErrors: validation.warnings,
-            rawJSON: jsonText,
+            rawJSON: options?.jsonOverride ?? jsonText,
             parsedJSON: parsedData,
             errorMessage: 'Selecciona un personaje primero'
           };
@@ -1247,15 +1513,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           return errorResult;
         }
 
-        const personaje = personajes.find(p => p.id === selectedPersonajeId);
+        const personaje = personajes.find(p => p.id === effectivePersonajeId);
         if (!personaje) {
           const errorResult: ImportResultDetails = {
             success: false,
-            category: selectedCategory,
-            promptType,
+            category: effectiveCategory,
+            promptType: effectivePromptType,
             targetName: '',
             validationErrors: validation.warnings,
-            rawJSON: jsonText,
+            rawJSON: options?.jsonOverride ?? jsonText,
             parsedJSON: parsedData,
             errorMessage: 'Personaje no encontrado'
           };
@@ -1266,7 +1532,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         console.log('👤 [handleImportJSON] Personaje seleccionado:', personaje.nombre);
 
-        switch (selectedCategory) {
+        switch (effectiveCategory) {
           case 'skills': {
             console.log('⚔️ [handleImportJSON] Importando habilidades a personaje...');
             if (data.habilidades_activas || data.habilidades_pasivas) {
@@ -1285,11 +1551,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
                 const skillWithId = { ...skill, id: skillId, modificadores: mods };
                 if (idx >= 0) {
-                  heroSkills.habilidades_activas[idx] = skillWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroSkills.habilidades_activas[idx], skillWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(`Activa: ${skill.nombre}`);
+                  } else {
+                    heroSkills.habilidades_activas[idx] = skillWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(`Activa: ${skill.nombre}`);
+                  }
                 } else {
                   heroSkills.habilidades_activas.push(skillWithId);
                   itemsImported++;
+                  addedItems.push(`Activa: ${skill.nombre}`);
                 }
                 fieldsAdded.push(`Activa: ${skill.nombre}`);
               });
@@ -1299,11 +1572,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
                 const skillWithId = { ...skill, id: skillId };
                 if (idx >= 0) {
-                  heroSkills.habilidades_pasivas[idx] = skillWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroSkills.habilidades_pasivas[idx], skillWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(`Pasiva: ${skill.nombre}`);
+                  } else {
+                    heroSkills.habilidades_pasivas[idx] = skillWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(`Pasiva: ${skill.nombre}`);
+                  }
                 } else {
                   heroSkills.habilidades_pasivas.push(skillWithId);
                   itemsImported++;
+                  addedItems.push(`Pasiva: ${skill.nombre}`);
                 }
                 fieldsAdded.push(`Pasiva: ${skill.nombre}`);
               });
@@ -1383,11 +1663,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
                 const glyphWithId = { ...glyph, id: glyphId };
                 if (idx >= 0) {
-                  heroGlyphs.glifos[idx] = glyphWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroGlyphs.glifos[idx], glyphWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(glyph.nombre);
+                  } else {
+                    heroGlyphs.glifos[idx] = glyphWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(glyph.nombre);
+                  }
                 } else {
                   heroGlyphs.glifos.push(glyphWithId);
                   itemsImported++;
+                  addedItems.push(glyph.nombre);
                 }
                 fieldsAdded.push(glyph.nombre);
               });
@@ -1489,11 +1776,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   detalles: Array.isArray(aspectoConTags.detalles) ? aspectoConTags.detalles : (base?.detalles || [])
                 };
                 if (idx >= 0) {
-                  heroAspects.aspectos[idx] = aspectoWithId;
-                  itemsUpdated++;
+                  if (areEquivalentContent(heroAspects.aspectos[idx], aspectoWithId)) {
+                    itemsRepeated++;
+                    repeatedItems.push(aspectoWithId.name);
+                  } else {
+                    heroAspects.aspectos[idx] = aspectoWithId;
+                    itemsUpdated++;
+                    updatedItemsList.push(aspectoWithId.name);
+                  }
                 } else {
                   heroAspects.aspectos.push(aspectoWithId);
                   itemsImported++;
+                  addedItems.push(aspectoWithId.name);
                 }
                 fieldsAdded.push(aspectoWithId.name);
               });
@@ -1642,6 +1936,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             // Ahora: deepMerge(...) → DEEP MERGE (preserva todo)
             //   + Normalización previa elimina campos duplicados con nombres incorrectos
             const mergedEstadisticas = deepMerge(normalizedBase, normalizedNew);
+            const statEntries = collectStatsEntries(normalizedNew || {});
+
+            if (areEquivalentContent(normalizedBase, mergedEstadisticas)) {
+              itemsRepeated += statEntries.length || 1;
+              repeatedItems.push(...statEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
+            } else {
+              itemsUpdated += statEntries.length || 1;
+              updatedItemsList.push(...statEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
+            }
             
             console.log('✅ [handleImportJSON] Estadísticas MERGEADAS (resultado final):', JSON.stringify(mergedEstadisticas, null, 2));
             
@@ -1665,14 +1968,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         const personajeResult: ImportResultDetails = {
           success: true,
-          category: selectedCategory,
+          category: effectiveCategory,
           promptType: 'personaje',
           targetName: personaje.nombre,
+          jsonInputsProcessed: 1,
           itemsImported,
           itemsUpdated,
+          itemsSkipped: itemsRepeated,
+          addedItems,
+          updatedItemsList,
+          repeatedItems,
+          itemDetails: buildItemDetails(effectiveCategory, addedItems, updatedItemsList, repeatedItems),
           fieldsAdded,
           validationErrors: validation.warnings,
-          rawJSON: jsonText,
+          rawJSON: options?.jsonOverride ?? jsonText,
+          totalInputItems,
           parsedJSON: parsedData
         };
         
@@ -1684,10 +1994,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           if (composedImageUrl) {
             const response = await fetch(composedImageUrl);
             const blob = await response.blob();
-            const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+            const categoryLabel = CATEGORIES.find(c => c.value === effectiveCategory)?.label || effectiveCategory;
             const nombre = `${categoryLabel.toLowerCase()}_${Date.now()}.png`;
             
-            setPendingSaveData({ image: blob, json: jsonText, imageName: nombre });
+            setPendingSaveData({ image: blob, json: jsonPayload, imageName: nombre });
             setShowEmptyWarning(true);
             setImporting(false);
             return personajeResult;
@@ -1697,14 +2007,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         
         // Auto-guardar JSON + imagen en galería tras importación exitosa
-        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
-          await autoSaveJSONAfterImport(jsonText);
+        if (!skipAutoSave && (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0)) {
+          await autoSaveJSONAfterImport(options?.jsonOverride ?? jsonText);
         }
         
         setJsonText('');
         if (shouldReload) {
-          console.log('🔄 [handleImportJSON] Se recargará la página en 250ms...');
-          setTimeout(() => window.location.reload(), 250);
+          console.log('⏸️ [handleImportJSON] Recarga diferida: esperando confirmación del usuario en el modal');
+          setPendingFinalizeAction('reload');
         }
         setImporting(false);
         return personajeResult;
@@ -1714,11 +2024,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       console.error('❌ [handleImportJSON] Error importando JSON:', error);
       const errorResult: ImportResultDetails = {
         success: false,
-        category: selectedCategory,
-        promptType,
-        targetName: promptType === 'heroe' ? selectedClase : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || ''),
+        category: effectiveCategory,
+        promptType: effectivePromptType,
+        targetName: effectivePromptType === 'heroe' ? effectiveClase : (personajes.find(p => p.id === effectivePersonajeId)?.nombre || ''),
         validationErrors: [],
-        rawJSON: jsonText,
+        rawJSON: options?.jsonOverride ?? jsonText,
         parsedJSON: parsedData,
         errorMessage: error instanceof Error ? error.message : 'Error desconocido al procesar el JSON'
       };
@@ -1759,8 +2069,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         loadGallery();
       }
       
-      // Continuar con recarga normal
-      setTimeout(() => window.location.reload(), 250);
+      // Recarga diferida para permitir revisar reporte
+      setPendingFinalizeAction('reload');
     } catch (error) {
       console.error('Error guardando datos:', error);
       showToast('❌ Error al guardar la imagen y JSON', 'error');
@@ -1771,24 +2081,58 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const executeImageJSON = async (imageName: string) => {
     try {
       console.log(`▶️ Ejecutando JSON de imagen: ${imageName}`);
+      console.log('🧭 [executeImageJSON] Estado previo:', {
+        selectedCategory,
+        promptType,
+        selectedPersonajeId,
+        selectedClase,
+        selectedPersonajeContext: selectedPersonaje?.id || null
+      });
+
+      if (promptType === 'personaje' && !selectedPersonajeId) {
+        if (selectedPersonaje?.id) {
+          console.warn('⚠️ [executeImageJSON] Sin personaje seleccionado, usando selectedPersonaje del contexto:', selectedPersonaje.id);
+          setSelectedPersonajeId(selectedPersonaje.id);
+        } else {
+          console.error('❌ [executeImageJSON] No hay personaje seleccionado para importar en modo personaje');
+        }
+      }
+      if (promptType === 'heroe' && !selectedClase) {
+        if (selectedPersonaje?.clase) {
+          console.warn('⚠️ [executeImageJSON] Sin clase seleccionada, usando clase del personaje actual:', selectedPersonaje.clase);
+          setSelectedClase(selectedPersonaje.clase);
+        } else {
+          console.error('❌ [executeImageJSON] No hay clase seleccionada para importar en modo héroe');
+        }
+      }
       
-      // Cargar JSON
-      const json = await ImageService.loadImageJSON(selectedCategory, imageName);
-      if (!json) {
-        showToast(`❌ No se pudo cargar el JSON de ${imageName}`, 'error');
+      // Cargar JSON como texto para no fallar silenciosamente por parseo interno
+      const jsonTextFromFile = await ImageService.loadJSONText(selectedCategory, imageName);
+      if (!jsonTextFromFile) {
+        console.error('❌ [executeImageJSON] JSON vacío o no legible para archivo:', imageName);
+        showToast(`❌ No se encontró o no se pudo leer el JSON asociado a ${imageName}`, 'error');
         return;
       }
+      console.log('📄 [executeImageJSON] JSON cargado, longitud:', jsonTextFromFile.length);
       
       // Temporal: establecer el JSON y ejecutar importación
       const originalJson = jsonText;
-      setJsonText(JSON.stringify(json, null, 2));
+      setJsonText(jsonTextFromFile);
       
       // Ejecutar importación
-      const result = await handleImportJSON();
+      const result = await handleImportJSON({ jsonOverride: jsonTextFromFile, skipAutoSave: true });
+      console.log('📊 [executeImageJSON] Resultado:', {
+        success: result.success,
+        imported: result.itemsImported,
+        updated: result.itemsUpdated,
+        repeated: result.itemsSkipped,
+        error: result.errorMessage
+      });
       
       // Mostrar resultados
       setImportResults(result);
       setShowImportResults(true);
+      setPendingFinalizeAction('reload');
       
       // Restaurar JSON original si la importación falló
       if (!result.success) {
@@ -1804,76 +2148,212 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const executeBatchJSON = async (scope: 'category' | 'all') => {
     try {
       setExecutingBatch(true);
-      const results: ImportResultDetails[] = [];
-      let totalProcessed = 0;
-      let totalSuccess = 0;
+      console.log('🚀 [executeBatchJSON] Inicio:', {
+        scope,
+        selectedCategory,
+        promptType,
+        selectedPersonajeId,
+        selectedClase,
+        selectedPersonajeContext: selectedPersonaje?.id || null
+      });
+      const executionResults: Array<{ cat: ImageCategory; entryName: string; result: ImportResultDetails }> = [];
+      const categories: ImageCategory[] = scope === 'category'
+        ? [selectedCategory]
+        : ['skills', 'glifos', 'aspectos', 'estadisticas', 'otros'];
+      const originalCategory = selectedCategory;
 
-      if (scope === 'category') {
-        // Ejecutar todos los JSONs de la categoría actual
-        const imagesWithJSON = await ImageService.listImagesWithJSON(selectedCategory);
-        
-        setBatchProgress({ current: 0, total: imagesWithJSON.length, category: selectedCategory });
-        
-        for (let i = 0; i < imagesWithJSON.length; i++) {
-          const img = imagesWithJSON[i];
-          setBatchProgress({ current: i + 1, total: imagesWithJSON.length, category: selectedCategory });
-          
-          const json = await ImageService.loadImageJSON(selectedCategory, img.nombre);
-          if (json) {
-            setJsonText(JSON.stringify(json, null, 2));
-            const result = await handleImportJSON();
-            results.push(result);
-            if (result.success) totalSuccess++;
-          }
-          totalProcessed++;
-        }
-        
-        showToast(`✅ Procesados ${totalProcessed} JSONs de ${selectedCategory} (${totalSuccess} exitosos)`, 'success');
-      } else {
-        // Ejecutar todos los JSONs de todas las categorías
-        const categories: ImageCategory[] = ['skills', 'glifos', 'aspectos', 'estadisticas', 'otros'];
-        let allImages: Array<{ img: any; cat: ImageCategory }> = [];
-        
-        // Recopilar todas las imágenes con JSON
-        for (const cat of categories) {
-          const imgs = await ImageService.listImagesWithJSON(cat);
-          allImages.push(...imgs.map(img => ({ img, cat })));
-        }
-        
-        setBatchProgress({ current: 0, total: allImages.length, category: 'todas las categorías' });
-        
-        for (let i = 0; i < allImages.length; i++) {
-          const { img, cat } = allImages[i];
-          setBatchProgress({ current: i + 1, total: allImages.length, category: cat });
-          
-          // Cambiar categoría temporalmente
-          const originalCategory = selectedCategory;
-          setSelectedCategory(cat);
-          
-          const json = await ImageService.loadImageJSON(cat, img.nombre);
-          if (json) {
-            setJsonText(JSON.stringify(json, null, 2));
-            const result = await handleImportJSON();
-            results.push(result);
-            if (result.success) totalSuccess++;
-          }
-          totalProcessed++;
-          
-          // Restaurar categoría
-          setSelectedCategory(originalCategory);
-        }
-        
-        showToast(`✅ Procesados ${totalProcessed} JSONs en total (${totalSuccess} exitosos)`, 'success');
+      const allEntries: Array<{ entry: { nombre: string }; cat: ImageCategory }> = [];
+      for (const cat of categories) {
+        const entries = (await ImageService.listGalleryEntries(cat)).filter(entry => entry.hasJSON);
+        allEntries.push(...entries.map(entry => ({ entry, cat })));
+        console.log(`📦 [executeBatchJSON] ${cat}: ${entries.length} JSON(s) encontrados`);
       }
-      
-      // Recargar después del batch
-      setTimeout(() => window.location.reload(), 1000);
+
+      if (allEntries.length === 0) {
+        showToast('ℹ️ No hay JSONs guardados para importar', 'info');
+        setBatchProgress({ current: 0, total: 0, category: '', message: '', processedJsons: 0, processedItems: 0 });
+        return;
+      }
+
+      let totalItems = 0;
+      let totalInputItems = 0;
+      let totalSuccess = 0;
+      let totalFail = 0;
+      let totalRepeated = 0;
+
+      setBatchProgress({
+        current: 0,
+        total: allEntries.length,
+        category: scope === 'category' ? selectedCategory : 'todas',
+        message: 'Preparando importación masiva...',
+        processedJsons: 0,
+        processedItems: 0
+      });
+
+      for (let i = 0; i < allEntries.length; i++) {
+        const { entry, cat } = allEntries[i];
+
+        setBatchProgress(prev => ({
+          ...prev,
+          current: i + 1,
+          category: cat,
+          message: `Leyendo ${entry.nombre} (${i + 1}/${allEntries.length})...`
+        }));
+
+        setSelectedCategory(cat);
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        if (promptType === 'personaje' && !selectedPersonajeId && selectedPersonaje?.id) {
+          console.warn('⚠️ [executeBatchJSON] Sin personaje seleccionado, usando selectedPersonaje del contexto:', selectedPersonaje.id);
+          setSelectedPersonajeId(selectedPersonaje.id);
+        }
+        if (promptType === 'heroe' && !selectedClase && selectedPersonaje?.clase) {
+          console.warn('⚠️ [executeBatchJSON] Sin clase seleccionada, usando clase del personaje actual:', selectedPersonaje.clase);
+          setSelectedClase(selectedPersonaje.clase);
+        }
+
+        const jsonTextFromFile = await ImageService.loadJSONText(cat, entry.nombre);
+        if (!jsonTextFromFile) {
+          console.error('❌ [executeBatchJSON] JSON no legible:', { categoria: cat, archivo: entry.nombre });
+          totalFail++;
+          executionResults.push({
+            cat,
+            entryName: entry.nombre,
+            result: {
+              success: false,
+              category: cat,
+              promptType,
+              targetName: promptType === 'heroe' ? (selectedClase || 'sin-clase') : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || 'sin-personaje'),
+              validationErrors: [],
+              rawJSON: '',
+              errorMessage: 'No se pudo leer el archivo JSON desde galería'
+            }
+          });
+          continue;
+        }
+
+        setJsonText(jsonTextFromFile);
+        console.log('▶️ [executeBatchJSON] Importando:', { categoria: cat, archivo: entry.nombre, size: jsonTextFromFile.length });
+        const result = await handleImportJSON({ jsonOverride: jsonTextFromFile, skipAutoSave: true });
+        executionResults.push({ cat, entryName: entry.nombre, result });
+
+        const imported = result.itemsImported || 0;
+        const updated = result.itemsUpdated || 0;
+        const repeated = result.itemsSkipped || 0;
+        const inputItems = result.totalInputItems || 0;
+        totalItems += imported + updated;
+        totalInputItems += inputItems;
+        totalRepeated += repeated;
+
+        if (result.success) {
+          totalSuccess++;
+        } else {
+          totalFail++;
+        }
+
+        setBatchProgress(prev => ({
+          ...prev,
+          processedJsons: i + 1,
+          processedItems: totalItems,
+          message: result.success
+            ? `Importado ${entry.nombre}: ${imported + updated} elementos`
+            : `Error en ${entry.nombre}: ${result.errorMessage || 'falló validación'}`
+        }));
+      }
+
+      setSelectedCategory(originalCategory);
+
+      const summaryByCategory = categories.map(cat => {
+        const rows = executionResults.filter(r => r.cat === cat);
+        const ok = rows.filter(r => r.result.success).length;
+        const fail = rows.length - ok;
+        const items = rows.reduce((acc, r) => acc + (r.result.itemsImported || 0) + (r.result.itemsUpdated || 0), 0);
+        return `${cat}: ${ok}/${rows.length} JSONs, ${items} elementos${fail > 0 ? `, ${fail} errores` : ''}`;
+      });
+
+      const validationErrors = executionResults
+        .filter(r => !r.result.success || (r.result.validationErrors && r.result.validationErrors.some(e => e.severity === 'error')))
+        .flatMap(r => {
+          const base = (r.result.validationErrors || []).map(e => ({
+            field: `${r.cat}/${r.entryName} - ${e.field}`,
+            expected: e.expected,
+            received: e.received,
+            severity: e.severity
+          }));
+          if (r.result.errorMessage) {
+            base.push({
+              field: `${r.cat}/${r.entryName}`,
+              expected: 'Importación correcta',
+              received: r.result.errorMessage,
+              severity: 'error' as const
+            });
+          }
+          return base;
+        });
+
+      const batchSummary: ImportResultDetails = {
+        success: totalFail === 0,
+        category: scope === 'all' ? 'todas' : selectedCategory,
+        promptType,
+        targetName: scope === 'all' ? 'Todas las categorías' : `Categoría ${selectedCategory}`,
+        jsonInputsProcessed: allEntries.length,
+        totalInputItems,
+        itemsImported: totalItems,
+        itemsUpdated: 0,
+        itemsSkipped: totalRepeated,
+        fieldsAdded: [
+          `JSONs procesados: ${allEntries.length}`,
+          `Exitosos: ${totalSuccess}`,
+          `Con error: ${totalFail}`,
+          ...summaryByCategory
+        ],
+        processedJsons: executionResults.map(r => ({
+          categoria: r.cat,
+          archivo: r.entryName,
+          totalInputItems: r.result.totalInputItems || 0,
+          imported: r.result.itemsImported || 0,
+          updated: r.result.itemsUpdated || 0,
+          repeated: r.result.itemsSkipped || 0,
+          success: r.result.success,
+          error: r.result.errorMessage
+        })),
+        itemDetails: executionResults.flatMap(r =>
+          (r.result.itemDetails || []).map(detail => ({
+            ...detail,
+            category: `${detail.category} / ${r.entryName}`
+          }))
+        ),
+        validationErrors,
+        rawJSON: JSON.stringify(
+          executionResults.map(r => ({
+            categoria: r.cat,
+            archivo: r.entryName,
+            success: r.result.success,
+            imported: r.result.itemsImported || 0,
+            updated: r.result.itemsUpdated || 0,
+            error: r.result.errorMessage || null
+          })),
+          null,
+          2
+        ),
+        errorMessage: totalFail > 0 ? `Se detectaron ${totalFail} errores durante la importación masiva` : undefined
+      };
+
+      setImportResults(batchSummary);
+      setShowImportResults(true);
+      setPendingFinalizeAction('reload');
+      showToast(
+        totalFail > 0
+          ? `⚠️ Batch completado con errores (${totalSuccess}/${allEntries.length} exitosos)`
+          : `✅ Batch completado (${totalSuccess}/${allEntries.length} JSONs, ${totalItems} elementos)`,
+        totalFail > 0 ? 'info' : 'success'
+      );
     } catch (error) {
       console.error('Error en ejecución batch:', error);
       showToast('❌ Error al ejecutar batch de JSONs', 'error');
     } finally {
       setExecutingBatch(false);
-      setBatchProgress({ current: 0, total: 0, category: '' });
+      setBatchProgress({ current: 0, total: 0, category: '', message: '', processedJsons: 0, processedItems: 0 });
     }
   };
 
@@ -2001,6 +2481,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // 5. Mostrar modal con resultados
       setImportResults(importResult);
       setShowImportResults(true);
+      setPendingFinalizeAction('reload');
 
       // 6. Proceso completado
       setAiProgress('done');
@@ -2140,6 +2621,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               >
                 <Copy className="w-3.5 h-3.5" />
                 Prompt
+                {showPromptPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
               {/* Tooltip de instrucciones */}
               <div className="absolute right-0 top-full mt-2 w-80 bg-d4-surface border-2 border-d4-accent rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
@@ -2634,7 +3116,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       className="w-full h-16 lg:h-20 p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-[9px] lg:text-xs resize-none"
                     />
                     <button
-                      onClick={handleImportJSON}
+                      onClick={() => { void handleImportJSON(); }}
                       disabled={!jsonText.trim() || importing || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
                       className={`mt-1.5 lg:mt-3 w-full px-2 lg:px-4 py-1 lg:py-2 rounded text-[10px] lg:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 lg:gap-2 ${
                         jsonText.trim() && !importing && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
@@ -2749,6 +3231,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         >
                           <Copy className="w-4 h-4 inline mr-1" />
                           Prompt
+                          {showPromptPanel ? <ChevronUp className="w-3 h-3 inline ml-1" /> : <ChevronDown className="w-3 h-3 inline ml-1" />}
                         </button>
                         <button
                           onClick={() => {
@@ -2960,9 +3443,20 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             )}
 
             <div className="bg-d4-bg p-4 rounded border border-d4-accent/30">
-              <h3 className="text-lg font-semibold text-d4-accent mb-4">
-                Galería de {CATEGORIES.find(c => c.value === selectedCategory)?.label}
-              </h3>
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-d4-accent">
+                  Galería de {CATEGORIES.find(c => c.value === selectedCategory)?.label}
+                </h3>
+                <button
+                  onClick={() => executeBatchJSON('category')}
+                  disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0}
+                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                  title="Ejecutar todos los JSONs de esta categoría"
+                >
+                  <PlayCircle size={16} />
+                  <span>Importar Categoría ({galleryImages.filter(img => img.hasJSON).length})</span>
+                </button>
+              </div>
               
               {galleryImages.length === 0 ? (
                 <p className="text-d4-text-dim text-center py-8">
@@ -2970,43 +3464,24 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </p>
               ) : (
                 <>
-                  {/* Botones de ejecución batch */}
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      onClick={() => executeBatchJSON('category')}
-                      disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0}
-                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                      title="Ejecutar todos los JSONs de esta categoría"
-                    >
-                      <PlayCircle size={18} />
-                      <span>Ejecutar Categoría ({galleryImages.filter(img => img.hasJSON).length} JSONs)</span>
-                    </button>
-                    <button
-                      onClick={() => executeBatchJSON('all')}
-                      disabled={executingBatch}
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                      title="Ejecutar todos los JSONs del héroe"
-                    >
-                      <Zap size={18} />
-                      <span>Ejecutar Todo</span>
-                    </button>
-                  </div>
-
                   {/* Barra de progreso batch */}
                   {executingBatch && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-blue-900">
-                          Procesando {batchProgress.category}...
+                          {batchProgress.message || `Procesando ${batchProgress.category}...`}
                         </span>
                         <span className="text-sm text-blue-700">
                           {batchProgress.current} / {batchProgress.total}
                         </span>
                       </div>
+                      <div className="text-xs text-blue-800 mb-2">
+                        JSONs procesados: {batchProgress.processedJsons} | Elementos importados: {batchProgress.processedItems}
+                      </div>
                       <div className="w-full bg-blue-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                          style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
@@ -3056,6 +3531,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           
                           {/* Botones de acción (aparecen al hover) */}
                           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => editGalleryEntry(img)}
+                              className="p-2 bg-amber-600 hover:bg-amber-700 text-white rounded-full shadow-lg"
+                              title="Editar en captura (cargar imagen/JSON)"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
                             {!img.isJSONOnly && (
                               <button
                                 onClick={() => setViewerImage({ url: img.url, name: img.nombre })}
@@ -3111,6 +3593,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </>
               )}
             </div>
+
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={() => executeBatchJSON('all')}
+                disabled={executingBatch}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                title="Importar todos los JSONs guardados de todas las categorías"
+              >
+                <Zap size={18} />
+                <span>Importar todos los datos guardados</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -3118,8 +3612,20 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       {/* Modales */}
       <ImportResultsModal
         isOpen={showImportResults}
-        onClose={() => setShowImportResults(false)}
+        onClose={() => {
+          setShowImportResults(false);
+          setPendingFinalizeAction(null);
+        }}
         results={importResults}
+        onContinue={() => {
+          if (pendingFinalizeAction === 'reload') {
+            window.location.reload();
+            return;
+          }
+          setShowImportResults(false);
+          setPendingFinalizeAction(null);
+        }}
+        continueLabel={pendingFinalizeAction === 'reload' ? 'Finalizar proceso' : 'Continuar'}
       />
       
       <ImageViewerModal
