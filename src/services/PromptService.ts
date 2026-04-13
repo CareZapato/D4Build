@@ -606,6 +606,108 @@ Identifica:
     return prompt;
   }
 
+  // Helper: Enriquecer datos con información de tags
+  private static enrichWithTags(tags: any[]): string {
+    if (!tags || tags.length === 0) return '';
+    
+    let tagInfo = '\n  - **Tags relevantes**:\n';
+    for (const tag of tags) {
+      if (typeof tag === 'object' && tag.tag) {
+        tagInfo += `    - \`${tag.tag}\``;
+        if (tag.significado) {
+          tagInfo += `: ${tag
+
+.significado}`;
+        }
+        if (tag.descripcion_jugabilidad) {
+          tagInfo += ` | ${tag.descripcion_jugabilidad}`;
+        }
+        tagInfo += '\n';
+      } else if (typeof tag === 'string') {
+        tagInfo += `    - \`${tag}\`\n`;
+      }
+    }
+    return tagInfo;
+  }
+
+  // Helper: Dividir prompt largo en múltiples partes
+  static splitIntoMultiplePrompts(prompt: string, maxTokens: number = 8000): string[] {
+    // Estimación: ~4 caracteres por token
+    const maxChars = maxTokens * 4;
+    
+    if (prompt.length <= maxChars) {
+      return [prompt];
+    }
+
+    const parts: string[] = [];
+    const sections = prompt.split(/\n## /); // Dividir por secciones principales
+    let currentPart = '';
+    let partNumber = 1;
+
+    for (let i = 0; i < sections.length; i++) {
+      const section = i === 0 ? sections[i] : `## ${sections[i]}`;
+      
+      // Si agregar esta sección excede el límite
+      if (currentPart.length + section.length > maxChars && currentPart.length > 0) {
+        // Guardar la parte actual
+        parts.push(this.wrapPromptPart(currentPart, partNumber, -1)); // -1 temporal, lo actualizaremos después
+        partNumber++;
+        currentPart = '';
+      }
+      
+      currentPart += section + '\n';
+    }
+
+    // Agregar la última parte
+    if (currentPart.trim().length > 0) {
+      parts.push(currentPart);
+    }
+
+    // Actualizar todas las partes con el total
+    const totalParts = parts.length;
+    if (totalParts > 1) {
+      return parts.map((part, index) => 
+        this.wrapPromptPart(part, index + 1, totalParts)
+      );
+    }
+
+    return parts;
+  }
+
+  // Helper: Envolver parte del prompt con header informativo
+  private static wrapPromptPart(content: string, partNumber: number, totalParts: number): string {
+    if (totalParts <= 1) return content;
+    
+    const header = `# PARTE ${partNumber} de ${totalParts}\n\n`;
+    const footer = totalParts > 1 && partNumber < totalParts 
+      ? `\n\n---\n**Nota**: Esta es la parte ${partNumber} de ${totalParts}. Continúa en la siguiente parte.\n`
+      : `\n\n---\n**Nota**: Esta es la última parte (${partNumber} de ${totalParts}).\n`;
+    
+    return header + content + footer;
+  }
+
+  // Generar prompts enriquecidos con tags (versión mejorada)
+  static async generateEnrichedPrompt(personaje: Personaje, config: PromptConfig & { incluir_tags?: boolean, max_tokens?: number }): Promise<string[]> {
+    const basePrompt = await this.generatePrompt(personaje, config);
+    
+    // Si se solicita incluir tags, enriquecer el prompt
+    let enrichedPrompt = basePrompt;
+    if (config.incluir_tags) {
+      // Aquí podrías cargar tags globales y enriquecer el prompt
+      // Por ahora, solo dividimos el prompt
+    }
+    
+    // Dividir en múltiples partes si es necesario
+    const maxTokens = config.max_tokens || 8000;
+    return this.splitIntoMultiplePrompts(enrichedPrompt, maxTokens);
+  }
+
+  // Estimar longitud del prompt en tokens
+  static estimateTokenCount(prompt: string): number {
+    // Estimación simple: ~4 caracteres por token
+    return Math.ceil(prompt.length / 4);
+  }
+
   // Copiar al portapapeles
   static async copyToClipboard(text: string): Promise<boolean> {
     try {

@@ -22,8 +22,8 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   ];
 
   return (
-    <aside className="w-72 bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl">
-      <div className="p-6 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden">
+    <aside className="w-72 h-screen bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl overflow-hidden">
+      <div className="p-6 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden flex-shrink-0">
         {/* Efecto de brillo de fondo */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-d4-accent/10 rounded-full blur-3xl"></div>
         
@@ -41,7 +41,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             className="mt-1 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.4.3
+            v0.4.9
           </button>
         </div>
       </div>
@@ -49,7 +49,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
       <ImageCaptureModal isOpen={showImageCapture} onClose={() => setShowImageCapture(false)} />
 
-      <nav className="flex-1 p-5">
+      <nav className="flex-1 p-5 overflow-y-auto min-h-0">
         <ul className="space-y-3">
           {menuItems.map(item => (
             <li key={item.id}>
@@ -80,7 +80,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
         </ul>
       </nav>
 
-      <div className="p-5 border-t-2 border-d4-accent/40 bg-gradient-to-t from-d4-bg to-transparent">
+      <div className="p-5 border-t-2 border-d4-accent/40 bg-gradient-to-t from-d4-bg to-transparent flex-shrink-0">
         <div className="text-sm text-d4-text-dim">
           <p className="mb-2 uppercase tracking-wide font-semibold text-xs">Workspace</p>
           <p className="font-mono text-d4-accent truncate text-base font-bold bg-d4-bg/50 px-3 py-2 rounded-md border border-d4-accent/30">

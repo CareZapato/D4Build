@@ -132,7 +132,7 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
                   </div>
                 </div>
                 
-                <div className="space-y-2.5 mb-4">
+                <div className="space-y-2 mb-4">
                   <div className="flex justify-between items-center">
                     <span className="stat-label text-sm">Nivel:</span>
                     <span className="stat-value text-lg">{personaje.nivel}</span>
@@ -143,19 +143,218 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
                       <span className="stat-value text-lg">{personaje.nivel_paragon}</span>
                     </div>
                   )}
+                  
+                  {/* Detalles de habilidades */}
                   <div className="flex justify-between items-center">
-                    <span className="stat-label text-sm">Habilidades:</span>
-                    <span className="text-d4-text font-semibold">
-                      {personaje.habilidades_refs ? 
-                        `${personaje.habilidades_refs.activas.length + personaje.habilidades_refs.pasivas.length}` : 
-                        '0'}
+                    <span className="stat-label text-xs">Activas:</span>
+                    <span className="text-d4-text text-sm font-semibold">
+                      {personaje.habilidades_refs?.activas.length || 0}/4
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="stat-label text-sm">Glifos:</span>
-                    <span className="text-d4-text font-semibold">
-                      {personaje.glifos_refs?.length || 0}
+                    <span className="stat-label text-xs">Pasivas:</span>
+                    <span className="text-d4-text text-sm font-semibold">
+                      {personaje.habilidades_refs?.pasivas.length || 0}/13
                     </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="stat-label text-xs">Glifos:</span>
+                    <span className="text-d4-text text-sm font-semibold">
+                      {personaje.glifos_refs?.length || 0}/4
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="stat-label text-xs">Aspectos:</span>
+                    <span className="text-d4-text text-sm font-semibold">
+                      {personaje.aspectos_refs?.length || 0}
+                    </span>
+                  </div>
+                  
+                  {/* Estadísticas cargadas */}
+                  <div className="flex justify-between items-center">
+                    <span className="stat-label text-xs">Estadísticas:</span>
+                    <span className="text-d4-text text-sm font-semibold">
+                      {(() => {
+                        if (!personaje.estadisticas) return '0%';
+                        let loaded = 0;
+                        let total = 0;
+                        
+                        const sections = ['personaje', 'atributosPrincipales', 'defensivo', 'ofensivo', 'utilidad', 'armaduraYResistencias'];
+                        sections.forEach(section => {
+                          if (personaje.estadisticas && personaje.estadisticas[section as keyof typeof personaje.estadisticas]) {
+                            const sectionData = personaje.estadisticas[section as keyof typeof personaje.estadisticas];
+                            const keys = Object.keys(sectionData || {});
+                            const nonNullKeys = keys.filter(k => (sectionData as any)[k] !== null && (sectionData as any)[k] !== undefined && (sectionData as any)[k] !== '');
+                            loaded += nonNullKeys.length;
+                            total += keys.length;
+                          }
+                        });
+                        
+                        return total > 0 ? `${Math.round((loaded / total) * 100)}%` : '0%';
+                      })()}
+                    </span>
+                  </div>
+                  
+                  {/* Porcentaje de completitud */}
+                  <div className="mt-3 pt-3 border-t border-d4-border/50">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs font-bold text-d4-text-dim">Completitud:</span>
+                      <span className={`text-sm font-bold ${(() => {
+                        const activasCount = personaje.habilidades_refs?.activas.length || 0;
+                        const pasivasCount = personaje.habilidades_refs?.pasivas.length || 0;
+                        const glifosCount = personaje.glifos_refs?.length || 0;
+                        
+                        let statsPercentage = 0;
+                        if (personaje.estadisticas) {
+                          let loaded = 0, total = 0;
+                          const sections = ['personaje', 'atributosPrincipales', 'defensivo', 'ofensivo', 'utilidad', 'armaduraYResistencias'];
+                          sections.forEach(section => {
+                            if (personaje.estadisticas && personaje.estadisticas[section as keyof typeof personaje.estadisticas]) {
+                              const sectionData = personaje.estadisticas[section as keyof typeof personaje.estadisticas];
+                              const keys = Object.keys(sectionData || {});
+                              const nonNullKeys = keys.filter(k => (sectionData as any)[k] !== null && (sectionData as any)[k] !== undefined && (sectionData as any)[k] !== '');
+                              loaded += nonNullKeys.length;
+                              total += keys.length;
+                            }
+                          });
+                          statsPercentage = total > 0 ? (loaded / total) * 100 : 0;
+                        }
+                        
+                        const activasProgress = Math.min(activasCount / 4, 1) * 100;
+                        const pasivasProgress = Math.min(pasivasCount / 13, 1) * 100;
+                        const glifosProgress = Math.min(glifosCount / 4, 1) * 100;
+                        const aspectosProgress = 100; // Siempre 100% (opcional)
+                        
+                        const totalCompletion = (
+                          (statsPercentage * 0.4) +
+                          (activasProgress * 0.2) +
+                          (pasivasProgress * 0.2) +
+                          (glifosProgress * 0.1) +
+                          (aspectosProgress * 0.1)
+                        );
+                        
+                        if (totalCompletion >= 80) return 'text-green-400';
+                        if (totalCompletion >= 50) return 'text-yellow-400';
+                        return 'text-red-400';
+                      })()}`}>
+                        {(() => {
+                          const activasCount = personaje.habilidades_refs?.activas.length || 0;
+                          const pasivasCount = personaje.habilidades_refs?.pasivas.length || 0;
+                          const glifosCount = personaje.glifos_refs?.length || 0;
+                          
+                          let statsPercentage = 0;
+                          if (personaje.estadisticas) {
+                            let loaded = 0, total = 0;
+                            const sections = ['personaje', 'atributosPrincipales', 'defensivo', 'ofensivo', 'utilidad', 'armaduraYResistencias'];
+                            sections.forEach(section => {
+                              if (personaje.estadisticas && personaje.estadisticas[section as keyof typeof personaje.estadisticas]) {
+                                const sectionData = personaje.estadisticas[section as keyof typeof personaje.estadisticas];
+                                const keys = Object.keys(sectionData || {});
+                                const nonNullKeys = keys.filter(k => (sectionData as any)[k] !== null && (sectionData as any)[k] !== undefined && (sectionData as any)[k] !== '');
+                                loaded += nonNullKeys.length;
+                                total += keys.length;
+                              }
+                            });
+                            statsPercentage = total > 0 ? (loaded / total) * 100 : 0;
+                          }
+                          
+                          const activasProgress = Math.min(activasCount / 4, 1) * 100;
+                          const pasivasProgress = Math.min(pasivasCount / 13, 1) * 100;
+                          const glifosProgress = Math.min(glifosCount / 4, 1) * 100;
+                          const aspectosProgress = 100;
+                          
+                          const totalCompletion = (
+                            (statsPercentage * 0.4) +
+                            (activasProgress * 0.2) +
+                            (pasivasProgress * 0.2) +
+                            (glifosProgress * 0.1) +
+                            (aspectosProgress * 0.1)
+                          );
+                          
+                          return `${Math.round(totalCompletion)}%`;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="w-full bg-d4-surface rounded-full h-2.5 overflow-hidden border border-d4-border">
+                      <div 
+                        className={`h-full transition-all duration-300 ${(() => {
+                          const activasCount = personaje.habilidades_refs?.activas.length || 0;
+                          const pasivasCount = personaje.habilidades_refs?.pasivas.length || 0;
+                          const glifosCount = personaje.glifos_refs?.length || 0;
+                          
+                          let statsPercentage = 0;
+                          if (personaje.estadisticas) {
+                            let loaded = 0, total = 0;
+                            const sections = ['personaje', 'atributosPrincipales', 'defensivo', 'ofensivo', 'utilidad', 'armaduraYResistencias'];
+                            sections.forEach(section => {
+                              if (personaje.estadisticas && personaje.estadisticas[section as keyof typeof personaje.estadisticas]) {
+                                const sectionData = personaje.estadisticas[section as keyof typeof personaje.estadisticas];
+                                const keys = Object.keys(sectionData || {});
+                                const nonNullKeys = keys.filter(k => (sectionData as any)[k] !== null && (sectionData as any)[k] !== undefined && (sectionData as any)[k] !== '');
+                                loaded += nonNullKeys.length;
+                                total += keys.length;
+                              }
+                            });
+                            statsPercentage = total > 0 ? (loaded / total) * 100 : 0;
+                          }
+                          
+                          const activasProgress = Math.min(activasCount / 4, 1) * 100;
+                          const pasivasProgress = Math.min(pasivasCount / 13, 1) * 100;
+                          const glifosProgress = Math.min(glifosCount / 4, 1) * 100;
+                          const aspectosProgress = 100;
+                          
+                          const totalCompletion = (
+                            (statsPercentage * 0.4) +
+                            (activasProgress * 0.2) +
+                            (pasivasProgress * 0.2) +
+                            (glifosProgress * 0.1) +
+                            (aspectosProgress * 0.1)
+                          );
+                          
+                          if (totalCompletion >= 80) return 'bg-green-500';
+                          if (totalCompletion >= 50) return 'bg-yellow-500';
+                          return 'bg-red-500';
+                        })()}`}
+                        style={{ width: `${(() => {
+                          const activasCount = personaje.habilidades_refs?.activas.length || 0;
+                          const pasivasCount = personaje.habilidades_refs?.pasivas.length || 0;
+                          const glifosCount = personaje.glifos_refs?.length || 0;
+                          
+                          let statsPercentage = 0;
+                          if (personaje.estadisticas) {
+                            let loaded = 0, total = 0;
+                            const sections = ['personaje', 'atributosPrincipales', 'defensivo', 'ofensivo', 'utilidad', 'armaduraYResistencias'];
+                            sections.forEach(section => {
+                              if (personaje.estadisticas && personaje.estadisticas[section as keyof typeof personaje.estadisticas]) {
+                                const sectionData = personaje.estadisticas[section as keyof typeof personaje.estadisticas];
+                                const keys = Object.keys(sectionData || {});
+                                const nonNullKeys = keys.filter(k => (sectionData as any)[k] !== null && (sectionData as any)[k] !== undefined && (sectionData as any)[k] !== '');
+                                loaded += nonNullKeys.length;
+                                total += keys.length;
+                              }
+                            });
+                            statsPercentage = total > 0 ? (loaded / total) * 100 : 0;
+                          }
+                          
+                          const activasProgress = Math.min(activasCount / 4, 1) * 100;
+                          const pasivasProgress = Math.min(pasivasCount / 13, 1) * 100;
+                          const glifosProgress = Math.min(glifosCount / 4, 1) * 100;
+                          const aspectosProgress = 100;
+                          
+                          const totalCompletion = (
+                            (statsPercentage * 0.4) +
+                            (activasProgress * 0.2) +
+                            (pasivasProgress * 0.2) +
+                            (glifosProgress * 0.1) +
+                            (aspectosProgress * 0.1)
+                          );
+                          
+                          return Math.round(totalCompletion);
+                        })()}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
 

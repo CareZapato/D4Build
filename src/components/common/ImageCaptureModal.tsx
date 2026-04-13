@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, HelpCircle, CheckCircle, AlertCircle, XCircle, Zap, Eye } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
@@ -7,6 +7,8 @@ import { useAppContext } from '../../context/AppContext';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { GeminiService } from '../../services/GeminiService';
 import ImportResultsModal, { ImportResultDetails } from './ImportResultsModal';
+import ImageViewerModal from './ImageViewerModal';
+import EmptyImportWarningModal from './EmptyImportWarningModal';
 import { validateJSONByCategory } from '../../utils/jsonValidation';
 
 interface Props {
@@ -23,12 +25,12 @@ interface CapturedImage {
 
 type CaptureMode = 'new' | 'continue';
 
-const CATEGORIES: { value: ImageCategory; label: string }[] = [
-  { value: 'skills', label: 'Habilidades' },
-  { value: 'glifos', label: 'Glifos' },
-  { value: 'aspectos', label: 'Aspectos' },
-  { value: 'estadisticas', label: 'Estadísticas' },
-  { value: 'otros', label: 'Otros' },
+const CATEGORIES: { value: ImageCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: 'skills', label: 'Habilidades', icon: Swords },
+  { value: 'glifos', label: 'Glifos', icon: Hexagon },
+  { value: 'aspectos', label: 'Aspectos', icon: Gem },
+  { value: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
+  { value: 'otros', label: 'Otros', icon: Grid3x3 },
 ];
 
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -36,7 +38,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
-  const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string }>>([]);
+  const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
   const [showGallery, setShowGallery] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(false);
   const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('heroe');
@@ -64,10 +66,20 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Estados para modal de resultados de importación
   const [showImportResults, setShowImportResults] = useState(false);
   const [importResults, setImportResults] = useState<ImportResultDetails | null>(null);
+  
+  // Estados para visualización de imágenes y ejecución masiva
+  const [viewerImage, setViewerImage] = useState<{ url: string; name: string } | null>(null);
+  const [showEmptyWarning, setShowEmptyWarning] = useState(false);
+  const [pendingSaveData, setPendingSaveData] = useState<{ image: Blob; json: string; imageName: string } | null>(null);
+  const [executingBatch, setExecutingBatch] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, category: '' });
+  const [manualElementCount, setManualElementCount] = useState<number | null>(null); // Override manual para cantidad de elementos
+  const [promptTextExpanded, setPromptTextExpanded] = useState(false); // Toggle texto del prompt en móvil
+  const [lastSavedImageName, setLastSavedImageName] = useState<string | null>(null); // Nombre del último PNG guardado
+  
   const GEMINI_API_KEY = 'AIzaSyCUU5YJqZfaXPkOvmvVfizpAfWRLSEb4Lk'; // Idealmente esto debería estar en un .env
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const syncUpdatedPersonajeInContext = (updatedPersonaje: any) => {
     const updatedList = personajes.map(p => p.id === updatedPersonaje.id ? updatedPersonaje : p);
@@ -157,15 +169,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setCapturedImages(prev => [...prev, { id, blob, url, isComplete: isNewElement }]);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, isNewElement: boolean) => {
-    const files = e.target.files;
-    if (files && files[0]) {
-      addImageToComposition(files[0], isNewElement);
-    }
-    // Resetear input para permitir seleccionar el mismo archivo nuevamente
-    e.target.value = '';
-  };
-
   const removeImage = (id: string) => {
     setCapturedImages(prev => {
       const img = prev.find(i => i.id === id);
@@ -201,6 +204,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
     // Calcular dimensiones con layout inteligente (4 horizontales, luego vertical)
     const SPACING = 10; // Espacio entre elementos completos
+    const OUTER_MARGIN = SPACING; // Margen externo igual al espaciado interno
     const VERTICAL_OFFSET = 0; // Sin espacio entre partes incompletas
     const MAX_HORIZONTAL = 4; // Máximo de elementos por fila horizontal
 
@@ -308,8 +312,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
 
     // Configurar canvas (con espacio extra para prompt si está activado)
-    canvas.width = totalWidth;
-    canvas.height = totalHeight + promptHeight;
+    canvas.width = totalWidth + (2 * OUTER_MARGIN);
+    canvas.height = totalHeight + promptHeight + (2 * OUTER_MARGIN);
 
     // Fondo blanco
     ctx.fillStyle = '#FFFFFF';
@@ -324,9 +328,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // Fondo blanco para el área completa del prompt (ya pintado)
       
       // Marco/borde alrededor del texto
-      const frameX = PROMPT_MARGIN;
-      const frameY = PROMPT_MARGIN;
-      const frameWidth = canvas.width - (PROMPT_MARGIN * 2);
+      const frameX = PROMPT_MARGIN + OUTER_MARGIN;
+      const frameY = PROMPT_MARGIN + OUTER_MARGIN;
+      const frameWidth = canvas.width - (PROMPT_MARGIN * 2) - (OUTER_MARGIN * 2);
       const frameHeight = promptHeight - (PROMPT_MARGIN * 2);
       
       // Fondo gris claro para el cuadro del texto
@@ -370,12 +374,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     
     if (totalCompleteGroups <= MAX_HORIZONTAL) {
       // Layout horizontal (hasta 4 elementos)
-      let xOffset = 0;
+      let xOffset = OUTER_MARGIN;
       completeGroups.forEach((group, groupIndex) => {
         if (groupIndex > 0) xOffset += SPACING;
         
         let groupStartX = xOffset;
-        let yOffset = imageOffsetY;
+        let yOffset = imageOffsetY + OUTER_MARGIN;
         let maxGroupWidth = 0;
         
         group.forEach(item => {
@@ -388,7 +392,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
     } else {
       // Layout vertical con filas de MAX_HORIZONTAL elementos
-      let currentRowY = imageOffsetY;
+      let currentRowY = imageOffsetY + OUTER_MARGIN;
       
       completeGroups.forEach((group, groupIndex) => {
         const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
@@ -409,7 +413,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         
         // Calcular X offset para esta columna
-        let xOffset = 0;
+        let xOffset = OUTER_MARGIN;
         for (let i = rowIndex * MAX_HORIZONTAL; i < groupIndex; i++) {
           const prevGroup = completeGroups[i];
           let groupWidth = 0;
@@ -480,16 +484,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const getRecommendedMax = (category: ImageCategory): number => {
     switch (category) {
-      case 'skills': return 6;  // Aumentado de 4 a 6
-      case 'glifos': return 8;  // Aumentado de 6 a 8
-      case 'aspectos': return 7;  // Aumentado de 5 a 7
+      case 'skills': return 4;  // Reducido de 6 a 4 (recomendación óptima)
+      case 'glifos': return 6;  // Reducido de 8 a 6 (recomendación óptima)
+      case 'aspectos': return 5;  // Reducido de 7 a 5 (recomendación óptima)
       case 'estadisticas': return 5; // 5 capturas ideales (secciones distintas)
-      case 'otros': return 8;  // Aumentado de 5 a 8
+      case 'otros': return 6;  // Reducido de 8 a 6 (recomendación óptima)
     }
   };
 
   const getElementCount = (): number => {
-    // Contar elementos completos (isComplete = true)
+    // Si hay override manual, usarlo; de lo contrario, contar elementos completos
+    if (manualElementCount !== null && manualElementCount >= 0) {
+      return manualElementCount;
+    }
     return capturedImages.filter(img => img.isComplete).length;
   };
 
@@ -536,12 +543,25 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       
       const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
       const nombre = await ImageService.saveImage(blob, selectedCategory, categoryLabel.toLowerCase());
+      setLastSavedImageName(nombre); // Trackear para auto-guardado posterior de JSON
       
-      showToast(`✅ Imagen guardada: ${selectedCategory}/img/${nombre}`, 'success');
+      // 📄 Guardar JSON asociado si existe
+      if (jsonText.trim()) {
+        try {
+          await ImageService.saveImageJSON(jsonText, selectedCategory, nombre);
+          showToast(`✅ Imagen y JSON guardados: ${selectedCategory}/${nombre}`, 'success');
+        } catch (jsonError) {
+          console.error('Error guardando JSON:', jsonError);
+          showToast(`✅ Imagen guardada (JSON no guardado): ${selectedCategory}/${nombre}`, 'info');
+        }
+      } else {
+        showToast(`✅ Imagen guardada: ${selectedCategory}/${nombre}`, 'success');
+      }
       
-      // Limpiar captura
+      // Limpiar captura y JSON
       setCapturedImages([]);
       setComposedImageUrl(null);
+      setJsonText('');
       
       // Recargar contadores, galería y última imagen guardada
       loadCategoryCounts();
@@ -557,13 +577,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const loadGallery = async () => {
     try {
-      const images = await ImageService.listImages(selectedCategory);
-      const imageUrls = images.map(img => ({
-        nombre: img.nombre,
-        url: URL.createObjectURL(img.blob),
-        fecha: new Date(img.fecha).toLocaleString('es-ES')
+      const entries = await ImageService.listGalleryEntries(selectedCategory);
+      const mappedEntries = entries.map(entry => ({
+        nombre: entry.nombre,
+        url: entry.blob ? URL.createObjectURL(entry.blob) : '',
+        fecha: new Date(entry.fecha).toLocaleString('es-ES'),
+        hasJSON: entry.hasJSON,
+        isJSONOnly: entry.isJSONOnly
       }));
-      setGalleryImages(imageUrls);
+      setGalleryImages(mappedEntries);
     } catch (error) {
       console.error('Error cargando galería:', error);
     }
@@ -680,6 +702,44 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     return prompt;
   };
 
+  // Auto-guardar JSON (y opcionalmente imagen) en galería tras importación exitosa
+  const autoSaveJSONAfterImport = async (jsonContent: string): Promise<void> => {
+    if (!jsonContent.trim()) return;
+    try {
+      const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+      if (composedImageUrl) {
+        // Imagen en preview no guardada → guardar imagen + JSON
+        const response = await fetch(composedImageUrl);
+        const blob = await response.blob();
+        const nombre = await ImageService.saveImage(blob, selectedCategory, categoryLabel.toLowerCase());
+        await ImageService.saveImageJSON(jsonContent, selectedCategory, nombre);
+        setLastSavedImageName(nombre);
+        setCapturedImages([]);
+        setComposedImageUrl(null);
+        showToast(`💾 Imagen y JSON guardados automáticamente en galería`, 'info');
+      } else if (lastSavedImageName) {
+        // Imagen ya guardada previamente → solo guardar JSON junto a ella
+        await ImageService.saveImageJSON(jsonContent, selectedCategory, lastSavedImageName);
+        showToast(`💾 JSON guardado junto a la imagen guardada`, 'info');
+      } else if (selectedGalleryImage) {
+        // Imagen de galería seleccionada → guardar JSON junto a ella
+        const galleryEntry = galleryImages.find(img => img.url === selectedGalleryImage);
+        if (galleryEntry && !galleryEntry.isJSONOnly) {
+          await ImageService.saveImageJSON(jsonContent, selectedCategory, galleryEntry.nombre);
+          showToast(`💾 JSON guardado junto a imagen de galería`, 'info');
+        }
+      } else {
+        // Sin imagen → guardar JSON independiente
+        await ImageService.saveJSONOnly(jsonContent, selectedCategory, categoryLabel.toLowerCase());
+        showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
+      }
+      loadCategoryCounts();
+      loadGallery();
+    } catch (error) {
+      console.error('Error al auto-guardar JSON:', error);
+    }
+  };
+
   const copyPromptToClipboard = () => {
     const prompt = getPromptForCategory();
     navigator.clipboard.writeText(prompt);
@@ -702,9 +762,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  // Seleccionar imagen de galería para procesar con IA
-  const selectGalleryImage = async (imageUrl: string, imageName: string) => {
+  // Seleccionar imagen de galería para procesar con IA (y cargar JSON si existe)
+  const selectGalleryImage = async (imageUrl: string, imageName: string, hasJSON?: boolean, isJSONOnly?: boolean) => {
     try {
+      if (isJSONOnly) {
+        // Entrada solo-JSON: cargar JSON en textarea
+        const jsonContent = await ImageService.loadJSONText(selectedCategory, imageName);
+        if (jsonContent) {
+          setJsonText(jsonContent);
+          showToast(`📄 JSON de "${imageName}" cargado para importar`, 'success');
+        } else {
+          showToast('❌ No se pudo leer el JSON', 'error');
+        }
+        if (!showPromptPanel) setShowPromptPanel(true);
+        return;
+      }
+
       // Si ya está seleccionada, deseleccionar
       if (selectedGalleryImage === imageUrl) {
         setSelectedGalleryImage(null);
@@ -719,12 +792,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       
       setSelectedGalleryImage(imageUrl);
       setSelectedGalleryImageBlob(blob);
-      showToast(`✅ Imagen "${imageName}" seleccionada para procesar con IA`, 'success');
+
+      // Cargar JSON asociado si existe
+      if (hasJSON) {
+        const jsonContent = await ImageService.loadJSONText(selectedCategory, imageName);
+        if (jsonContent) {
+          setJsonText(jsonContent);
+          showToast(`✅ Imagen "${imageName}" cargada con JSON para completar`, 'success');
+        } else {
+          showToast(`✅ Imagen "${imageName}" seleccionada para procesar con IA`, 'success');
+        }
+      } else {
+        showToast(`✅ Imagen "${imageName}" seleccionada para procesar con IA`, 'success');
+      }
       
       // Abrir panel de prompt automáticamente
-      if (!showPromptPanel) {
-        setShowPromptPanel(true);
-      }
+      if (!showPromptPanel) setShowPromptPanel(true);
     } catch (error) {
       console.error('Error seleccionando imagen:', error);
       showToast('❌ Error al seleccionar imagen', 'error');
@@ -1111,6 +1194,31 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           rawJSON: jsonText,
           parsedJSON: parsedData
         };
+        
+        // 🚨 DETECTAR IMPORTACIÓN VACÍA
+        if (itemsImported === 0 && itemsUpdated === 0 && fieldsAdded.length === 0) {
+          console.warn('⚠️ [handleImportJSON] No se importó ningún dato. Posible categoría incorrecta.');
+          
+          // Si hay imagen compuesta, ofrecer guardar
+          if (composedImageUrl) {
+            const response = await fetch(composedImageUrl);
+            const blob = await response.blob();
+            const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+            const nombre = `${categoryLabel.toLowerCase()}_${Date.now()}.png`;
+            
+            setPendingSaveData({ image: blob, json: jsonText, imageName: nombre });
+            setShowEmptyWarning(true);
+            setImporting(false);
+            return heroResult;
+          }
+          
+          showToast('⚠️ No se importó ningún dato. Verifica la categoría.', 'info');
+        }
+        
+        // Auto-guardar JSON + imagen en galería tras importación exitosa
+        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
+          await autoSaveJSONAfterImport(jsonText);
+        }
         
         setJsonText('');
         if (shouldReload) {
@@ -1568,6 +1676,31 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           parsedJSON: parsedData
         };
         
+        // 🚨 DETECTAR IMPORTACIÓN VACÍA
+        if (itemsImported === 0 && itemsUpdated === 0 && fieldsAdded.length === 0) {
+          console.warn('⚠️ [handleImportJSON] No se importó ningún dato. Posible categoría incorrecta.');
+          
+          // Si hay imagen compuesta, ofrecer guardar
+          if (composedImageUrl) {
+            const response = await fetch(composedImageUrl);
+            const blob = await response.blob();
+            const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+            const nombre = `${categoryLabel.toLowerCase()}_${Date.now()}.png`;
+            
+            setPendingSaveData({ image: blob, json: jsonText, imageName: nombre });
+            setShowEmptyWarning(true);
+            setImporting(false);
+            return personajeResult;
+          }
+          
+          showToast('⚠️ No se importó ningún dato. Verifica la categoría.', 'info');
+        }
+        
+        // Auto-guardar JSON + imagen en galería tras importación exitosa
+        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
+          await autoSaveJSONAfterImport(jsonText);
+        }
+        
         setJsonText('');
         if (shouldReload) {
           console.log('🔄 [handleImportJSON] Se recargará la página en 250ms...');
@@ -1594,6 +1727,153 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       return errorResult;
     } finally {
       setImporting(false);
+    }
+  };
+
+  // Guardar imagen y JSON cuando el usuario acepta en el modal de advertencia
+  const handleSaveEmptyImport = async () => {
+    if (!pendingSaveData) return;
+
+    try {
+      const { image, json, imageName } = pendingSaveData;
+      
+      // Guardar imagen
+      const nombre = await ImageService.saveImage(image, selectedCategory, imageName.replace(/\.png$/, ''));
+      
+      // Guardar JSON asociado
+      await ImageService.saveImageJSON(json, selectedCategory, nombre);
+      
+      showToast(`✅ Imagen y JSON guardados para revisión: ${selectedCategory}/${nombre}`, 'success');
+      
+      // Limpiar estados
+      setShowEmptyWarning(false);
+      setPendingSaveData(null);
+      setJsonText('');
+      setCapturedImages([]);
+      setComposedImageUrl(null);
+      
+      // Recargar galería y contadores
+      loadCategoryCounts();
+      loadLastSavedImage();
+      if (showGallery) {
+        loadGallery();
+      }
+      
+      // Continuar con recarga normal
+      setTimeout(() => window.location.reload(), 250);
+    } catch (error) {
+      console.error('Error guardando datos:', error);
+      showToast('❌ Error al guardar la imagen y JSON', 'error');
+    }
+  };
+
+  // Ejecutar un JSON individual desde la galería
+  const executeImageJSON = async (imageName: string) => {
+    try {
+      console.log(`▶️ Ejecutando JSON de imagen: ${imageName}`);
+      
+      // Cargar JSON
+      const json = await ImageService.loadImageJSON(selectedCategory, imageName);
+      if (!json) {
+        showToast(`❌ No se pudo cargar el JSON de ${imageName}`, 'error');
+        return;
+      }
+      
+      // Temporal: establecer el JSON y ejecutar importación
+      const originalJson = jsonText;
+      setJsonText(JSON.stringify(json, null, 2));
+      
+      // Ejecutar importación
+      const result = await handleImportJSON();
+      
+      // Mostrar resultados
+      setImportResults(result);
+      setShowImportResults(true);
+      
+      // Restaurar JSON original si la importación falló
+      if (!result.success) {
+        setJsonText(originalJson);
+      }
+    } catch (error) {
+      console.error('Error ejecutando JSON:', error);
+      showToast(`❌ Error al ejecutar JSON de ${imageName}`, 'error');
+    }
+  };
+
+  // Ejecutar múltiples JSONs (batch)
+  const executeBatchJSON = async (scope: 'category' | 'all') => {
+    try {
+      setExecutingBatch(true);
+      const results: ImportResultDetails[] = [];
+      let totalProcessed = 0;
+      let totalSuccess = 0;
+
+      if (scope === 'category') {
+        // Ejecutar todos los JSONs de la categoría actual
+        const imagesWithJSON = await ImageService.listImagesWithJSON(selectedCategory);
+        
+        setBatchProgress({ current: 0, total: imagesWithJSON.length, category: selectedCategory });
+        
+        for (let i = 0; i < imagesWithJSON.length; i++) {
+          const img = imagesWithJSON[i];
+          setBatchProgress({ current: i + 1, total: imagesWithJSON.length, category: selectedCategory });
+          
+          const json = await ImageService.loadImageJSON(selectedCategory, img.nombre);
+          if (json) {
+            setJsonText(JSON.stringify(json, null, 2));
+            const result = await handleImportJSON();
+            results.push(result);
+            if (result.success) totalSuccess++;
+          }
+          totalProcessed++;
+        }
+        
+        showToast(`✅ Procesados ${totalProcessed} JSONs de ${selectedCategory} (${totalSuccess} exitosos)`, 'success');
+      } else {
+        // Ejecutar todos los JSONs de todas las categorías
+        const categories: ImageCategory[] = ['skills', 'glifos', 'aspectos', 'estadisticas', 'otros'];
+        let allImages: Array<{ img: any; cat: ImageCategory }> = [];
+        
+        // Recopilar todas las imágenes con JSON
+        for (const cat of categories) {
+          const imgs = await ImageService.listImagesWithJSON(cat);
+          allImages.push(...imgs.map(img => ({ img, cat })));
+        }
+        
+        setBatchProgress({ current: 0, total: allImages.length, category: 'todas las categorías' });
+        
+        for (let i = 0; i < allImages.length; i++) {
+          const { img, cat } = allImages[i];
+          setBatchProgress({ current: i + 1, total: allImages.length, category: cat });
+          
+          // Cambiar categoría temporalmente
+          const originalCategory = selectedCategory;
+          setSelectedCategory(cat);
+          
+          const json = await ImageService.loadImageJSON(cat, img.nombre);
+          if (json) {
+            setJsonText(JSON.stringify(json, null, 2));
+            const result = await handleImportJSON();
+            results.push(result);
+            if (result.success) totalSuccess++;
+          }
+          totalProcessed++;
+          
+          // Restaurar categoría
+          setSelectedCategory(originalCategory);
+        }
+        
+        showToast(`✅ Procesados ${totalProcessed} JSONs en total (${totalSuccess} exitosos)`, 'success');
+      }
+      
+      // Recargar después del batch
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Error en ejecución batch:', error);
+      showToast('❌ Error al ejecutar batch de JSONs', 'error');
+    } finally {
+      setExecutingBatch(false);
+      setBatchProgress({ current: 0, total: 0, category: '' });
     }
   };
 
@@ -1763,103 +2043,142 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="card max-w-7xl w-full max-h-[90vh] overflow-y-auto relative">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className={`absolute top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in-right ${
+          <div className={`absolute top-2 right-2 sm:top-4 sm:right-4 z-50 p-2 sm:p-4 rounded-lg shadow-lg flex items-center gap-2 sm:gap-3 animate-slide-in-right ${
             toastType === 'success' ? 'bg-green-600 text-white' :
             toastType === 'error' ? 'bg-red-600 text-white' :
             'bg-blue-600 text-white'
           }`}>
-            {toastType === 'success' && <CheckCircle className="w-5 h-5" />}
-            {toastType === 'error' && <XCircle className="w-5 h-5" />}
-            {toastType === 'info' && <AlertCircle className="w-5 h-5" />}
-            <span className="text-sm font-semibold">{toastMessage}</span>
-            <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-70">
-              <X className="w-4 h-4" />
+            {toastType === 'success' && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
+            {toastType === 'error' && <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
+            {toastType === 'info' && <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
+            <span className="text-xs sm:text-sm font-semibold">{toastMessage}</span>
+            <button onClick={() => setToastMessage(null)} className="ml-1 sm:ml-2 hover:opacity-70">
+              <X className="w-3 h-3 sm:w-4 sm:h-4" />
             </button>
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 sticky top-0 bg-d4-surface pb-4 border-b border-d4-border z-10">
-          <div className="flex items-center gap-3">
-            <Camera className="w-6 h-6 text-d4-accent" />
-            <h2 className="text-2xl font-bold text-d4-accent">Captura de Imágenes</h2>
+        {/* Header compacto: Categorías + Botones Captura/Galería + Cerrar */}
+        <div className="flex flex-wrap items-center justify-between mb-3 gap-2 sticky top-0 bg-d4-surface pb-2 border-b border-d4-border z-10">
+          {/* Categorías con iconos */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <label className="text-xs font-semibold text-d4-text whitespace-nowrap">Categoría:</label>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {CATEGORIES.map(cat => {
+                const Icon = cat.icon;
+                return (
+                  <button
+                    key={cat.value}
+                    onClick={() => setSelectedCategory(cat.value)}
+                    className={`px-2 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      selectedCategory === cat.value
+                        ? 'bg-d4-accent text-black'
+                        : 'bg-d4-bg text-d4-text hover:bg-d4-border'
+                    }`}
+                    title={cat.label}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">{cat.label}</span>
+                    {categoryCounts[cat.value] > 0 && (
+                      <span className="text-[10px] opacity-70 hidden md:inline">({categoryCounts[cat.value]})</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-d4-border rounded transition-colors">
-            <X className="w-5 h-5 text-d4-text" />
-          </button>
-        </div>
-
-        {/* Selector de categoría */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold text-d4-text mb-2">Categoría:</label>
-          <div className="grid grid-cols-5 gap-2">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat.value}
-                onClick={() => setSelectedCategory(cat.value)}
-                className={`px-4 py-2 rounded font-semibold transition-all ${
-                  selectedCategory === cat.value
-                    ? 'bg-d4-accent text-black'
-                    : 'bg-d4-bg text-d4-text hover:bg-d4-border'
-                }`}
-              >
-                {cat.label}
-                {categoryCounts[cat.value] > 0 && (
-                  <span className="ml-1 text-xs opacity-70">({categoryCounts[cat.value]})</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tabs con barra de progreso minimalista */}
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="flex gap-2">
+          
+          {/* Botones Captura/Galería + Cerrar a la derecha */}
+          <div className="flex gap-1.5 shrink-0 items-center">
             <button
               onClick={() => setShowGallery(false)}
-              className={`px-4 py-2 rounded font-semibold ${
+              className={`px-2 py-1.5 rounded text-xs font-semibold flex items-center gap-1 ${
                 !showGallery ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
               }`}
+              title="Capturar imágenes"
             >
-              <Camera className="w-4 h-4 inline mr-2" />
-              Capturar
+              <Camera className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Capturar</span>
             </button>
             <button
               onClick={() => { setShowGallery(true); loadGallery(); }}
-              className={`px-4 py-2 rounded font-semibold ${
+              className={`px-2 py-1.5 rounded text-xs font-semibold flex items-center gap-1 ${
                 showGallery ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
               }`}
+              title="Ver galería"
             >
-              <ImageIcon className="w-4 h-4 inline mr-2" />
-              Galería
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Galería</span>
               {categoryCounts[selectedCategory] > 0 && (
-                <span className="ml-1 text-xs opacity-70">({categoryCounts[selectedCategory]})</span>
+                <span className="text-[10px] opacity-70">({categoryCounts[selectedCategory]})</span>
               )}
             </button>
+            <div className="w-px h-5 bg-d4-border mx-0.5" />
+            <button onClick={onClose} className="p-1.5 hover:bg-d4-border rounded-lg transition-colors" title="Cerrar">
+              <X className="w-4 h-4 text-d4-text" />
+            </button>
           </div>
-          
-          {/* Barra de progreso minimalista (solo visible en tab Captura) */}
-          {!showGallery && (
-            <div className="relative group">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-d4-text-dim font-semibold">{getElementCount()}/{getRecommendedMax(selectedCategory)}</span>
-                <div className="w-32 bg-d4-surface rounded-full h-3 overflow-hidden border border-d4-border cursor-help">
-                  <div 
-                    className={`h-full transition-all duration-300 ${getProgressColor()}`}
-                    style={{ width: `${getProgressPercentage()}%` }}
-                  />
-                </div>
+        </div>
+
+        {/* Barra de progreso y botón Prompt (solo visible en tab Captura) */}
+        {!showGallery && (
+          <div className="mb-3 flex items-center gap-2 justify-between flex-wrap">
+            {/* Botón Prompt con tooltip integrado */}
+            <div className="relative group order-2">
+              <button
+                onClick={() => setShowPromptPanel(!showPromptPanel)}
+                className={`px-2 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1 ${
+                  showPromptPanel
+                    ? 'bg-d4-accent text-black'
+                    : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                }`}
+                title="Toggle panel de prompt"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Prompt
+              </button>
+              {/* Tooltip de instrucciones */}
+              <div className="absolute right-0 top-full mt-2 w-80 bg-d4-surface border-2 border-d4-accent rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <p className="text-xs font-bold text-d4-accent mb-1.5">
+                  📸 Instrucciones de Captura:
+                </p>
+                <ul className="text-[10px] text-d4-text-dim space-y-0.5 list-disc list-inside">
+                  <li>Screenshot: <kbd className="px-1 py-0.5 bg-d4-bg rounded">Win + Shift + S</kbd></li>
+                  <li>Modo Nuevo: Agrega a la DERECHA (elemento diferente)</li>
+                  <li>Modo Completar: Agrega ABAJO (parte del mismo elemento)</li>
+                  <li>Pega: <kbd className="px-1 py-0.5 bg-d4-bg rounded">Ctrl + V</kbd></li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* Barra de progreso minimalista */}
+            <div className="relative group flex items-center gap-2 order-1">
+              <span className="text-[10px] text-d4-text-dim font-semibold">{getElementCount()}/{getRecommendedMax(selectedCategory)}</span>
+              <input
+                type="number"
+                min="0"
+                placeholder="Man"
+                value={manualElementCount ?? ''}
+                onChange={(e) => setManualElementCount(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-10 px-1 py-0.5 text-[10px] bg-d4-surface border border-d4-border rounded text-d4-text text-center"
+                title="Override manual"
+              />
+              <div className="w-20 sm:w-24 bg-d4-surface rounded-full h-2 overflow-hidden border border-d4-border cursor-help">
+                <div 
+                  className={`h-full transition-all duration-300 ${getProgressColor()}`}
+                  style={{ width: `${getProgressPercentage()}%` }}
+                />
               </div>
               {/* Tooltip con recomendación completa */}
-              <div className="absolute right-0 top-full mt-2 w-80 bg-d4-surface border-2 border-cyan-500 rounded-lg p-4 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                <p className="text-sm font-bold text-cyan-300 mb-2">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-d4-surface border-2 border-cyan-500 rounded-lg p-2.5 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <p className="text-xs font-bold text-cyan-300 mb-1.5">
                   💡 Recomendación para {CATEGORIES.find(c => c.value === selectedCategory)?.label}:
                 </p>
-                <div className="text-sm text-d4-text-dim space-y-1">
+                <div className="text-xs sm:text-sm text-d4-text-dim space-y-1">
                   {selectedCategory === 'skills' && (
                     <>
                       <p><strong>Máximo: 3-4 habilidades</strong></p>
@@ -1907,117 +2226,177 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Contenido según tab */}
         {!showGallery && (
           <div className="space-y-6">
             {/* Preview de imagen compuesta con panel de prompt lateral */}
-            <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
               {/* Panel de Preview */}
               <div className="bg-d4-bg p-4 rounded border-2 border-d4-accent/50">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-bold text-d4-accent flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
-                    Preview en Tiempo Real
+                  <h3 className="text-sm font-bold text-d4-accent flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    Preview
                   </h3>
-                  <div className="flex items-center gap-2">
-                    {/* Botón toggle prompt panel */}
-                    <button
-                      onClick={() => setShowPromptPanel(!showPromptPanel)}
-                      className={`px-3 py-2 rounded font-semibold transition-all ${
-                        showPromptPanel
-                          ? 'bg-d4-accent text-black shadow-lg'
-                          : 'bg-d4-surface text-d4-text hover:bg-d4-border'
-                      }`}
-                      title={showPromptPanel ? 'Ocultar prompt' : 'Mostrar prompt'}
-                    >
-                      <Copy className="w-4 h-4 inline mr-1" />
-                      Prompt
-                    </button>
-                    {/* Tooltip de instrucciones */}
-                    <div className="relative group">
-                      <button
-                        className="p-2 bg-d4-surface hover:bg-d4-border rounded-full transition-colors"
-                        title="Ver instrucciones"
-                      >
-                        <HelpCircle className="w-5 h-5 text-d4-accent" />
-                      </button>
-                      {/* Tooltip */}
-                      <div className="absolute right-0 top-full mt-2 w-96 bg-d4-surface border-2 border-d4-accent rounded-lg p-4 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                        <p className="text-sm font-bold text-d4-accent mb-2">
-                          📸 Instrucciones de Captura:
-                        </p>
-                        <ul className="text-xs text-d4-text-dim space-y-1 list-disc list-inside">
-                          <li>Toma screenshot con <kbd className="px-1 py-0.5 bg-d4-bg rounded">Win + Shift + S</kbd></li>
-                          <li>Selecciona modo (Nuevo Elemento o Completar)</li>
-                          <li>Pega con <kbd className="px-1 py-0.5 bg-d4-bg rounded">Ctrl + V</kbd> o carga archivo</li>
-                          <li><strong>Nuevo Elemento</strong>: Agrega a la DERECHA con espacio (elemento diferente)</li>
-                          <li><strong>Completar</strong>: Agrega ABAJO sin espacio (continúa elemento anterior)</li>
-                          <li>La imagen se compone en <strong>tiempo real</strong> aquí</li>
-                          <li>Cuando termines, presiona <strong>"Guardar Imagen Acumulada"</strong></li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
                 </div>
                 
                 {composedImageUrl ? (
-                  <div className="bg-white p-4 rounded max-h-96 overflow-auto border-2 border-green-500/50">
+                  <div className="bg-white p-4 rounded max-h-96 overflow-auto border-2 border-green-500/50 relative group">
+                    {/* Botón de vista ampliada */}
+                    <button
+                      onClick={() => setViewerImage({ url: composedImageUrl, name: 'Imagen compuesta' })}
+                      className="absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      title="Ver imagen grande"
+                    >
+                      <Maximize2 className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Botones de modo de captura flotantes */}
+                    <div className="absolute top-2 left-2 flex gap-2 z-10">
+                      <button
+                        onClick={() => setCaptureMode('new')}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          captureMode === 'new'
+                            ? 'bg-gradient-to-r from-green-600 to-green-700 text-white scale-105'
+                            : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
+                        }`}
+                        title="Nuevo Elemento - Agrega a la derecha (horizontal)"
+                      >
+                        <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={() => setCaptureMode('continue')}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          captureMode === 'continue'
+                            ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
+                            : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
+                        }`}
+                        title="Completar - Agrega abajo (vertical)"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={copyLastSavedImage}
+                        disabled={!lastSavedImageUrl}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          lastSavedImageUrl
+                            ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
+                            : 'bg-gray-600/90 text-gray-400 cursor-not-allowed backdrop-blur-sm'
+                        }`}
+                        title={lastSavedImageUrl ? 'Copiar última imagen guardada para pegarla' : 'No hay imagen guardada en esta categoría'}
+                      >
+                        <Copy className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={() => setEmbedPromptInImage(!embedPromptInImage)}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          embedPromptInImage
+                            ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white scale-105'
+                            : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
+                        }`}
+                        title={embedPromptInImage ? 'Prompt embebido en imagen (activo)' : 'Embeber prompt en imagen (inactivo)'}
+                      >
+                        <FileText className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                    </div>
+                    
                     <img src={composedImageUrl} alt="Composed" className="w-full h-auto object-contain" style={{ maxWidth: '100%', transform: 'scale(0.85)' }} />
                   </div>
                 ) : (
-                  <div className="bg-d4-surface p-8 rounded border-2 border-dashed border-d4-border flex flex-col items-center justify-center min-h-[200px]">
+                  <div className="bg-d4-surface p-8 rounded border-2 border-dashed border-d4-border flex flex-col items-center justify-center min-h-[200px] relative">
+                    {/* Botones de modo de captura flotantes */}
+                    <div className="absolute top-2 left-2 flex gap-2 z-10">
+                      <button
+                        onClick={() => setCaptureMode('new')}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          captureMode === 'new'
+                            ? 'bg-gradient-to-r from-green-600 to-green-700 text-white scale-105'
+                            : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                        }`}
+                        title="Nuevo Elemento - Agrega a la derecha (horizontal)"
+                      >
+                        <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={() => setCaptureMode('continue')}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          captureMode === 'continue'
+                            ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
+                            : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                        }`}
+                        title="Completar - Agrega abajo (vertical)"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={copyLastSavedImage}
+                        disabled={!lastSavedImageUrl}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          lastSavedImageUrl
+                            ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
+                            : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        }`}
+                        title={lastSavedImageUrl ? 'Copiar última imagen guardada para pegarla' : 'No hay imagen guardada en esta categoría'}
+                      >
+                        <Copy className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={() => setEmbedPromptInImage(!embedPromptInImage)}
+                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                          embedPromptInImage
+                            ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white scale-105'
+                            : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                        }`}
+                        title={embedPromptInImage ? 'Prompt embebido en imagen (activo)' : 'Embeber prompt en imagen (inactivo)'}
+                      >
+                        <FileText className="w-5 h-5" />
+                        <span className="hidden lg:inline ml-2 text-xs">Prompt</span>
+                      </button>
+                    </div>
+                    
                     <ImageIcon className="w-16 h-16 text-d4-text-dim mb-3" />
                     <p className="text-d4-text-dim text-center">
                       La imagen compuesta aparecerá aquí en tiempo real
                       <br />
                       <span className="text-xs">Pega o carga imágenes para comenzar</span>
                     </p>
+                    <p className="text-xs text-d4-text-dim mt-3 text-center">
+                      💡 Presiona <kbd className="px-2 py-0.5 bg-d4-surface rounded">Ctrl + V</kbd> para pegar
+                    </p>
                   </div>
                 )}
 
                 {/* Opciones de guardado */}
                 <div className="mt-4 space-y-3">
-                  {/* Checkbox para embeber prompt */}
-                  <label className="flex items-center gap-2 p-2 bg-d4-surface rounded cursor-pointer hover:bg-d4-border transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={embedPromptInImage}
-                      onChange={(e) => setEmbedPromptInImage(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-d4-text">
-                      📝 <strong>Embeber prompt en la imagen</strong> (versión resumida para ChatGPT)
-                    </span>
-                  </label>
-
                   {/* Botones de acción */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-2">
                     <button 
                       onClick={saveComposedImage} 
                       disabled={!composedImageUrl}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
+                      className={`p-2.5 rounded-lg font-semibold transition-all ${
                         composedImageUrl
                           ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
+                      title="Guardar imagen en la galería"
                     >
-                      <Save className="w-5 h-5" />
-                      Guardar Imagen Acumulada
+                      <Save className="w-4 h-4" />
+                      <span className="hidden md:inline ml-1.5 text-xs">Guardar</span>
                     </button>
                     <button 
                       onClick={downloadComposedImage} 
                       disabled={!composedImageUrl}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                      className={`p-2.5 rounded-lg font-semibold transition-all ${
                         composedImageUrl
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
+                      title="Descargar imagen a tu PC"
                     >
                       <Download className="w-4 h-4" />
-                      Descargar
                     </button>
                     <button 
                       onClick={async () => {
@@ -2035,7 +2414,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!composedImageUrl}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                      className={`p-2.5 rounded-lg font-semibold transition-all ${
                         composedImageUrl
                           ? 'bg-purple-600 hover:bg-purple-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -2043,7 +2422,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       title="Copiar imagen al portapapeles para pegarla en el chat de IA"
                     >
                       <Copy className="w-4 h-4" />
-                      Copiar
                     </button>
                     <button 
                       onClick={() => {
@@ -2054,7 +2432,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!composedImageUrl}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                      className={`p-2.5 rounded-lg font-semibold transition-all ${
                         composedImageUrl
                           ? 'bg-red-600 hover:bg-red-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -2062,170 +2440,86 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       title="Eliminar la imagen compuesta"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Borrar
                     </button>
-                  </div>
-
-                  {/* Botón Procesar con IA */}
-                  <div className="mt-4 p-4 bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg border-2 border-purple-500/50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-purple-400" />
-                        <h4 className="text-sm font-bold text-purple-300">
-                          Procesamiento Automático con IA
-                        </h4>
-                      </div>
-                      {aiExtractedJSON && (
-                        <button
-                          onClick={() => setShowJSONViewer(!showJSONViewer)}
-                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-all"
-                          title="Ver JSON obtenido"
-                        >
-                          <Eye className="w-3 h-3" />
-                          Ver JSON
-                        </button>
-                      )}
-                    </div>
                     
-                    {/* Barra de progreso */}
-                    {aiProcessing && (
-                      <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-d4-border">
-                        <div className="space-y-2">
-                          {/* Estado: Input entregado */}
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${aiProgress !== 'idle' ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            <span className={`text-xs ${aiProgress !== 'idle' ? 'text-green-300' : 'text-gray-500'}`}>
-                              Input entregado
-                            </span>
-                          </div>
-                          
-                          {/* Estado: Procesando con IA */}
-                          <div className="flex items-center gap-2">
-                            {aiProgress === 'processing' ? (
-                              <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                            ) : (
-                              <div className={`w-3 h-3 rounded-full ${['received', 'saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            )}
-                            <span className={`text-xs ${aiProgress === 'processing' ? 'text-yellow-300 font-semibold' : ['received', 'saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
-                              Procesando con IA
-                            </span>
-                          </div>
-                          
-                          {/* Estado: JSON obtenido */}
-                          <div className="flex items-center gap-2">
-                            {aiProgress === 'received' ? (
-                              <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                            ) : (
-                              <div className={`w-3 h-3 rounded-full ${['saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            )}
-                            <span className={`text-xs ${aiProgress === 'received' ? 'text-yellow-300 font-semibold' : ['saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
-                              JSON obtenido
-                            </span>
-                          </div>
-                          
-                          {/* Estado: Guardando */}
-                          <div className="flex items-center gap-2">
-                            {aiProgress === 'saving' ? (
-                              <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                            ) : (
-                              <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            )}
-                            <span className={`text-xs ${aiProgress === 'saving' ? 'text-yellow-300 font-semibold' : aiProgress === 'done' ? 'text-green-300' : 'text-gray-500'}`}>
-                              Guardando datos
-                            </span>
-                          </div>
-                          
-                          {/* Estado: Completado */}
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            <span className={`text-xs ${aiProgress === 'done' ? 'text-green-300 font-semibold' : 'text-gray-500'}`}>
-                              ✅ Proceso completado
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Modal/Viewer del JSON */}
-                    {showJSONViewer && aiExtractedJSON && (
-                      <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-blue-500">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold text-blue-300">JSON Obtenido de Gemini:</span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(aiExtractedJSON);
-                              showToast('📋 JSON copiado al portapapeles', 'success');
-                            }}
-                            className="text-xs text-blue-400 hover:text-blue-300 underline"
-                          >
-                            Copiar JSON
-                          </button>
-                        </div>
-                        <div className="bg-black/50 rounded p-2 max-h-40 overflow-y-auto">
-                          <pre className="text-xs text-green-300 font-mono whitespace-pre-wrap break-all">
-                            {aiExtractedJSON}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <button
+                    {/* Botón Procesar con IA */}
+                    <button 
                       onClick={processWithAI}
                       disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
+                      className={`p-2.5 rounded-lg font-semibold transition-all ${
                         (composedImageUrl || selectedGalleryImage) && !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
                           ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
+                      title={
+                        !showPromptPanel 
+                          ? 'Abre el panel de Prompt primero' 
+                          : (promptType === 'personaje' && !selectedPersonajeId)
+                            ? 'Selecciona un personaje en el panel de Prompt'
+                            : (promptType === 'heroe' && !selectedClase)
+                              ? 'Selecciona una clase en el panel de Prompt'
+                              : 'Procesar con IA y Guardar'
+                      }
                     >
                       {aiProcessing ? (
-                        <>
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                          Procesando con IA...
-                        </>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                       ) : (
-                        <>
-                          <Zap className="w-5 h-5" />
-                          Procesar con IA y Guardar Automáticamente
-                        </>
+                        <Zap className="w-4 h-4" />
                       )}
                     </button>
-                    
-                    {!showPromptPanel && (composedImageUrl || selectedGalleryImage) && (
-                      <p className="text-xs text-yellow-400 mt-2 text-center">
-                        ⚠️ Abre el panel de Prompt primero para configurar tipo y personaje/clase
-                      </p>
-                    )}
-                    {showPromptPanel && promptType === 'personaje' && !selectedPersonajeId && (
-                      <p className="text-xs text-yellow-400 mt-2 text-center">
-                        ⚠️ Selecciona un personaje en el panel de Prompt
-                      </p>
-                    )}
-                    {showPromptPanel && promptType === 'heroe' && !selectedClase && (
-                      <p className="text-xs text-yellow-400 mt-2 text-center">
-                        ⚠️ Selecciona una clase en el panel de Prompt
-                      </p>
-                    )}
                   </div>
+                  
+                  {/* Viewer del JSON (debajo de los botones si existe) */}
+                  {showJSONViewer && aiExtractedJSON && (
+                    <div className="mt-2 bg-d4-surface rounded-lg p-3 border border-blue-500">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-blue-300">JSON Obtenido:</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(aiExtractedJSON);
+                              showToast('📋 JSON copiado', 'success');
+                            }}
+                            className="text-xs text-blue-400 hover:text-blue-300 underline"
+                          >
+                            Copiar
+                          </button>
+                          <button
+                            onClick={() => setShowJSONViewer(false)}
+                            className="text-xs text-gray-400 hover:text-gray-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                      <div className="bg-black/50 rounded p-2 max-h-32 overflow-y-auto">
+                        <pre className="text-xs text-green-300 font-mono whitespace-pre-wrap break-all">
+                          {aiExtractedJSON}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                  
                 </div>
               </div>
 
               {/* Panel de Prompt (lateral, colapsable) */}
               {showPromptPanel && (
-                <div className="bg-d4-bg p-2 rounded border border-d4-accent/30 flex flex-col">
-                  <h3 className="text-sm font-bold text-d4-accent mb-2">
-                    Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
+                <div className="bg-d4-bg p-1.5 lg:p-2 rounded border border-d4-accent/30 flex flex-col">
+                  <h3 className="text-xs lg:text-sm font-bold text-d4-accent mb-1.5 lg:mb-2">
+                    <span className="hidden lg:inline">Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}</span>
+                    <span className="lg:hidden">Prompt</span>
                   </h3>
                   
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold text-d4-text mb-1">
+                  <div className="mb-1.5 lg:mb-2">
+                    <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                       Tipo:
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 lg:gap-2">
                       {selectedCategory !== 'estadisticas' && (
                         <button
                           onClick={() => setPromptType('heroe')}
-                          className={`px-3 py-1.5 rounded text-sm font-semibold ${
+                          className={`px-2 lg:px-3 py-1 lg:py-1.5 rounded text-[10px] lg:text-sm font-semibold ${
                             promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
                           }`}
                         >
@@ -2234,7 +2528,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       )}
                       <button
                         onClick={() => setPromptType('personaje')}
-                        className={`px-3 py-1.5 rounded text-sm font-semibold ${
+                        className={`px-2 lg:px-3 py-1 lg:py-1.5 rounded text-[10px] lg:text-sm font-semibold ${
                           promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
                         }`}
                       >
@@ -2245,14 +2539,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   {/* Selector de clase (solo si tipo = heroe) */}
                   {promptType === 'heroe' && (
-                    <div className="mb-2">
-                      <label className="block text-xs font-semibold text-d4-text mb-1">
+                    <div className="mb-1.5 lg:mb-2">
+                      <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                         Clase:
                       </label>
                       <select
                         value={selectedClase}
                         onChange={(e) => setSelectedClase(e.target.value)}
-                        className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                        className="w-full p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] lg:text-sm"
                       >
                         <option value="">Selecciona una clase...</option>
                         {availableClasses.map(clase => (
@@ -2266,14 +2560,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   {/* Selector de personaje (solo si tipo = personaje) */}
                   {promptType === 'personaje' && (
-                    <div className="mb-2">
-                      <label className="block text-xs font-semibold text-d4-text mb-1">
+                    <div className="mb-1.5 lg:mb-2">
+                      <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                         Personaje:
                       </label>
                       <select
                         value={selectedPersonajeId || ''}
                         onChange={(e) => setSelectedPersonajeId(e.target.value || null)}
-                        className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                        className="w-full p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] lg:text-sm"
                       >
                         <option value="">Ninguno (extracción genérica)</option>
                         {personajes && personajes.length > 0 ? (
@@ -2289,50 +2583,60 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
 
-                  <div className="bg-d4-surface p-2 rounded border border-d4-border max-h-[220px] overflow-y-auto flex-1">
-                    <pre className="text-xs text-d4-text whitespace-pre-wrap font-mono">
-                      {getPromptForCategory()}
-                    </pre>
+                  {/* Texto del prompt con toggle en móvil */}
+                  <div>
+                    <button
+                      onClick={() => setPromptTextExpanded(!promptTextExpanded)}
+                      className="lg:hidden w-full text-[9px] text-d4-text-dim flex items-center justify-between mb-0.5 px-1 py-0.5 rounded hover:bg-d4-border"
+                    >
+                      <span>{promptTextExpanded ? 'Ocultar texto' : 'Ver texto del prompt'}</span>
+                      {promptTextExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                    <div className={`${promptTextExpanded ? '' : 'hidden'} lg:block bg-d4-surface p-1 lg:p-2 rounded border border-d4-border max-h-[120px] lg:max-h-[220px] overflow-y-auto`}>
+                      <pre className="text-[9px] lg:text-xs text-d4-text whitespace-pre-wrap font-mono">
+                        {getPromptForCategory()}
+                      </pre>
+                    </div>
                   </div>
 
-                  <button
-                    onClick={copyPromptToClipboard}
-                    className="mt-2 btn-primary flex items-center gap-2 w-full justify-center"
-                  >
-                    <Copy className="w-4 h-4" />
-                    {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
-                  </button>
-
-                  <div className="mt-2">
-                    <label className="block text-xs font-semibold text-d4-text mb-1">
-                      Cantidad de elementos (opcional)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={promptElementCount}
-                      onChange={(e) => setPromptElementCount(e.target.value)}
-                      className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-xs"
-                      placeholder="Ej: 5"
-                      title="Si lo defines, el prompt extrae solo esa cantidad de elementos señalados"
-                    />
+                  {/* Copiar Prompt + Cantidad en la misma fila */}
+                  <div className="mt-1.5 lg:mt-2 flex items-center gap-1.5">
+                    <button
+                      onClick={copyPromptToClipboard}
+                      className="btn-primary flex items-center gap-1.5 flex-1 justify-center text-[10px] lg:text-sm py-1 lg:py-2"
+                    >
+                      <Copy className="w-3 h-3 lg:w-4 lg:h-4" />
+                      {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
+                    </button>
+                    <div className="flex flex-col items-center shrink-0">
+                      <label className="text-[9px] text-d4-text-dim mb-0.5 whitespace-nowrap">Cant.</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={promptElementCount}
+                        onChange={(e) => setPromptElementCount(e.target.value)}
+                        className="w-12 p-1 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] text-center"
+                        placeholder="5"
+                        title="Si lo defines, el prompt extrae solo esa cantidad de elementos señalados"
+                      />
+                    </div>
                   </div>
 
                   {/* Área de importación de JSON */}
-                  <div className="mt-2 pt-2 border-t border-d4-border">
-                    <h4 className="text-xs font-semibold text-d4-accent mb-1">
+                  <div className="mt-1.5 lg:mt-2 pt-1.5 lg:pt-2 border-t border-d4-border">
+                    <h4 className="text-[10px] lg:text-xs font-semibold text-d4-accent mb-0.5 lg:mb-1">
                       📥 Importar JSON
                     </h4>
                     <textarea
                       value={jsonText}
                       onChange={(e) => setJsonText(e.target.value)}
                       placeholder={`Pega el JSON aquí...${selectedCategory === 'skills' ? '\nEjemplo: {"habilidades_activas": [...], "habilidades_pasivas": [...]}' : selectedCategory === 'glifos' ? '\nEjemplo: {"glifos": [...]}' : selectedCategory === 'aspectos' ? (promptType === 'heroe' ? '\nEjemplo: {"aspectos": [...]}' : '\nEjemplo: {"aspectos_equipados": [...]}') : '\nEjemplo: {"nivel_paragon": 150, ...}'}`}
-                      className="w-full h-20 p-2 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-xs resize-none"
+                      className="w-full h-16 lg:h-20 p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-[9px] lg:text-xs resize-none"
                     />
                     <button
                       onClick={handleImportJSON}
                       disabled={!jsonText.trim() || importing || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
-                      className={`mt-3 w-full px-4 py-2 rounded font-semibold transition-all flex items-center justify-center gap-2 ${
+                      className={`mt-1.5 lg:mt-3 w-full px-2 lg:px-4 py-1 lg:py-2 rounded text-[10px] lg:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 lg:gap-2 ${
                         jsonText.trim() && !importing && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
                           ? 'bg-green-600 hover:bg-green-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -2340,103 +2644,38 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     >
                       {importing ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                          Importando...
+                          <div className="animate-spin rounded-full h-3 w-3 lg:h-4 lg:w-4 border-2 border-white border-t-transparent"></div>
+                          <span className="hidden md:inline">Importando...</span>
                         </>
                       ) : (
                         <>
-                          <Save className="w-4 h-4" />
-                          {promptType === 'heroe' 
-                            ? selectedClase 
-                              ? `Guardar en Héroe (${selectedClase})`
-                              : 'Guardar en Héroe (Selecciona clase)'
-                            : selectedPersonajeId 
-                              ? `Guardar en ${personajes.find(p => p.id === selectedPersonajeId)?.nombre || 'Personaje'}`
-                              : 'Selecciona un personaje primero'}
+                          <Save className="w-3 h-3 lg:w-4 lg:h-4" />
+                          <span className="hidden md:inline">
+                            {promptType === 'heroe' 
+                              ? selectedClase 
+                                ? `Guardar en Héroe (${selectedClase})`
+                                : 'Guardar en Héroe (Selecciona clase)'
+                              : selectedPersonajeId 
+                                ? `Guardar en ${personajes.find(p => p.id === selectedPersonajeId)?.nombre || 'Personaje'}`
+                                : 'Selecciona un personaje primero'}
+                          </span>
+                          <span className="md:hidden">Guardar</span>
                         </>
                       )}
                     </button>
                     {promptType === 'personaje' && !selectedPersonajeId && (
-                      <p className="text-xs text-yellow-400 mt-2">
+                      <p className="text-[9px] lg:text-xs text-yellow-400 mt-1 lg:mt-2">
                         ⚠️ Selecciona un personaje arriba para poder guardar
                       </p>
                     )}
                     {promptType === 'heroe' && !selectedClase && (
-                      <p className="text-xs text-yellow-400 mt-2">
+                      <p className="text-[9px] lg:text-xs text-yellow-400 mt-1 lg:mt-2">
                         ⚠️ Selecciona una clase arriba para poder guardar
                       </p>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Botones de modo de captura (3 botones horizontales) */}
-            <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 p-4 rounded border-2 border-d4-accent/40">
-              <p className="text-sm font-semibold text-d4-accent mb-3">
-                Modo de captura:
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => setCaptureMode('new')}
-                  className={`px-4 py-3 rounded-lg font-bold transition-all ${
-                    captureMode === 'new'
-                      ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg scale-105'
-                      : 'bg-d4-surface text-d4-text-dim hover:bg-d4-border'
-                  }`}
-                >
-                  <Plus className="w-5 h-5 inline mr-2" />
-                  Nuevo Elemento
-                  <div className="text-xs mt-1 opacity-80">→ Horizontal</div>
-                </button>
-                <button
-                  onClick={() => setCaptureMode('continue')}
-                  className={`px-4 py-3 rounded-lg font-bold transition-all ${
-                    captureMode === 'continue'
-                      ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg scale-105'
-                      : 'bg-d4-surface text-d4-text-dim hover:bg-d4-border'
-                  }`}
-                >
-                  <ArrowDown className="w-5 h-5 inline mr-2" />
-                  Completar
-                  <div className="text-xs mt-1 opacity-80">↓ Vertical</div>
-                </button>
-                <button
-                  onClick={copyLastSavedImage}
-                  disabled={!lastSavedImageUrl}
-                  className={`px-4 py-3 rounded-lg font-bold transition-all ${
-                    lastSavedImageUrl
-                      ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white shadow-lg'
-                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  }`}
-                  title={lastSavedImageUrl ? 'Copiar última imagen guardada' : 'No hay imagen guardada en esta categoría'}
-                >
-                  <Copy className="w-5 h-5 inline mr-2" />
-                  Copiar Guardada
-                  <div className="text-xs mt-1 opacity-80">Última img</div>
-                </button>
-              </div>
-              <p className="text-xs text-d4-text-dim mt-3 text-center">
-                💡 Presiona <kbd className="px-2 py-0.5 bg-d4-surface rounded">Ctrl + V</kbd> para pegar en el modo seleccionado
-              </p>
-            </div>
-
-            {/* Botón para cargar archivo (alternativa al paste) */}
-            <div className="flex justify-center">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-6 py-3 bg-d4-accent hover:bg-d4-accent-hover text-black font-bold rounded-lg transition-all flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Cargar Archivo (alternativa a Ctrl+V)
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileSelect(e, captureMode === 'new')}
-                className="hidden"
-              />
+              )}  
             </div>
 
             {/* Lista de imágenes capturadas */}
@@ -2487,7 +2726,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             {selectedGalleryImage && (
               <div className="space-y-4">
                 {/* Preview y Panel de Prompt */}
-                <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
                   {/* Preview de imagen seleccionada */}
                   <div className="bg-d4-bg p-4 rounded border-2 border-purple-500/50">
                     <div className="flex items-center justify-between mb-3">
@@ -2639,78 +2878,47 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   )}
                 </div>
 
-                {/* Botón Procesar con IA (igual que en tab Capturar) */}
-                <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 p-4 rounded-lg border-2 border-purple-500/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-purple-400" />
-                      <h4 className="text-sm font-bold text-purple-300">
-                        Procesamiento Automático con IA
-                      </h4>
-                    </div>
-                    {aiExtractedJSON && (
-                      <button
-                        onClick={() => setShowJSONViewer(!showJSONViewer)}
-                        className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-all"
-                        title="Ver JSON obtenido"
-                      >
-                        <Eye className="w-3 h-3" />
-                        Ver JSON
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Barra de progreso */}
-                  {aiProcessing && (
-                    <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-d4-border">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${aiProgress !== 'idle' ? 'bg-green-500' : 'bg-gray-600'}`} />
-                          <span className={`text-xs ${aiProgress !== 'idle' ? 'text-green-300' : 'text-gray-500'}`}>
-                            Input entregado
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {aiProgress === 'processing' ? (
-                            <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                          ) : (
-                            <div className={`w-3 h-3 rounded-full ${['received', 'saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
-                          )}
-                          <span className={`text-xs ${aiProgress === 'processing' ? 'text-yellow-300 font-semibold' : ['received', 'saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
-                            Procesando con IA
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {aiProgress === 'received' ? (
-                            <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                          ) : (
-                            <div className={`w-3 h-3 rounded-full ${['saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
-                          )}
-                          <span className={`text-xs ${aiProgress === 'received' ? 'text-yellow-300 font-semibold' : ['saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
-                            JSON obtenido
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {aiProgress === 'saving' ? (
-                            <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                          ) : (
-                            <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
-                          )}
-                          <span className={`text-xs ${aiProgress === 'saving' ? 'text-yellow-300 font-semibold' : aiProgress === 'done' ? 'text-green-300' : 'text-gray-500'}`}>
-                            Guardando datos
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
-                          <span className={`text-xs ${aiProgress === 'done' ? 'text-green-300 font-semibold' : 'text-gray-500'}`}>
-                            ✅ Proceso completado
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                {/* Controles IA compactos */}
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {aiExtractedJSON && (
+                    <button
+                      onClick={() => setShowJSONViewer(!showJSONViewer)}
+                      className="p-2.5 rounded-lg font-semibold transition-all bg-blue-600 hover:bg-blue-700 text-white"
+                      title="Ver JSON obtenido"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                   )}
 
-                  {/* Modal/Viewer del JSON */}
+                  <button
+                    onClick={processWithAI}
+                    disabled={aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                    className={`p-2.5 rounded-lg font-semibold transition-all ${
+                      !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
+                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={
+                      aiProcessing
+                        ? `Procesando (${aiProgress})`
+                        : (!showPromptPanel
+                          ? 'Abre el panel de Prompt primero'
+                          : (promptType === 'personaje' && !selectedPersonajeId)
+                            ? 'Selecciona un personaje en el panel de Prompt'
+                            : (promptType === 'heroe' && !selectedClase)
+                              ? 'Selecciona una clase en el panel de Prompt'
+                              : 'Procesar con IA y Guardar')
+                    }
+                  >
+                    {aiProcessing ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    ) : (
+                      <Zap className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Modal/Viewer del JSON */}
                   {showJSONViewer && aiExtractedJSON && (
                     <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-blue-500">
                       <div className="flex items-center justify-between mb-2">
@@ -2733,28 +2941,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
                   
-                  <button
-                    onClick={processWithAI}
-                    disabled={aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
-                      !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
-                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    {aiProcessing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                        Procesando con IA...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        Procesar con IA y Guardar Automáticamente
-                      </>
-                    )}
-                  </button>
-                  
                   {!showPromptPanel && (
                     <p className="text-xs text-yellow-400 mt-2 text-center">
                       ⚠️ Abre el panel de Prompt primero para configurar tipo y personaje/clase
@@ -2771,7 +2957,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     </p>
                   )}
                 </div>
-              </div>
             )}
 
             <div className="bg-d4-bg p-4 rounded border border-d4-accent/30">
@@ -2784,66 +2969,175 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   No hay imágenes guardadas en esta categoría
                 </p>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {galleryImages.map((img, index) => (
-                    <div 
-                      key={index} 
-                      className={`bg-d4-surface p-2 rounded border relative group transition-all ${
-                        selectedGalleryImage === img.url 
-                          ? 'border-purple-500 ring-2 ring-purple-500/50' 
-                          : 'border-d4-border'
-                      }`}
+                <>
+                  {/* Botones de ejecución batch */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => executeBatchJSON('category')}
+                      disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0}
+                      className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                      title="Ejecutar todos los JSONs de esta categoría"
                     >
-                      <div className="relative">
-                        <img src={img.url} alt={img.nombre} className="w-full h-32 object-contain bg-white rounded" />
-                        {/* Indicador de selección */}
-                        {selectedGalleryImage === img.url && (
-                          <div className="absolute top-2 left-2 bg-purple-600 text-white rounded-full p-1">
-                            <CheckCircle className="w-4 h-4" />
-                          </div>
-                        )}
-                        {/* Botones de acción (aparecen al hover) */}
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => selectGalleryImage(img.url, img.nombre)}
-                            className={`p-2 ${
-                              selectedGalleryImage === img.url
-                                ? 'bg-red-600 hover:bg-red-700'
-                                : 'bg-purple-600 hover:bg-purple-700'
-                            } text-white rounded-full shadow-lg`}
-                            title={selectedGalleryImage === img.url ? 'Deseleccionar' : 'Seleccionar para procesar con IA'}
-                          >
-                            <Zap className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => copyGalleryImage(img.url, img.nombre)}
-                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
-                            title="Copiar imagen al portapapeles"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
+                      <PlayCircle size={18} />
+                      <span>Ejecutar Categoría ({galleryImages.filter(img => img.hasJSON).length} JSONs)</span>
+                    </button>
+                    <button
+                      onClick={() => executeBatchJSON('all')}
+                      disabled={executingBatch}
+                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                      title="Ejecutar todos los JSONs del héroe"
+                    >
+                      <Zap size={18} />
+                      <span>Ejecutar Todo</span>
+                    </button>
+                  </div>
+
+                  {/* Barra de progreso batch */}
+                  {executingBatch && (
+                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-blue-900">
+                          Procesando {batchProgress.category}...
+                        </span>
+                        <span className="text-sm text-blue-700">
+                          {batchProgress.current} / {batchProgress.total}
+                        </span>
                       </div>
-                      <p className="text-xs text-d4-text-dim mt-2 truncate" title={img.nombre}>
-                        {img.nombre}
-                      </p>
-                      <p className="text-xs text-d4-text-dim">
-                        {img.fecha}
-                      </p>
+                      <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                        />
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {galleryImages.map((img, index) => (
+                      <div 
+                        key={index} 
+                        className={`bg-d4-surface p-2 rounded border relative group transition-all ${
+                          selectedGalleryImage === img.url && !img.isJSONOnly
+                            ? 'border-purple-500 ring-2 ring-purple-500/50' 
+                            : img.isJSONOnly
+                              ? 'border-orange-500/60'
+                              : 'border-d4-border'
+                        }`}
+                      >
+                        <div className="relative">
+                          {/* Placeholder para entradas JSON-only */}
+                          {img.isJSONOnly ? (
+                            <div
+                              className="w-full h-32 flex flex-col items-center justify-center bg-d4-bg rounded border-2 border-dashed border-orange-500/40 text-orange-400 cursor-pointer hover:border-orange-500 transition-colors"
+                              onClick={() => selectGalleryImage(img.url, img.nombre, img.hasJSON, true)}
+                              title="Cargar JSON en panel de importación"
+                            >
+                              <FileJson className="w-10 h-10 mb-1 opacity-70" />
+                              <span className="text-[10px] font-semibold">Solo JSON</span>
+                              <span className="text-[9px] text-d4-text-dim mt-0.5">Sin imagen</span>
+                            </div>
+                          ) : (
+                            <img src={img.url} alt={img.nombre} className="w-full h-32 object-contain bg-white rounded" />
+                          )}
+                          
+                          {/* Indicador de JSON guardado */}
+                          {img.hasJSON && !img.isJSONOnly && (
+                            <div className="absolute top-2 left-2 bg-green-600 text-white rounded-full p-1" title="Tiene JSON guardado">
+                              <FileJson className="w-4 h-4" />
+                            </div>
+                          )}
+                          
+                          {/* Indicador de selección */}
+                          {selectedGalleryImage === img.url && (
+                            <div className="absolute top-2 left-14 bg-purple-600 text-white rounded-full p-1">
+                              <CheckCircle className="w-4 h-4" />
+                            </div>
+                          )}
+                          
+                          {/* Botones de acción (aparecen al hover) */}
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {!img.isJSONOnly && (
+                              <button
+                                onClick={() => setViewerImage({ url: img.url, name: img.nombre })}
+                                className="p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-full shadow-lg"
+                                title="Ver imagen grande"
+                              >
+                                <Maximize2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {img.hasJSON && (
+                              <button
+                                onClick={() => executeImageJSON(img.nombre)}
+                                disabled={executingBatch}
+                                className="p-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-full shadow-lg"
+                                title="Ejecutar JSON guardado (importar datos)"
+                              >
+                                <Play className="w-4 h-4" />
+                              </button>
+                            )}
+                            {!img.isJSONOnly && (
+                              <button
+                                onClick={() => selectGalleryImage(img.url, img.nombre, img.hasJSON, false)}
+                                className={`p-2 ${
+                                  selectedGalleryImage === img.url
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : 'bg-purple-600 hover:bg-purple-700'
+                                } text-white rounded-full shadow-lg`}
+                                title={selectedGalleryImage === img.url ? 'Deseleccionar' : img.hasJSON ? 'Cargar imagen + JSON para completar' : 'Seleccionar para procesar con IA'}
+                              >
+                                <Zap className="w-4 h-4" />
+                              </button>
+                            )}
+                            {!img.isJSONOnly && (
+                              <button
+                                onClick={() => copyGalleryImage(img.url, img.nombre)}
+                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
+                                title="Copiar imagen al portapapeles"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-d4-text-dim mt-2 truncate" title={img.nombre}>
+                          {img.nombre}
+                        </p>
+                        <p className="text-xs text-d4-text-dim">
+                          {img.fecha}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
         )}
       </div>
       
-      {/* Modal de Resultados de Importación */}
+      {/* Modales */}
       <ImportResultsModal
         isOpen={showImportResults}
         onClose={() => setShowImportResults(false)}
         results={importResults}
+      />
+      
+      <ImageViewerModal
+        isOpen={!!viewerImage}
+        onClose={() => setViewerImage(null)}
+        imageUrl={viewerImage?.url || ''}
+        imageName={viewerImage?.name}
+      />
+      
+      <EmptyImportWarningModal
+        isOpen={showEmptyWarning}
+        onClose={() => {
+          setShowEmptyWarning(false);
+          setPendingSaveData(null);
+        }}
+        onSaveAndContinue={handleSaveEmptyImport}
+        category={CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory}
+        hasImage={!!composedImageUrl}
       />
     </div>
   );

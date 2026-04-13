@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Upload, Download, FileJson, Copy, Check, Database } from 'lucide-react';
+import { Shield, Upload, Download, FileJson, Copy, Check, Database, Package } from 'lucide-react';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagService } from '../../services/TagService';
 import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, Tag } from '../../types';
@@ -9,13 +9,16 @@ import HeroGlyphs from './HeroGlyphs';
 import HeroAspects from './HeroAspects';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
+import { useAppContext } from '../../context/AppContext';
 
 const HeroManager: React.FC = () => {
   const modal = useModal();
+  const { personajes, availableClasses } = useAppContext();
   const [selectedClass, setSelectedClass] = useState('Paladín');
-  const [currentView, setCurrentView] = useState<'import' | 'manage'>('import');
+  const [currentView, setCurrentView] = useState<'import' | 'manage'>('manage');
   const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos'>('habilidades');
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [showTextInput, setShowTextInput] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -368,6 +371,77 @@ const HeroManager: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportAll = async () => {
+    setExporting(true);
+    try {
+      let totalFiles = 0;
+      const errors: string[] = [];
+
+      // Exportar datos de héroes para todas las clases
+      for (const clase of availableClasses) {
+        try {
+          // Habilidades
+          const skills = await WorkspaceService.loadHeroSkills(clase);
+          if (skills) {
+            downloadJSON(skills, `heroes_${clase}_habilidades.json`);
+            totalFiles++;
+            await new Promise(resolve => setTimeout(resolve, 200)); // Delay para evitar bloqueo del navegador
+          }
+
+          // Glifos
+          const glyphs = await WorkspaceService.loadHeroGlyphs(clase);
+          if (glyphs) {
+            downloadJSON(glyphs, `heroes_${clase}_glifos.json`);
+            totalFiles++;
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
+          // Aspectos
+          const aspects = await WorkspaceService.loadHeroAspects(clase);
+          if (aspects) {
+            downloadJSON(aspects, `heroes_${clase}_aspectos.json`);
+            totalFiles++;
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        } catch (error) {
+          console.warn(`Error exportando datos de ${clase}:`, error);
+          errors.push(clase);
+        }
+      }
+
+      // Exportar todos los personajes
+      for (const personaje of personajes) {
+        try {
+          downloadJSON(personaje, `personaje_${personaje.nombre.replace(/\s+/g, '_')}.json`);
+          totalFiles++;
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          console.warn(`Error exportando personaje ${personaje.nombre}:`, error);
+          errors.push(`personaje_${personaje.nombre}`);
+        }
+      }
+
+      // Exportar tags si existen
+      try {
+        const tags = TagService.getTags();
+        if (tags && tags.length > 0) {
+          downloadJSON({ tags }, 'tags_configurados.json');
+          totalFiles++;
+        }
+      } catch (error) {
+        console.warn('Error exportando tags:', error);
+      }
+
+      const mensaje = `Exportación completada: ${totalFiles} archivos descargados${errors.length > 0 ? ` (${errors.length} con errores)` : ''}`;
+      modal.showSuccess(mensaje);
+    } catch (error) {
+      console.error('Error en exportación completa:', error);
+      modal.showError('Error al exportar todos los datos');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleCopyPrompt = async () => {
     let prompt = '';
     if (importType === 'habilidades') {
@@ -415,17 +489,6 @@ const HeroManager: React.FC = () => {
       {/* View Tabs */}
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => setCurrentView('import')}
-          className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
-            currentView === 'import'
-              ? 'bg-d4-accent text-black font-semibold'
-              : 'bg-d4-surface text-d4-text hover:bg-d4-border'
-          }`}
-        >
-          <Upload className="w-4 h-4" />
-          Importar/Exportar
-        </button>
-        <button
           onClick={() => setCurrentView('manage')}
           className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
             currentView === 'manage'
@@ -435,6 +498,17 @@ const HeroManager: React.FC = () => {
         >
           <Database className="w-4 h-4" />
           Gestionar Datos
+        </button>
+        <button
+          onClick={() => setCurrentView('import')}
+          className={`flex items-center gap-2 px-4 py-2 rounded transition-colors ${
+            currentView === 'import'
+              ? 'bg-d4-accent text-black font-semibold'
+              : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          Importar/Exportar
         </button>
       </div>
 
@@ -538,6 +612,29 @@ const HeroManager: React.FC = () => {
                 <Download className="w-5 h-5" />
                 Exportar {importType}
               </button>
+
+              <button
+                onClick={handleExportAll}
+                disabled={exporting}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {exporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-5 h-5" />
+                    Exportar Todo el Workspace
+                  </>
+                )}
+              </button>
+              {!exporting && (
+                <p className="text-xs text-d4-text-dim text-center">
+                  Descarga todos los datos: héroes ({availableClasses.length} clases), personajes ({personajes.length}) y tags
+                </p>
+              )}
 
               <div className="pt-4 border-t border-d4-border">
                 <button

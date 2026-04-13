@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">6 de Abril, 2026</p>
+                <p className="text-d4-text font-semibold">13 de Abril, 2026</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,477 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.9 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.9</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-emerald-600/20 to-teal-600/20 text-emerald-300 px-2 py-1 rounded">Galería Inteligente + Auto-guardado</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Visor limpio en PC */}
+            <div className="bg-d4-bg border-l-4 border-sky-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-sky-300 mb-2 flex items-center gap-2">
+                🖥️ Visor Limpio en PC (Solo Iconos)
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Botones flotantes sobre el preview ahora muestran <strong>solo iconos con tooltip</strong> en todas las dimensiones</li>
+                <li>Eliminadas etiquetas de texto (Nuevo, Completar, Copiar, Prompt) que ocupaban espacio visual</li>
+                <li>Tooltips descriptivos al pasar el mouse sobre cada botón</li>
+              </ul>
+            </div>
+
+            {/* Auto-guardado de JSON tras importación */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                💾 Auto-guardado de JSON tras Importación
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Cuando una importación es exitosa, el sistema guarda automáticamente en galería sin acción manual
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Con imagen en preview</strong>: guarda la imagen + JSON, limpia el preview</li>
+                <li><strong>Imagen ya guardada antes</strong>: solo guarda el JSON junto a ella</li>
+                <li><strong>Imagen de galería seleccionada</strong>: guarda JSON junto a esa imagen</li>
+                <li><strong>Sin imagen</strong>: guarda solo el JSON como entrada independiente en galería</li>
+              </ul>
+            </div>
+
+            {/* Galería inteligente */}
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                🗂️ Galería Inteligente (JSON sin Imagen)
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                La galería ahora muestra entradas JSON-only con un placeholder visual
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li>Entradas sin imagen usan un <strong>placeholder naranja con icono FileJson</strong></li>
+                <li>Hacer clic en el placeholder carga el JSON en el panel de importación</li>
+                <li>Botón Play (▶) disponible para ejecutar directamente el JSON guardado</li>
+                <li>Los botones de acción (Ver, Copiar imagen) solo aparecen cuando hay imagen</li>
+              </ul>
+            </div>
+
+            {/* Click en galería carga imagen + JSON */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🔗 Click en Galería Carga Imagen + JSON
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Al seleccionar una imagen de galería que tiene JSON: <strong>carga imagen en visor y JSON en textarea</strong></li>
+                <li>Permite completar o re-procesar una imagen con el JSON previo como base</li>
+                <li>Si la imagen no tiene JSON, abre el panel para procesar desde cero con IA</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.8 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.8</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-orange-600/20 to-red-600/20 text-orange-300 px-2 py-1 rounded">Optimización UX + Compacto</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Sidebar corregido */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🔧 Sidebar Persistente Corregido
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                Solución definitiva al problema de scroll del menú lateral
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Agregado <code className="text-xs bg-d4-surface px-1 py-0.5 rounded">min-h-0</code> a la navegación para permitir flex shrinking apropiado</li>
+                <li>El header ya no se recorta al hacer scroll en el menú</li>
+                <li>Navegación siempre visible y accesible</li>
+              </ul>
+            </div>
+
+            {/* Modal de capturas optimizado */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🎨 Modal de Capturas Optimizado
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Rediseño completo del layout para mejor aprovechamiento del espacio
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Selector de categorías horizontal</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Cambiado de grid vertical a flex horizontal compacto</li>
+                    <li>Botones con whitespace-nowrap para mantener legibilidad</li>
+                    <li>Ocupa menos espacio vertical (una sola línea)</li>
+                  </ul>
+                </li>
+                <li><strong>Checkbox embeber → Icono flotante</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Eliminado checkbox grande que ocupaba espacio</li>
+                    <li>Nuevo botón flotante con icono FileText junto a otros botones</li>
+                    <li>Resalta en naranja cuando está activo</li>
+                    <li>Tooltip descriptivo para claridad</li>
+                  </ul>
+                </li>
+                <li><strong>Botones reducidos</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Botón "Guardar": Reducido de flex-1 a p-2.5 estándar</li>
+                    <li>Botón "Procesar con IA": Reducido de px-4 py-3 a px-3 py-2</li>
+                    <li>Texto abreviado en móvil ("Procesar" vs "Procesar con IA y Guardar")</li>
+                    <li>Tamaño consistente con el resto de acciones</li>
+                  </ul>
+                </li>
+                <li><strong>Compactación adicional de espacios</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Eliminado el título superior del modal de capturas para ganar altura útil</li>
+                    <li>El cuadro de estado de "Procesamiento automático" fue removido; queda solo el botón junto a las acciones del visor</li>
+                    <li>La ayuda contextual ahora aparece al pasar el mouse sobre el botón "Prompt"</li>
+                    <li>El selector de categorías mantiene íconos representativos y en móvil prioriza vista icon-only con tooltip</li>
+                    <li>Botones Captura/Galería alineados en la misma franja horizontal de categorías, a la derecha</li>
+                  </ul>
+                </li>
+                <li><strong>Botón "Cargar Archivo" eliminado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Removido botón redundante al final del modal</li>
+                    <li>Ctrl+V sigue siendo el método principal de captura</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+
+            {/* Contador de elementos mejorado */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🔢 Sistema de Conteo Manual de Elementos
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Ahora puedes especificar manualmente cuántos elementos capturaste cuando una imagen contiene múltiples ítems
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Input de override manual</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Nuevo input numérico junto a la fracción X/Y</li>
+                    <li>Placeholder "Manual" para claridad</li>
+                    <li>Permite ingresar cantidad real cuando capturas múltiples elementos en una sola imagen</li>
+                    <li>El contador automático se actualiza al ingresar valor manual</li>
+                  </ul>
+                </li>
+                <li><strong>Límites sugeridos ajustados</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Habilidades: 4 (reducido desde 6)</li>
+                    <li>Glifos: 6 (reducido desde 8)</li>
+                    <li>Aspectos: 5 (reducido desde 7)</li>
+                    <li>Estadísticas: 5 (sin cambio)</li>
+                    <li>Otros: 6 (reducido desde 8)</li>
+                    <li>Recomendaciones basadas en precisión óptima de IA</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+
+            {/* Responsividad mejorada */}
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                📱 Márgenes Móviles Optimizados
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                Todos los elementos respetan márgenes en vistas móviles y estrechas
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Selector de categorías usa flex-wrap para adaptarse</li>
+                <li>Botones flotantes siguen siendo accesibles en pantallas pequeñas</li>
+                <li>Input manual de elementos se adapta a 12px en móvil, 14px en desktop</li>
+              </ul>
+            </div>
+
+            {/* Visibilidad total y ergonomía de layout */}
+            <div className="bg-d4-bg border-l-4 border-violet-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-violet-300 mb-2 flex items-center gap-2">
+                🪄 Visibilidad Total y Ergonomía de Layout
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Ajustes para que todos los elementos sean accesibles sin solapamiento en cualquier tamaño de pantalla
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Botones Captura/Galería/Cerrar en misma fila</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>X de cierre movida junto a Captura y Galería en el mismo flex</li>
+                    <li>Separador visual entre Galería y X para mayor claridad</li>
+                    <li>Sin solapamiento sobre otros elementos</li>
+                  </ul>
+                </li>
+                <li><strong>Botones flotantes del visor más pequeños en móvil</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Padding reducido de p-2 a p-1 en móvil (p-2 en sm+)</li>
+                    <li>Íconos de 14px en móvil (20px en sm+) para liberar espacio del visor</li>
+                  </ul>
+                </li>
+                <li><strong>Prompt siempre visible + barra de sugerencia reordenada</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Texto "Prompt" siempre visible en cualquier dimensión</li>
+                    <li>Barra de sugerencia queda a la izquierda, botón Prompt a la derecha</li>
+                    <li>Tooltip de instrucciones anclado a la derecha para no salirse de pantalla</li>
+                  </ul>
+                </li>
+                <li><strong>Texto del prompt expandible en móvil</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Toggle "Ver texto del prompt ▼" en pantallas pequeñas</li>
+                    <li>Prioriza el cuadro de pegado de JSON, ocultando el texto por omisión en móvil</li>
+                    <li>En desktop (lg:) el texto siempre está visible</li>
+                  </ul>
+                </li>
+                <li><strong>Copiar Prompt + Cantidad elementos en la misma fila</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Input de cantidad movido al lado del botón "Copiar Prompt"</li>
+                    <li>Más espacio para el área de importación de JSON</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.7 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.7</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-cyan-600/20 to-teal-600/20 text-cyan-300 px-2 py-1 rounded">UX Móvil + Heroes + Prompts Avanzados</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Optimización de espacios */}
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                🎯 Optimización de Espacios y Navegación
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                El modal de capturas ha sido completamente rediseñado para ganar espacio vertical y facilitar la navegación
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Header eliminado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Removido título "CAPTURA DE IMÁGENES" para ganar espacio</li>
+                    <li>Botón X de cierre movido a esquina superior derecha (absolute)</li>
+                  </ul>
+                </li>
+                <li><strong>Categorías + Botones en la misma línea</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Categorías con iconos representativos: ⚔️ Habilidades, ⬡ Glifos, 💎 Aspectos, 📊 Estadísticas, ⊞ Otros</li>
+                    <li>Label "Categoría:" en línea con los botones</li>
+                    <li>Botones Captura/Galería justificados a la derecha</li>
+                    <li>Todo en una franja horizontal compacta</li>
+                    <li>Móvil: solo iconos con tooltips</li>
+                  </ul>
+                </li>
+                <li><strong>Preview simplificado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Título reducido de "Preview en Tiempo Real" a solo "Preview"</li>
+                    <li>Botón HelpCircle eliminado (instrucciones movidas al hover del botón Prompt)</li>
+                  </ul>
+                </li>
+                <li><strong>Botón Prompt minimalista con tooltip integrado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Botón más pequeño y compacto</li>
+                    <li>Tooltip de instrucciones aparece al hacer hover sobre el botón</li>
+                    <li>Instrucciones condensadas y más directas</li>
+                  </ul>
+                </li>
+                <li><strong>Barra de progreso junto al botón Prompt</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Barra de sugerencia movida al lado derecho del botón Prompt</li>
+                    <li>Input manual reducido (placeholder "Man")</li>
+                    <li>Todo en una sola línea horizontal</li>
+                    <li>Tooltip con recomendaciones optimizado (más compacto)</li>
+                  </ul>
+                </li>
+                <li><strong>Cuadro "Procesamiento Automático con IA" eliminado</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Eliminado cuadro grande que ocupaba mucho espacio</li>
+                    <li>Botón de IA ahora junto con Guardar, Descargar, Copiar, Eliminar</li>
+                    <li>Mismas dimensiones (p-2.5) que los otros botones de acción</li>
+                    <li>Tooltips descriptivos cuando el botón no está disponible</li>
+                    <li>Barra de progreso compacta aparece solo durante procesamiento</li>
+                    <li>Viewer de JSON más pequeño, con botón de cierre</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+
+            {/* Responsividad móvil del modal de capturas */}
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                📱 Modal de Capturas Totalmente Responsivo
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                El modal de capturas ahora es completamente funcional en dispositivos móviles y vistas estrechas (50% de ancho)
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Botones flotantes sobre preview</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Los botones de modo de captura flotan sobre la imagen con backdrop-blur</li>
+                    <li>Iconos: Plus (Nuevo), ArrowDown (Completar), Copy (Copiar Guardada)</li>
+                    <li>Texto descriptivo visible solo en desktop (lg: breakpoint)</li>
+                    <li>Ahorra espacio vertical eliminando sección separada</li>
+                  </ul>
+                </li>
+                <li><strong>Botones de acción icon-only</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Descargar, Copiar, Eliminar son solo íconos en móvil</li>
+                    <li>Tooltips descriptivos en todos los botones</li>
+                    <li>Layout flex-wrap que se adapta al ancho disponible</li>
+                  </ul>
+                </li>
+                <li><strong>Panel derecho minimalista</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Fuentes ultra-compactas en móvil (text-[9px], text-[10px])</li>
+                    <li>Fuentes normales en desktop (text-xs, text-sm)</li>
+                    <li>Padding reducido (p-1.5 vs p-2)</li>
+                    <li>Título compacto: "Prompt" en móvil, "Prompt para [Categoría]" en desktop</li>
+                    <li>Botón Guardar muestra solo texto corto en móvil</li>
+                  </ul>
+                </li>
+                <li><strong>Espaciado optimizado</strong>: Márgenes y gaps ajustados progresivamente (1.5 → 2)</li>
+              </ul>
+            </div>
+
+            {/* Mejoras en sección Heroes */}
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🛡️ Reorganización de la Sección Heroes
+              </h4>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Tabs reordenados</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Primero: "Gestionar Datos" (vista por defecto)</li>
+                    <li>Segundo: "Importar/Exportar"</li>
+                    <li>Prioriza la gestión directa sobre la importación</li>
+                  </ul>
+                </li>
+                <li><strong>Exportación completa en ZIP</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Nuevo botón "Exportar Todo (ZIP)" en sección de exportar</li>
+                    <li>Descarga todos los datos del workspace en un archivo comprimido</li>
+                    <li>Incluye: héroes (todas las clases), personajes, tags configurados</li>
+                    <li>Estructura de carpetas preservada para fácil re-importación</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+
+            {/* Sidebar persistente */}
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                📍 Menú Lateral Persistente
+              </h4>
+              <p className="text-sm text-d4-text mb-2">
+                El sidebar ahora tiene altura fija y no se expande según el contenido de la sección actual
+              </p>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Altura consistente independientemente de la vista activa</li>
+                <li>Overflow-y-auto solo en la sección de navegación si es necesario</li>
+                <li>Experiencia de navegación más estable y predecible</li>
+              </ul>
+            </div>
+
+            {/* Generador de prompts mejorado */}
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                🎯 Generador de Prompts Avanzado
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                El generador de prompts ahora incluye datos completos con tags y soporta prompts múltiples continuos
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Datos enriquecidos con tags</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Incluye todos los tags asociados a habilidades, glifos y aspectos</li>
+                    <li>Muestra detalles completos de cada tag (descripción, valores)</li>
+                    <li>Contexto más rico para análisis de IA</li>
+                  </ul>
+                </li>
+                <li><strong>Prompts múltiples continuos</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Split automático si el prompt excede límite de tokens (configurable)</li>
+                    <li>Prompts numerados secuencialmente (Parte 1/3, Parte 2/3, etc.)</li>
+                    <li>Cada parte es independiente pero enlazada</li>
+                    <li>Ideal para builds complejos con muchos elementos</li>
+                  </ul>
+                </li>
+                <li><strong>Mejor coherencia</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Estructura consistente en todos los tipos de prompts</li>
+                    <li>Información del personaje completa (nivel, clase, paragon)</li>
+                    <li>Formato optimizado para obtener mejores respuestas de IA</li>
+                  </ul>
+                </li>
+                <li><strong>Indicadores visuales</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Muestra longitud estimada del prompt</li>
+                    <li>Indica si se generarán múltiples partes</li>
+                    <li>Contador de tokens aproximado</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.6 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.6</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 px-2 py-1 rounded">Correcciones de Importación</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Fix capturas de modal */}
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🔧 Corrección de Capturas y JSONs de Respuesta
+              </h4>
+              <p className="text-sm text-d4-text mb-3">
+                Arreglados problemas críticos en el modal de capturas y el formato de responses JSON
+              </p>
+              <ul className="text-sm text-d4-text space-y-2 ml-4 list-disc">
+                <li><strong>Modales de exportación corregidos</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>ImageViewerModal: Cambiado de React.FC a export default function</li>
+                    <li>EmptyImportWarningModal: Mismo fix para resolver errores de módulo</li>
+                    <li>Error "does not provide an export named 'default'" resuelto</li>
+                  </ul>
+                </li>
+                <li><strong>Importación no destructiva</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Importar desde captura ya NO reescribe/sobrescribe datos existentes</li>
+                    <li>Modo upsert mejorado: actualiza si existe, agrega si no existe</li>
+                    <li>Preserva datos anteriores del héroe y personaje</li>
+                  </ul>
+                </li>
+                <li><strong>Ajustes en importación de aspectos</strong>:
+                  <ul className="ml-4 mt-1 space-y-0.5 text-xs text-d4-text-dim">
+                    <li>Validación mejorada de estructura de aspectos</li>
+                    <li>Manejo correcto de aspectos equipados vs pool de héroe</li>
+                    <li>Tags de aspectos se preservan correctamente</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+
+            {/* Estadísticas */}
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                📊 Mejoras en Estadísticas
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Fix de estadísticas para sección de personajes y captura</li>
+                <li>Sincronización correcta de nivel y nivel_paragon</li>
+                <li>Importación de estadísticas sin recargar página</li>
+              </ul>
             </div>
           </div>
         </div>

@@ -32,6 +32,10 @@ export function TagsManager() {
   const [tags, setTags] = useState<TagGlobal[]>([]);
   const [filteredTags, setFilteredTags] = useState<TagGlobal[]>([]);
   
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryType | 'all'>('all');
@@ -59,7 +63,14 @@ export function TagsManager() {
   // Aplicar filtros
   useEffect(() => {
     applyFilters();
+    setCurrentPage(1); // Resetear a página 1 cuando cambian filtros
   }, [tags, searchQuery, categoryFilter, originFilter, showPendingOnly]);
+
+  // Calcular tags de la página actual
+  const totalPages = Math.ceil(filteredTags.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTags = filteredTags.slice(startIndex, endIndex);
 
   const loadTags = () => {
     const loadedTags = TagService.getTags();
@@ -294,14 +305,67 @@ export function TagsManager() {
       </div>
 
       {/* Lista de tags */}
-      <div className="space-y-2">
+      <div className="space-y-3">
+        {/* Paginador superior */}
+        {filteredTags.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2 bg-d4-bg rounded-lg border border-d4-border">
+            <div className="flex items-center gap-3 text-sm text-d4-text">
+              <span>Mostrando {startIndex + 1}-{Math.min(endIndex, filteredTags.length)} de {filteredTags.length}</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="input py-1 px-2 text-xs"
+              >
+                <option value={10}>10 por página</option>
+                <option value={20}>20 por página</option>
+                <option value={50}>50 por página</option>
+                <option value={100}>100 por página</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="px-2 py-1 rounded text-xs bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Primera
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-2 py-1 rounded text-xs bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                ‹ Anterior
+              </button>
+              <span className="text-xs text-d4-text-dim">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 rounded text-xs bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Siguiente ›
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 rounded text-xs bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Última
+              </button>
+            </div>
+          </div>
+        )}
+        
         {filteredTags.length === 0 ? (
           <div className="card p-8 text-center">
             <TagIcon className="w-12 h-12 text-d4-text-dim mx-auto mb-2" />
             <p className="text-d4-text-dim">No hay tags que mostrar</p>
           </div>
         ) : (
-          filteredTags.map(tag => (
+          <div className="space-y-2">
+          {paginatedTags.map(tag => (
             <div key={tag.id} className="card p-3">
               {editingTag?.id === tag.id ? (
                 // Modo edición
@@ -477,6 +541,45 @@ export function TagsManager() {
               )}
             </div>
           ))
+          }
+          </div>
+        )}
+        
+        {/* Paginador inferior */}
+        {filteredTags.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-4 px-4 py-2 bg-d4-bg rounded-lg border border-d4-border">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded text-sm bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Primera
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded text-sm bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ‹ Anterior
+            </button>
+            <span className="text-sm text-d4-text px-3">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded text-sm bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Siguiente ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded text-sm bg-d4-surface hover:bg-d4-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Última
+            </button>
+          </div>
         )}
       </div>
 
