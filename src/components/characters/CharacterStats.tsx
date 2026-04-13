@@ -49,12 +49,10 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   
   // Helper para extraer descripción de estructura enriquecida (personaje)
   const getMonedaDescripcion = (field: any): string | undefined => {
-    if (field && typeof field === 'object' && 'atributo_nombre' in field) {
-      // Podríamos construir una descripción desde los detalles
-      const detalles = getMonedaDetalles(field);
-      if (detalles.length > 0) {
-        return detalles.map(d => d.texto).join(' ');
-      }
+    // NO construir descripción desde detalles - los detalles deben mostrarse
+    // individualmente en el tooltip con su formato, tags y colores
+    if (field && typeof field === 'object' && 'descripcion' in field) {
+      return field.descripcion;
     }
     return undefined;
   };
@@ -89,9 +87,9 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
     loadHeroStats();
   }, [personaje.clase]);
 
-  // Sincronizar estadísticas cuando cambia el personaje (desde fuera)
+  // Sincronizar estadísticas cuando cambia el personaje (desde fuera) y normalizar campos
   useEffect(() => {
-    setEstadisticas(personaje.estadisticas || {});
+    setEstadisticas(normalizeAllStats(personaje.estadisticas));
   }, [personaje.id]);
 
   // Complementar tooltips con detalles del JSON del personaje (sin depender solo del héroe)
@@ -259,6 +257,88 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
     setHeroStats(next);
   }, [estadisticas, baseHeroStats]);
 
+  /**
+   * Normaliza nombres de campos que pueden venir de la IA con nombres diferentes
+   * a los que espera el código de visualización.
+   * También elimina campos duplicados consolidando sus valores.
+   */
+  const normalizeFieldNames = (section: any, sectionType: string): any => {
+    if (!section || typeof section !== 'object' || Array.isArray(section)) return section;
+
+    const normalized = { ...section };
+
+    // Mapeos de campos por sección (key: nombre correcto, value: array de nombres incorrectos)
+    const fieldMappings: Record<string, { correct: string; incorrect: string[] }> = {
+      defensivo: {
+        correct: 'vidaCada5Segundos',
+        incorrect: ['regeneracionVida5s', 'regeneracion_vida_5s', 'vida5s']
+      },
+      utilidad: {
+        correct: 'bonificacionProbabilidadGolpeAfortunado',
+        incorrect: ['probabilidadGolpeAfortunado', 'golpeAfortunado']
+      }
+    };
+
+    const mapping = fieldMappings[sectionType];
+    if (mapping) {
+      const { correct, incorrect } = mapping;
+      let correctValue = normalized[correct];
+
+      // Buscar valores en campos incorrectos
+      incorrect.forEach(oldName => {
+        if (oldName in normalized) {
+          // Si el campo correcto no tiene valor, usar el del incorrecto
+          if (correctValue === undefined || correctValue === null) {
+            correctValue = normalized[oldName];
+          }
+          // Eliminar el campo incorrecto
+          delete normalized[oldName];
+        }
+      });
+
+      // Asignar valor consolidado al campo correcto
+      if (correctValue !== undefined && correctValue !== null) {
+        normalized[correct] = correctValue;
+      }
+    }
+
+    return normalized;
+  };
+
+  /**
+   * Normaliza todas las secciones de estadísticas eliminando campos duplicados
+   */
+  const normalizeAllStats = (stats: Estadisticas | undefined): Estadisticas => {
+    if (!stats) return {};
+
+    const normalized: Estadisticas = { ...stats };
+
+    // Normalizar secciones
+    if (normalized.defensivo) {
+      normalized.defensivo = normalizeFieldNames(normalized.defensivo, 'defensivo');
+    }
+    if (normalized.utilidad) {
+      const normalizedUtilidad = normalizeFieldNames(normalized.utilidad, 'utilidad');
+      
+      // Mover reduccionDanioJcJ de utilidad a jcj
+      if ('reduccionDanioJcJ' in normalizedUtilidad) {
+        if (!normalized.jcj) normalized.jcj = {};
+        normalized.jcj.reduccionDanio = (normalizedUtilidad as any).reduccionDanioJcJ;
+        delete (normalizedUtilidad as any).reduccionDanioJcJ;
+      }
+      
+      normalized.utilidad = normalizedUtilidad;
+    }
+    if (normalized.ofensivo) {
+      normalized.ofensivo = normalizeFieldNames(normalized.ofensivo, 'ofensivo');
+    }
+    if (normalized.armaduraYResistencias) {
+      normalized.armaduraYResistencias = normalizeFieldNames(normalized.armaduraYResistencias, 'armaduraYResistencias');
+    }
+
+    return normalized;
+  };
+
   // Convertir formato V2 a V1 (formato interno actual)
   const convertV2ToV1 = (v2Data: any): { stats: Estadisticas; nivel?: number; nivelParagon?: number } => {
     // Si ya es formato V1, retornar directamente
@@ -288,10 +368,29 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       const stats: Estadisticas = {};
       if (v2Stats.personaje) stats.personaje = v2Stats.personaje;
       if (v2Stats.atributosPrincipales) stats.atributosPrincipales = v2Stats.atributosPrincipales;
-      if (v2Stats.defensivo && !Array.isArray(v2Stats.defensivo)) stats.defensivo = v2Stats.defensivo;
-      if (v2Stats.ofensivo && !Array.isArray(v2Stats.ofensivo)) stats.ofensivo = v2Stats.ofensivo;
-      if (v2Stats.utilidad && !Array.isArray(v2Stats.utilidad)) stats.utilidad = v2Stats.utilidad;
-      if (v2Stats.armaduraYResistencias) stats.armaduraYResistencias = v2Stats.armaduraYResistencias;
+      if (v2Stats.defensivo && !Array.isArray(v2Stats.defensivo)) {
+        stats.defensivo = normalizeFieldNames(v2Stats.defensivo, 'defensivo');
+      }
+      if (v2Stats.ofensivo && !Array.isArray(v2Stats.ofensivo)) {
+        stats.ofensivo = normalizeFieldNames(v2Stats.ofensivo, 'ofensivo');
+      }
+      if (v2Stats.utilidad && !Array.isArray(v2Stats.utilidad)) {
+        const normalizedUtilidad = normalizeFieldNames(v2Stats.utilidad, 'utilidad');
+        
+        // Si utilidad tiene reduccionDanioJcJ, moverlo a la sección jcj
+        if ('reduccionDanioJcJ' in normalizedUtilidad) {
+          stats.jcj = { 
+            ...stats.jcj, 
+            reduccionDanio: normalizedUtilidad.reduccionDanioJcJ 
+          };
+          delete normalizedUtilidad.reduccionDanioJcJ;
+        }
+        
+        stats.utilidad = normalizedUtilidad;
+      }
+      if (v2Stats.armaduraYResistencias) {
+        stats.armaduraYResistencias = normalizeFieldNames(v2Stats.armaduraYResistencias, 'armaduraYResistencias');
+      }
       if (v2Stats.jcj) stats.jcj = v2Stats.jcj;
       // Preservar moneda con su estructura completa (detalles incluidos)
       if (v2Stats.moneda) stats.moneda = v2Stats.moneda;

@@ -840,6 +840,50 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 7. Si no hay marco de selección visible, deduce el atributo por el título del tooltip o por el texto del detalle (lado izquierdo)
 8. NO omitas detalles de atributos compartidos (vulnerables, crítico, abrumar, daño con estados, etc.)
 
+**NOMBRES DE CAMPOS EXACTOS (IMPORTANTE):**
+Usa estos nombres de campos EXACTOS para cada sección:
+
+**Defensivo:**
+- vidaMaxima
+- cantidadPociones
+- sanacionRecibida
+- vidaPorEliminacion
+- vidaCada5Segundos (NO "regeneracionVida5s"!)
+- probabilidadBloqueo
+- reduccionBloqueo
+- reduccionDanioCercanos
+- bonificacionFortificacion
+- bonificacionBarrera
+- probabilidadEsquivar
+
+**Ofensivo:**
+- danioBaseArma
+- velocidadArma
+- bonificacionVelocidadAtaque
+- probabilidadGolpeCritico
+- danioGolpeCritico
+- probabilidadAbrumar
+- danioAbrumador
+- danioContraEnemigosVulnerables
+- todoElDanio
+- danioFisico, danioFuego, danioRayo, danioFrio, danioVeneno, danioSombra
+- danioConSangrado, danioConQuemadura, danioConVeneno, danioConCorrupcion
+- danioVsEnemigosCercanos, danioVsEnemigosElite, danioVsEnemigosSaludables
+- espinas
+
+**Utilidad:**
+- maximoFe (NO "maximoDeFuria"!)
+- reduccionCostoFe
+- regeneracionFe
+- feConCadaEliminacion
+- velocidadMovimiento
+- reduccionRecuperacion (NO "reduccionDeRecuperacion"!)
+- bonificacionProbabilidadGolpeAfortunado (NO "probabilidadGolpeAfortunado"!)
+- bonificacionExperiencia
+
+**JcJ (sección separada):**
+- reduccionDanio (NO incluir en "utilidad" como "reduccionDanioJcJ"!)
+
 **Devuélveme la información en el siguiente formato JSON:**
 
 \`\`\`json
@@ -945,14 +989,35 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
       "palabras_clave": ["vulnerables", "golpe_critico"]
     },
     "defensivo": {
-      "vidaMaxima": 7581,
-      "detalles": [],
+      "vidaMaxima": 8028,
+      "cantidadPociones": 4,
+      "sanacionRecibida": 74.1,
+      "vidaPorEliminacion": 440,
+      "vidaCada5Segundos": 1620,
+      "probabilidadBloqueo": 44,
+      "reduccionBloqueo": 65,
+      "bonificacionFortificacion": 17.5,
+      "bonificacionBarrera": 0,
+      "detalles": [
+        {
+          "atributo_ref": "vidaMaxima",
+          "atributo_nombre": "Vida máxima",
+          "texto": "Tu vida máxima total es de 8,028",
+          "valor": 8028
+        }
+      ],
       "palabras_clave": []
     },
     "utilidad": {
-      "velocidadMovimiento": 0,
+      "velocidadMovimiento": 107.5,
+      "reduccionRecuperacion": 15.5,
+      "bonificacionProbabilidadGolpeAfortunado": 14.1,
+      "bonificacionExperiencia": 529.7,
       "detalles": [],
       "palabras_clave": []
+    },
+    "jcj": {
+      "reduccionDanio": 92
     },
     "moneda": {
       "oro": "380M",

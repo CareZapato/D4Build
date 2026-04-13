@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, HelpCircle, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, HelpCircle, CheckCircle, AlertCircle, XCircle, Zap, Eye } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
 import { useAppContext } from '../../context/AppContext';
 import { WorkspaceService } from '../../services/WorkspaceService';
+import { GeminiService } from '../../services/GeminiService';
+import ImportResultsModal, { ImportResultDetails } from './ImportResultsModal';
+import { validateJSONByCategory } from '../../utils/jsonValidation';
 
 interface Props {
   isOpen: boolean;
@@ -49,6 +52,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [importing, setImporting] = useState(false);
   const [selectedClase, setSelectedClase] = useState<string>('');
   const [promptElementCount, setPromptElementCount] = useState<string>('');
+  
+  // Estados para procesamiento con IA (Gemini)
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiProgress, setAiProgress] = useState<'idle' | 'sending' | 'processing' | 'received' | 'saving' | 'done'>('idle');
+  const [aiExtractedJSON, setAiExtractedJSON] = useState<string>('');
+  const [showJSONViewer, setShowJSONViewer] = useState(false);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null); // URL de imagen seleccionada de galería
+  const [selectedGalleryImageBlob, setSelectedGalleryImageBlob] = useState<Blob | null>(null); // Blob de imagen seleccionada
+  
+  // Estados para modal de resultados de importación
+  const [showImportResults, setShowImportResults] = useState(false);
+  const [importResults, setImportResults] = useState<ImportResultDetails | null>(null);
+  const GEMINI_API_KEY = 'AIzaSyCUU5YJqZfaXPkOvmvVfizpAfWRLSEb4Lk'; // Idealmente esto debería estar en un .env
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +115,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setShowPromptPanel(false);
       setComposedImageUrl(null);
       setShowGallery(false);
+      setSelectedGalleryImage(null);
+      setSelectedGalleryImageBlob(null);
     }
   }, [isOpen]);
 
@@ -684,77 +702,465 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  // Seleccionar imagen de galería para procesar con IA
+  const selectGalleryImage = async (imageUrl: string, imageName: string) => {
+    try {
+      // Si ya está seleccionada, deseleccionar
+      if (selectedGalleryImage === imageUrl) {
+        setSelectedGalleryImage(null);
+        setSelectedGalleryImageBlob(null);
+        showToast('🔄 Imagen deseleccionada', 'info');
+        return;
+      }
+
+      // Obtener blob de la imagen
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      setSelectedGalleryImage(imageUrl);
+      setSelectedGalleryImageBlob(blob);
+      showToast(`✅ Imagen "${imageName}" seleccionada para procesar con IA`, 'success');
+      
+      // Abrir panel de prompt automáticamente
+      if (!showPromptPanel) {
+        setShowPromptPanel(true);
+      }
+    } catch (error) {
+      console.error('Error seleccionando imagen:', error);
+      showToast('❌ Error al seleccionar imagen', 'error');
+    }
+  };
+
+  // ============================================================================
+  // DEEP MERGE UTILITY - Fusión profunda de objetos
+  // ============================================================================
+  /**
+   * Hace un merge profundo de dos objetos, preservando todos los campos existentes
+   * y agregando/actualizando los nuevos.
+   * 
+   * IMPORTANTE: Esta función es crucial para estadísticas porque previene la
+   * pérdida de datos al importar nuevas secciones.
+   * 
+   * @example
+   * const base = { 
+   *   personaje: { aguante: 1000, danioArma: 500 },
+   *   moneda: { oro: 1000 }
+   * };
+   * const nuevo = { 
+   *   personaje: { aguante: 2000 },  // Solo actualiza aguante
+   *   ofensivo: { critico: 10 }      // Nueva sección
+   * };
+   * deepMerge(base, nuevo) => {
+   *   personaje: { aguante: 2000, danioArma: 500 },  // ✅ preserva danioArma
+   *   moneda: { oro: 1000 },                          // ✅ preserva moneda
+   *   ofensivo: { critico: 10 }                       // ✅ agrega ofensivo
+   * }
+   */
+  const deepMerge = (target: any, source: any): any => {
+    // Caso base: Si source es null o undefined, mantener target
+    if (source === null || source === undefined) {
+      return target;
+    }
+
+    // Caso base: Si target es null o undefined, usar source
+    if (target === null || target === undefined) {
+      return source;
+    }
+
+    // Caso especial: Detectar estructura enriquecida de estadística
+    const isTargetEnriched = typeof target === 'object' && !Array.isArray(target) && 
+                             ('valor' in target || 'detalles' in target || 'atributo_ref' in target);
+    const isSourceEnriched = typeof source === 'object' && !Array.isArray(source) && 
+                             ('valor' in source || 'detalles' in source || 'atributo_ref' in source);
+    const isSourcePrimitive = typeof source === 'number' || typeof source === 'string' || typeof source === 'boolean';
+    const isTargetPrimitive = typeof target === 'number' || typeof target === 'string' || typeof target === 'boolean';
+
+    // CASO 1: Target enriquecido + Source primitivo
+    // Preservar estructura enriquecida, solo actualizar el valor
+    if (isTargetEnriched && isSourcePrimitive) {
+      console.log(`  🔄 Caso 1: Preservando estructura enriquecida, actualizando valor de ${JSON.stringify(target.valor)} a ${source}`);
+      return {
+        ...target,
+        valor: source
+      };
+    }
+
+    // CASO 2: Target primitivo + Source enriquecido
+    // Usar la estructura enriquecida completa
+    if (isTargetPrimitive && isSourceEnriched) {
+      console.log(`  🔄 Caso 2: Reemplazando valor simple ${target} con estructura enriquecida`);
+      return source;
+    }
+
+    // CASO 3: Ambos son primitivos
+    if (isTargetPrimitive && isSourcePrimitive) {
+      return source;
+    }
+
+    // Arrays: reemplazar directamente (no mergear arrays)
+    if (Array.isArray(source)) {
+      return source;
+    }
+
+    // Si alguno no es objeto, retornar source
+    if (typeof target !== 'object' || typeof source !== 'object') {
+      return source;
+    }
+
+    // Crear copia del target
+    const result = { ...target };
+
+    // Mergear cada propiedad del source
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+          // Si es objeto, hacer merge recursivo
+          result[key] = deepMerge(target[key], source[key]);
+        } else {
+          // Si es valor primitivo o array, reemplazar
+          result[key] = source[key];
+        }
+      }
+    }
+
+    return result;
+  };
+
+  /**
+   * Normaliza nombres de campos en secciones de estadísticas
+   * y elimina campos con nombres antiguos/incorrectos
+   */
+  const normalizeStatsFieldNames = (stats: any): any => {
+    if (!stats || typeof stats !== 'object') return stats;
+
+    const normalized = { ...stats };
+
+    // Mapeo de nombres antiguos/incorrectos a nombres correctos
+    const fieldMappings: Record<string, { correct: string; incorrect: string[] }> = {
+      defensivo: {
+        correct: 'vidaCada5Segundos',
+        incorrect: ['regeneracionVida5s', 'regeneracion_vida_5s', 'vida5s']
+      },
+      utilidad: {
+        correct: 'bonificacionProbabilidadGolpeAfortunado',
+        incorrect: ['probabilidadGolpeAfortunado', 'golpeAfortunado']
+      }
+    };
+
+    // Procesar cada sección
+    Object.keys(fieldMappings).forEach(sectionKey => {
+      if (normalized[sectionKey] && typeof normalized[sectionKey] === 'object') {
+        const section = normalized[sectionKey];
+        const { correct, incorrect } = fieldMappings[sectionKey];
+
+        // Buscar y consolidar campos incorrectos
+        let correctValue = section[correct];
+        let hasIncorrectValue = false;
+
+        incorrect.forEach(wrongName => {
+          if (wrongName in section) {
+            console.log(`  🔧 Normalizando campo ${sectionKey}.${wrongName} → ${correct}`);
+            
+            // Si el campo correcto no existe, usar el valor del incorrecto
+            if (correctValue === undefined || correctValue === null) {
+              correctValue = section[wrongName];
+            }
+            
+            // Eliminar el campo incorrecto
+            delete section[wrongName];
+            hasIncorrectValue = true;
+          }
+        });
+
+        // Asignar el valor consolidado al campo correcto
+        if (hasIncorrectValue && correctValue !== undefined) {
+          section[correct] = correctValue;
+        }
+      }
+    });
+
+    // Mover reduccionDanioJcJ de utilidad a jcj
+    if (normalized.utilidad && 'reduccionDanioJcJ' in normalized.utilidad) {
+      console.log('  🔧 Moviendo utilidad.reduccionDanioJcJ → jcj.reduccionDanio');
+      if (!normalized.jcj) normalized.jcj = {};
+      normalized.jcj.reduccionDanio = normalized.utilidad.reduccionDanioJcJ;
+      delete normalized.utilidad.reduccionDanioJcJ;
+    }
+
+    return normalized;
+  };
+
   // Importar JSON resultante
-  const handleImportJSON = async () => {
+  const handleImportJSON = async (): Promise<ImportResultDetails> => {
+    console.log('🔵 [handleImportJSON] Iniciando importación...');
+    console.log('📝 [handleImportJSON] Categoría:', selectedCategory);
+    console.log('👤 [handleImportJSON] Tipo de prompt:', promptType);
+    
+    // Validación inicial
     if (!jsonText.trim()) {
+      const errorResult: ImportResultDetails = {
+        success: false,
+        category: selectedCategory,
+        promptType,
+        targetName: '',
+        validationErrors: [],
+        rawJSON: jsonText,
+        errorMessage: 'No hay JSON para importar'
+      };
       showToast('❌ Ingresa un JSON válido', 'error');
-      return;
+      return errorResult;
     }
 
     let shouldReload = false;
+    let parsedData: any;
+    
     setImporting(true);
+    
     try {
-      const data = JSON.parse(jsonText);
+      // 1. PARSEAR JSON
+      console.log('📦 [handleImportJSON] Parseando JSON...');
+      parsedData = JSON.parse(jsonText);
+      console.log('✅ [handleImportJSON] JSON parseado correctamente:', parsedData);
+      
+      // 2. VALIDAR ESTRUCTURA
+      console.log('🔍 [handleImportJSON] Validando estructura del JSON...');
+      const validation = validateJSONByCategory(selectedCategory, parsedData);
+      console.log('📊 [handleImportJSON] Resultado de validación:', validation);
+      console.log('   - Válido:', validation.isValid);
+      console.log('   - Errores:', validation.errors.length);
+      console.log('   - Advertencias:', validation.warnings.length);
+      console.log('   - Campos detectados:', validation.detectedFields);
+      
+      // Si hay errores críticos, retornar sin importar
+      if (!validation.isValid) {
+        const errorResult: ImportResultDetails = {
+          success: false,
+          category: selectedCategory,
+          promptType,
+          targetName: promptType === 'heroe' ? selectedClase : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || ''),
+          validationErrors: [...validation.errors, ...validation.warnings],
+          rawJSON: jsonText,
+          parsedJSON: parsedData,
+          errorMessage: 'El JSON no tiene la estructura esperada'
+        };
+        setImporting(false);
+        return errorResult;
+      }
+      
+      const data = parsedData;
+      let itemsImported = 0;
+      let itemsUpdated = 0;
+      const fieldsAdded: string[] = [];
       
       if (promptType === 'heroe') {
-        // Guardar en héroe
+        // =============== GUARDAR EN HÉROE ===============
+        console.log('🦸 [handleImportJSON] Modo: Guardar en héroe');
+        
         if (!selectedClase) {
+          const errorResult: ImportResultDetails = {
+            success: false,
+            category: selectedCategory,
+            promptType,
+            targetName: '',
+            validationErrors: validation.warnings,
+            rawJSON: jsonText,
+            parsedJSON: parsedData,
+            errorMessage: 'Selecciona una clase primero'
+          };
           showToast('❌ Selecciona una clase primero', 'error');
           setImporting(false);
-          return;
+          return errorResult;
         }
 
         const clase = selectedClase;
+        console.log('📄 [handleImportJSON] Clase seleccionada:', clase);
         
         switch (selectedCategory) {
           case 'skills':
+            console.log('⚔️ [handleImportJSON] Importando habilidades...');
             if (data.habilidades_activas || data.habilidades_pasivas) {
-              await WorkspaceService.saveHeroSkills(clase, {
-                habilidades_activas: data.habilidades_activas || [],
-                habilidades_pasivas: data.habilidades_pasivas || []
+              // 🔄 CARGAR habilidades existentes del héroe
+              const heroSkills = await WorkspaceService.loadHeroSkills(clase) || { 
+                habilidades_activas: [], 
+                habilidades_pasivas: [] 
+              };
+
+              const activasNuevas = data.habilidades_activas || [];
+              const pasivasNuevas = data.habilidades_pasivas || [];
+
+              // 🔄 MERGE activas (por nombre)
+              activasNuevas.forEach((skill: any) => {
+                const idx = heroSkills.habilidades_activas.findIndex((s: any) => s.nombre === skill.nombre);
+                const skillId = idx >= 0 ? heroSkills.habilidades_activas[idx].id : (skill.id || `skill_activa_${skill.nombre.toLowerCase().replace(/\s+/g, '_')}`);
+                const skillWithId = { ...skill, id: skillId };
+                if (idx >= 0) {
+                  heroSkills.habilidades_activas[idx] = skillWithId;
+                  itemsUpdated++;
+                } else {
+                  heroSkills.habilidades_activas.push(skillWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(`Activa: ${skill.nombre}`);
               });
-              showToast(`✅ ${(data.habilidades_activas?.length || 0) + (data.habilidades_pasivas?.length || 0)} habilidades guardadas en ${clase}`, 'success');
+
+              // 🔄 MERGE pasivas (por nombre)
+              pasivasNuevas.forEach((skill: any) => {
+                const idx = heroSkills.habilidades_pasivas.findIndex((s: any) => s.nombre === skill.nombre);
+                const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${skill.nombre.toLowerCase().replace(/\s+/g, '_')}`);
+                const skillWithId = { ...skill, id: skillId };
+                if (idx >= 0) {
+                  heroSkills.habilidades_pasivas[idx] = skillWithId;
+                  itemsUpdated++;
+                } else {
+                  heroSkills.habilidades_pasivas.push(skillWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(`Pasiva: ${skill.nombre}`);
+              });
+              
+              await WorkspaceService.saveHeroSkills(clase, heroSkills);
+              console.log(`✅ [handleImportJSON] Habilidades guardadas (${itemsImported} nuevas, ${itemsUpdated} actualizadas)`);
+              showToast(`✅ ${itemsImported + itemsUpdated} habilidades procesadas en ${clase} (${itemsImported} nuevas, ${itemsUpdated} actualizadas)`, 'success');
               shouldReload = true;
             }
             break;
+          
           case 'glifos':
+            console.log('🔮 [handleImportJSON] Importando glifos...');
             if (data.glifos) {
-              await WorkspaceService.saveHeroGlyphs(clase, { glifos: data.glifos });
-              showToast(`✅ ${data.glifos.length} glifos guardados en ${clase}`, 'success');
+              // 🔄 CARGAR glifos existentes del héroe
+              const heroGlyphs = await WorkspaceService.loadHeroGlyphs(clase) || { glifos: [] };
+
+              // 🔄 MERGE glifos (por nombre)
+              (data.glifos as any[]).forEach((glyph: any) => {
+                const idx = heroGlyphs.glifos.findIndex((g: any) => g.nombre === glyph.nombre);
+                const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${glyph.nombre.toLowerCase().replace(/\s+/g, '_')}`);
+                const glyphWithId = { ...glyph, id: glyphId };
+                if (idx >= 0) {
+                  heroGlyphs.glifos[idx] = glyphWithId;
+                  itemsUpdated++;
+                } else {
+                  heroGlyphs.glifos.push(glyphWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(glyph.nombre);
+              });
+              
+              await WorkspaceService.saveHeroGlyphs(clase, heroGlyphs);
+              console.log(`✅ [handleImportJSON] Glifos guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
+              showToast(`✅ ${itemsImported + itemsUpdated} glifos procesados en ${clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
               shouldReload = true;
             }
             break;
+          
           case 'aspectos':
+            console.log('💎 [handleImportJSON] Importando aspectos...');
             if (data.aspectos || data.aspectos_equipados) {
-              const aspectsToSave = data.aspectos || data.aspectos_equipados || [];
-              await WorkspaceService.saveHeroAspects(clase, { aspectos: aspectsToSave });
-              showToast(`✅ ${aspectsToSave.length} aspectos guardados en ${clase}`, 'success');
+              const aspectsNuevos = data.aspectos || data.aspectos_equipados || [];
+              
+              // 🔄 CARGAR aspectos existentes del héroe
+              const heroAspects = await WorkspaceService.loadHeroAspects(clase) || { aspectos: [] };
+
+              // 🔄 MERGE aspectos (por nombre o shortName)
+              aspectsNuevos.forEach((aspect: any) => {
+                const aspectName = aspect.nombre || aspect.name || aspect.shortName;
+                const idx = heroAspects.aspectos.findIndex((a: any) => 
+                  (a.nombre && a.nombre === aspectName) || 
+                  (a.shortName && a.shortName === aspectName) ||
+                  (a.name && a.name === aspectName)
+                );
+                const aspectId = idx >= 0 ? heroAspects.aspectos[idx].id : (aspect.id || `aspecto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                const aspectWithId = { ...aspect, id: aspectId };
+                if (idx >= 0) {
+                  heroAspects.aspectos[idx] = aspectWithId;
+                  itemsUpdated++;
+                } else {
+                  heroAspects.aspectos.push(aspectWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(aspectName);
+              });
+              
+              await WorkspaceService.saveHeroAspects(clase, heroAspects);
+              console.log(`✅ [handleImportJSON] Aspectos guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
+              showToast(`✅ ${itemsImported + itemsUpdated} aspectos procesados en ${clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
               shouldReload = true;
             }
             break;
+          
           case 'estadisticas':
+            console.log('📊 [handleImportJSON] Importando estadísticas de héroe...');
+            fieldsAdded.push(...Object.keys(data));
+            
             await WorkspaceService.saveHeroStats(clase, data);
+            console.log('✅ [handleImportJSON] Estadísticas guardadas');
             showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
             shouldReload = true;
             break;
         }
+        
+        const heroResult: ImportResultDetails = {
+          success: true,
+          category: selectedCategory,
+          promptType: 'heroe',
+          targetName: clase,
+          itemsImported,
+          itemsUpdated: 0,
+          fieldsAdded,
+          validationErrors: validation.warnings,
+          rawJSON: jsonText,
+          parsedJSON: parsedData
+        };
+        
+        setJsonText('');
+        if (shouldReload) {
+          setTimeout(() => window.location.reload(), 250);
+        }
+        setImporting(false);
+        return heroResult;
+        
       } else {
-        // Guardar en personaje
+        // =============== GUARDAR EN PERSONAJE ===============
+        console.log('🎮 [handleImportJSON] Modo: Guardar en personaje');
+        
         if (!selectedPersonajeId) {
+          const errorResult: ImportResultDetails = {
+            success: false,
+            category: selectedCategory,
+            promptType,
+            targetName: '',
+            validationErrors: validation.warnings,
+            rawJSON: jsonText,
+            parsedJSON: parsedData,
+            errorMessage: 'Selecciona un personaje primero'
+          };
           showToast('❌ Selecciona un personaje primero', 'error');
           setImporting(false);
-          return;
+          return errorResult;
         }
 
         const personaje = personajes.find(p => p.id === selectedPersonajeId);
         if (!personaje) {
+          const errorResult: ImportResultDetails = {
+            success: false,
+            category: selectedCategory,
+            promptType,
+            targetName: '',
+            validationErrors: validation.warnings,
+            rawJSON: jsonText,
+            parsedJSON: parsedData,
+            errorMessage: 'Personaje no encontrado'
+          };
           showToast('❌ Personaje no encontrado', 'error');
           setImporting(false);
-          return;
+          return errorResult;
         }
+        
+        console.log('👤 [handleImportJSON] Personaje seleccionado:', personaje.nombre);
 
         switch (selectedCategory) {
           case 'skills': {
+            console.log('⚔️ [handleImportJSON] Importando habilidades a personaje...');
             if (data.habilidades_activas || data.habilidades_pasivas) {
               const newActivas: any[] = data.habilidades_activas || [];
               const newPasivas: any[] = data.habilidades_pasivas || [];
@@ -770,16 +1176,28 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   return { ...mod, id: mod.id || existingMod?.id || `mod_${skillId}_${mod.nombre}`.replace(/\s+/g, '_').toLowerCase() + `_${Date.now()}` };
                 });
                 const skillWithId = { ...skill, id: skillId, modificadores: mods };
-                if (idx >= 0) heroSkills.habilidades_activas[idx] = skillWithId;
-                else heroSkills.habilidades_activas.push(skillWithId);
+                if (idx >= 0) {
+                  heroSkills.habilidades_activas[idx] = skillWithId;
+                  itemsUpdated++;
+                } else {
+                  heroSkills.habilidades_activas.push(skillWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(`Activa: ${skill.nombre}`);
               });
 
               newPasivas.forEach((skill: any) => {
                 const idx = heroSkills.habilidades_pasivas.findIndex((s: any) => s.nombre === skill.nombre);
                 const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
                 const skillWithId = { ...skill, id: skillId };
-                if (idx >= 0) heroSkills.habilidades_pasivas[idx] = skillWithId;
-                else heroSkills.habilidades_pasivas.push(skillWithId);
+                if (idx >= 0) {
+                  heroSkills.habilidades_pasivas[idx] = skillWithId;
+                  itemsUpdated++;
+                } else {
+                  heroSkills.habilidades_pasivas.push(skillWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(`Pasiva: ${skill.nombre}`);
               });
 
               await WorkspaceService.saveHeroSkills(personaje.clase, heroSkills);
@@ -840,12 +1258,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
+              console.log('✅ [handleImportJSON] Habilidades guardadas en personaje');
               showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades guardadas en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
             break;
           }
           case 'glifos': {
+            console.log('🔮 [handleImportJSON] Importando glifos a personaje...');
             if (data.glifos) {
               // 1. Guardar en héroe
               const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase) || { glifos: [] };
@@ -854,8 +1274,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 const idx = heroGlyphs.glifos.findIndex((g: any) => g.nombre === glyph.nombre);
                 const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
                 const glyphWithId = { ...glyph, id: glyphId };
-                if (idx >= 0) heroGlyphs.glifos[idx] = glyphWithId;
-                else heroGlyphs.glifos.push(glyphWithId);
+                if (idx >= 0) {
+                  heroGlyphs.glifos[idx] = glyphWithId;
+                  itemsUpdated++;
+                } else {
+                  heroGlyphs.glifos.push(glyphWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(glyph.nombre);
               });
 
               await WorkspaceService.saveHeroGlyphs(personaje.clase, heroGlyphs);
@@ -890,12 +1316,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
+              console.log('✅ [handleImportJSON] Glifos guardados en personaje');
               showToast(`✅ ${nuevosRefs.length} glifos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
             break;
           }
           case 'aspectos': {
+            console.log('💎 [handleImportJSON] Importando aspectos a personaje...');
             const aspectosData: any[] = data.aspectos_equipados || data.aspectos || [];
             if (aspectosData.length > 0) {
               const { tagMap } = await TagLinkingService.processAndLinkAllTags(
@@ -952,8 +1380,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   tags: Array.isArray(aspectoConTags.tags) ? aspectoConTags.tags : (base?.tags || []),
                   detalles: Array.isArray(aspectoConTags.detalles) ? aspectoConTags.detalles : (base?.detalles || [])
                 };
-                if (idx >= 0) heroAspects.aspectos[idx] = aspectoWithId;
-                else heroAspects.aspectos.push(aspectoWithId);
+                if (idx >= 0) {
+                  heroAspects.aspectos[idx] = aspectoWithId;
+                  itemsUpdated++;
+                } else {
+                  heroAspects.aspectos.push(aspectoWithId);
+                  itemsImported++;
+                }
+                fieldsAdded.push(aspectoWithId.name);
               });
 
               await WorkspaceService.saveHeroAspects(personaje.clase, heroAspects);
@@ -1011,12 +1445,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
+              console.log('✅ [handleImportJSON] Aspectos guardados en personaje');
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
             break;
           }
           case 'estadisticas': {
+            console.log('📊 [handleImportJSON] Importando estadísticas a personaje...');
             // Normalizar: soporta formato V1 (flat con nivel_paragon en raíz) y
             // V2 (objeto con clave "estadisticas" que envuelve las secciones).
             // nivel_paragon pertenece a Personaje, no a Estadisticas.
@@ -1028,14 +1464,38 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               // Formato V2: extraer secciones internas
               const v2 = data.estadisticas;
               statsToSave = {};
-              if (v2.personaje) statsToSave.personaje = v2.personaje;
-              if (v2.atributosPrincipales) statsToSave.atributosPrincipales = v2.atributosPrincipales;
-              if (v2.defensivo && !Array.isArray(v2.defensivo)) statsToSave.defensivo = v2.defensivo;
-              if (v2.ofensivo && !Array.isArray(v2.ofensivo)) statsToSave.ofensivo = v2.ofensivo;
-              if (v2.utilidad && !Array.isArray(v2.utilidad)) statsToSave.utilidad = v2.utilidad;
-              if (v2.armaduraYResistencias) statsToSave.armaduraYResistencias = v2.armaduraYResistencias;
-              if (v2.jcj) statsToSave.jcj = v2.jcj;
-              if (v2.moneda) statsToSave.moneda = v2.moneda;
+              if (v2.personaje) {
+                statsToSave.personaje = v2.personaje;
+                fieldsAdded.push('personaje');
+              }
+              if (v2.atributosPrincipales) {
+                statsToSave.atributosPrincipales = v2.atributosPrincipales;
+                fieldsAdded.push('atributosPrincipales');
+              }
+              if (v2.defensivo && !Array.isArray(v2.defensivo)) {
+                statsToSave.defensivo = v2.defensivo;
+                fieldsAdded.push('defensivo');
+              }
+              if (v2.ofensivo && !Array.isArray(v2.ofensivo)) {
+                statsToSave.ofensivo = v2.ofensivo;
+                fieldsAdded.push('ofensivo');
+              }
+              if (v2.utilidad && !Array.isArray(v2.utilidad)) {
+                statsToSave.utilidad = v2.utilidad;
+                fieldsAdded.push('utilidad');
+              }
+              if (v2.armaduraYResistencias) {
+                statsToSave.armaduraYResistencias = v2.armaduraYResistencias;
+                fieldsAdded.push('armaduraYResistencias');
+              }
+              if (v2.jcj) {
+                statsToSave.jcj = v2.jcj;
+                fieldsAdded.push('jcj');
+              }
+              if (v2.moneda) {
+                statsToSave.moneda = v2.moneda;
+                fieldsAdded.push('moneda');
+              }
               parsedNivelParagon = data.nivel_paragon;
               parsedNivel = statsToSave.atributosPrincipales?.nivel;
             } else {
@@ -1044,18 +1504,42 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               statsToSave = rest;
               parsedNivelParagon = nivel_paragon;
               parsedNivel = rest.atributosPrincipales?.nivel;
+              
+              // Detectar campos del formato V1
+              Object.keys(rest).forEach(key => {
+                if (!['nivel_paragon'].includes(key)) fieldsAdded.push(key);
+              });
             }
+            
+            if (parsedNivel !== undefined) fieldsAdded.push('nivel');
+            if (parsedNivelParagon !== undefined) fieldsAdded.push('nivel_paragon');
+
+            console.log('📦 [handleImportJSON] Secciones de estadísticas a guardar:', Object.keys(statsToSave));
+            console.log('🎯 [handleImportJSON] Nivel:', parsedNivel, '| Nivel Paragon:', parsedNivelParagon);
 
             // CRÍTICO: Leer personaje del disco y hacer DEEP MERGE de estadísticas
             const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
             const basePersonaje = personajeFromDisk || personaje;
             
+            // 🔧 NORMALIZAR ambos objetos antes del merge (base y nuevos)
+            console.log('🔧 [handleImportJSON] Normalizando nombres de campos...');
+            const normalizedBase = normalizeStatsFieldNames(basePersonaje.estadisticas || {});
+            const normalizedNew = normalizeStatsFieldNames(statsToSave);
+            
+            console.log('📊 [handleImportJSON] Estadísticas BASE (normalizadas) antes del merge:', JSON.stringify(normalizedBase, null, 2));
+            console.log('📦 [handleImportJSON] Estadísticas NUEVAS (normalizadas) a mergear:', JSON.stringify(normalizedNew, null, 2));
+            
+            // ✅ DEEP MERGE: Preserva TODOS los campos existentes en cada sección
+            // Antes: { ...basePersonaje.estadisticas, ...statsToSave } → SHALLOW MERGE (perdía datos)
+            // Ahora: deepMerge(...) → DEEP MERGE (preserva todo)
+            //   + Normalización previa elimina campos duplicados con nombres incorrectos
+            const mergedEstadisticas = deepMerge(normalizedBase, normalizedNew);
+            
+            console.log('✅ [handleImportJSON] Estadísticas MERGEADAS (resultado final):', JSON.stringify(mergedEstadisticas, null, 2));
+            
             const updatedPersonaje = {
               ...basePersonaje,
-              estadisticas: {
-                ...basePersonaje.estadisticas,  // Preservar secciones existentes (moneda, etc.)
-                ...statsToSave                  // Agregar/actualizar nuevas secciones
-              },
+              estadisticas: mergedEstadisticas,
               ...(parsedNivel !== undefined && { nivel: parsedNivel }),
               ...(parsedNivelParagon !== undefined && { nivel_paragon: parsedNivelParagon }),
               fecha_actualizacion: new Date().toISOString()
@@ -1063,25 +1547,216 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             
             await WorkspaceService.savePersonajeMerge(updatedPersonaje);
             syncUpdatedPersonajeInContext(updatedPersonaje);
+            console.log('✅ [handleImportJSON] Estadísticas guardadas en personaje');
+            console.log('📊 [handleImportJSON] Estadísticas finales:', updatedPersonaje.estadisticas);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
             shouldReload = true;
             break;
           }
         }
+        
+        const personajeResult: ImportResultDetails = {
+          success: true,
+          category: selectedCategory,
+          promptType: 'personaje',
+          targetName: personaje.nombre,
+          itemsImported,
+          itemsUpdated,
+          fieldsAdded,
+          validationErrors: validation.warnings,
+          rawJSON: jsonText,
+          parsedJSON: parsedData
+        };
+        
+        setJsonText('');
+        if (shouldReload) {
+          console.log('🔄 [handleImportJSON] Se recargará la página en 250ms...');
+          setTimeout(() => window.location.reload(), 250);
+        }
+        setImporting(false);
+        return personajeResult;
       }
       
-      setJsonText('');
-
-      if (shouldReload) {
-        setTimeout(() => {
-          window.location.reload();
-        }, 250);
-      }
     } catch (error) {
-      console.error('Error importando JSON:', error);
+      console.error('❌ [handleImportJSON] Error importando JSON:', error);
+      const errorResult: ImportResultDetails = {
+        success: false,
+        category: selectedCategory,
+        promptType,
+        targetName: promptType === 'heroe' ? selectedClase : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || ''),
+        validationErrors: [],
+        rawJSON: jsonText,
+        parsedJSON: parsedData,
+        errorMessage: error instanceof Error ? error.message : 'Error desconocido al procesar el JSON'
+      };
       showToast('❌ Error al procesar el JSON. Verifica el formato.', 'error');
+      setImporting(false);
+      return errorResult;
     } finally {
       setImporting(false);
+    }
+  };
+
+  // Procesar con IA (Gemini)
+  const processWithAI = async () => {
+    console.log('🚀 [processWithAI] Iniciando procesamiento con IA...');
+    
+    // Determinar qué imagen usar (galería seleccionada o compuesta)
+    const imageToProcess = selectedGalleryImage || composedImageUrl;
+    
+    if (!imageToProcess) {
+      showToast('❌ No hay imagen para procesar', 'error');
+      return;
+    }
+    
+    console.log('🖼️ [processWithAI] Imagen a procesar:', {
+      tipo: selectedGalleryImage ? 'galería' : 'compuesta',
+      url: imageToProcess.substring(0, 50) + '...'
+    });
+
+    // Validar que haya seleccionado personaje o clase según el tipo
+    if (promptType === 'personaje' && !selectedPersonajeId) {
+      showToast('❌ Selecciona un personaje primero', 'error');
+      return;
+    }
+    if (promptType === 'heroe' && !selectedClase) {
+      showToast('❌ Selecciona una clase primero', 'error');
+      return;
+    }
+
+    setAiProcessing(true);
+    setAiProgress('sending');
+    setAiExtractedJSON('');
+
+    try {
+      // 1. Input entregado, procesando con IA
+      showToast('🤖 Enviando imagen y prompt a Gemini...', 'info');
+
+      // Obtener el blob de la imagen (galería o compuesta)
+      let imageBlob: Blob;
+      if (selectedGalleryImageBlob) {
+        imageBlob = selectedGalleryImageBlob;
+        console.log('📦 [processWithAI] Usando blob de galería:', imageBlob.size, 'bytes');
+      } else {
+        const response = await fetch(imageToProcess);
+        imageBlob = await response.blob();
+        console.log('📦 [processWithAI] Blob descargado:', imageBlob.size, 'bytes');
+      }
+
+      // Obtener el prompt
+      const prompt = getPromptForCategory();
+      console.log('📝 [processWithAI] Prompt generado para categoría:', selectedCategory);
+      console.log('📄 [processWithAI] Longitud del prompt:', prompt.length, 'caracteres');
+      console.log('📋 [processWithAI] Prompt completo:\n', prompt);
+
+      // 2. Procesando con IA
+      setAiProgress('processing');
+      showToast('⚡ Gemini está analizando la imagen...', 'info');
+
+      // ✨ NUEVA INTEGRACIÓN CON FALLBACK AUTOMÁTICO
+      // El servicio intentará múltiples modelos hasta que uno funcione
+      console.log('🤖 [processWithAI] Llamando a GeminiService.processAndExtractJSON...');
+      const result = await GeminiService.processAndExtractJSON(
+        {
+          image: imageBlob,
+          prompt: prompt,
+          temperature: 0.1, // Máxima precisión para extracción de datos
+          topK: 32,
+          topP: 0.95,
+          maxOutputTokens: 8192
+        },
+        {
+          apiKey: GEMINI_API_KEY,
+          useJsonMode: true  // ⭐ MODO JSON PURO - respuesta sin markdown
+          // NO especificamos 'model' - usa fallback automático de modelos válidos
+        }
+      );
+
+      console.log('📊 [processWithAI] Resultado de Gemini:', {
+        success: result.success,
+        modelUsed: result.modelUsed,
+        hasJson: !!result.json,
+        jsonLength: result.json?.length || 0,
+        error: result.error
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al procesar con Gemini');
+      }
+
+      // Mostrar qué modelo funcionó
+      console.log('✅ [processWithAI] Análisis exitoso con modelo:', result.modelUsed);
+      showToast(`✅ Procesado con ${result.modelUsed}`, 'success');
+
+      // 3. JSON obtenido
+      setAiProgress('received');
+      setAiExtractedJSON(result.json);
+      console.log('📦 [processWithAI] JSON recibido de Gemini:\n', result.json);
+
+      // Validar que sea JSON válido
+      let parsedJSON: any;
+      try {
+        parsedJSON = JSON.parse(result.json);
+        console.log('✅ [processWithAI] JSON parseado correctamente:', parsedJSON);
+      } catch (parseError) {
+        console.error('❌ [processWithAI] Error parseando JSON:', parseError);
+        throw new Error('La respuesta de Gemini no contiene JSON válido');
+      }
+
+      // 4. Guardar automáticamente
+      setAiProgress('saving');
+      showToast('💾 Validando y guardando datos automáticamente...', 'info');
+
+      // Usar la función existente handleImportJSON pero con el JSON de la IA
+      setJsonText(result.json);
+      
+      // Esperar un momento para que se actualice el estado
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Ejecutar la importación automáticamente y capturar el resultado
+      console.log('💾 [processWithAI] Ejecutando handleImportJSON...');
+      const importResult = await handleImportJSON();
+      console.log('📊 [processWithAI] Resultado de importación:', importResult);
+
+      // 5. Mostrar modal con resultados
+      setImportResults(importResult);
+      setShowImportResults(true);
+
+      // 6. Proceso completado
+      setAiProgress('done');
+      
+      // Si fue exitoso, mostrar toast de éxito, sino el modal ya muestra el error
+      if (importResult.success) {
+        showToast('🎉 ¡Proceso completado exitosamente!', 'success');
+      }
+
+      // Resetear después de 3 segundos
+      setTimeout(() => {
+        setAiProgress('idle');
+        setAiProcessing(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error('❌ [processWithAI] Error:', error);
+      console.error('❌ [processWithAI] Stack:', error instanceof Error ? error.stack : 'N/A');
+      
+      // Mostrar modal de error incluso si no hay resultado de importación
+      const errorResult: ImportResultDetails = {
+        success: false,
+        category: selectedCategory,
+        promptType,
+        targetName: promptType === 'heroe' ? selectedClase : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || ''),
+        validationErrors: [],
+        rawJSON: aiExtractedJSON || '',
+        errorMessage: error instanceof Error ? error.message : 'Error desconocido al procesar con IA'
+      };
+      
+      setImportResults(errorResult);
+      setShowImportResults(true);
+      
+      showToast(`❌ ${error instanceof Error ? error.message : 'Error desconocido'}`, 'error');
+      setAiProgress('idle');
+      setAiProcessing(false);
     }
   };
 
@@ -1390,6 +2065,148 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       Borrar
                     </button>
                   </div>
+
+                  {/* Botón Procesar con IA */}
+                  <div className="mt-4 p-4 bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg border-2 border-purple-500/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-purple-400" />
+                        <h4 className="text-sm font-bold text-purple-300">
+                          Procesamiento Automático con IA
+                        </h4>
+                      </div>
+                      {aiExtractedJSON && (
+                        <button
+                          onClick={() => setShowJSONViewer(!showJSONViewer)}
+                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-all"
+                          title="Ver JSON obtenido"
+                        >
+                          <Eye className="w-3 h-3" />
+                          Ver JSON
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Barra de progreso */}
+                    {aiProcessing && (
+                      <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-d4-border">
+                        <div className="space-y-2">
+                          {/* Estado: Input entregado */}
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${aiProgress !== 'idle' ? 'bg-green-500' : 'bg-gray-600'}`} />
+                            <span className={`text-xs ${aiProgress !== 'idle' ? 'text-green-300' : 'text-gray-500'}`}>
+                              Input entregado
+                            </span>
+                          </div>
+                          
+                          {/* Estado: Procesando con IA */}
+                          <div className="flex items-center gap-2">
+                            {aiProgress === 'processing' ? (
+                              <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                            ) : (
+                              <div className={`w-3 h-3 rounded-full ${['received', 'saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
+                            )}
+                            <span className={`text-xs ${aiProgress === 'processing' ? 'text-yellow-300 font-semibold' : ['received', 'saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
+                              Procesando con IA
+                            </span>
+                          </div>
+                          
+                          {/* Estado: JSON obtenido */}
+                          <div className="flex items-center gap-2">
+                            {aiProgress === 'received' ? (
+                              <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                            ) : (
+                              <div className={`w-3 h-3 rounded-full ${['saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
+                            )}
+                            <span className={`text-xs ${aiProgress === 'received' ? 'text-yellow-300 font-semibold' : ['saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
+                              JSON obtenido
+                            </span>
+                          </div>
+                          
+                          {/* Estado: Guardando */}
+                          <div className="flex items-center gap-2">
+                            {aiProgress === 'saving' ? (
+                              <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                            ) : (
+                              <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
+                            )}
+                            <span className={`text-xs ${aiProgress === 'saving' ? 'text-yellow-300 font-semibold' : aiProgress === 'done' ? 'text-green-300' : 'text-gray-500'}`}>
+                              Guardando datos
+                            </span>
+                          </div>
+                          
+                          {/* Estado: Completado */}
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
+                            <span className={`text-xs ${aiProgress === 'done' ? 'text-green-300 font-semibold' : 'text-gray-500'}`}>
+                              ✅ Proceso completado
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Modal/Viewer del JSON */}
+                    {showJSONViewer && aiExtractedJSON && (
+                      <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-blue-500">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-blue-300">JSON Obtenido de Gemini:</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(aiExtractedJSON);
+                              showToast('📋 JSON copiado al portapapeles', 'success');
+                            }}
+                            className="text-xs text-blue-400 hover:text-blue-300 underline"
+                          >
+                            Copiar JSON
+                          </button>
+                        </div>
+                        <div className="bg-black/50 rounded p-2 max-h-40 overflow-y-auto">
+                          <pre className="text-xs text-green-300 font-mono whitespace-pre-wrap break-all">
+                            {aiExtractedJSON}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={processWithAI}
+                      disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
+                        (composedImageUrl || selectedGalleryImage) && !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {aiProcessing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                          Procesando con IA...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5" />
+                          Procesar con IA y Guardar Automáticamente
+                        </>
+                      )}
+                    </button>
+                    
+                    {!showPromptPanel && (composedImageUrl || selectedGalleryImage) && (
+                      <p className="text-xs text-yellow-400 mt-2 text-center">
+                        ⚠️ Abre el panel de Prompt primero para configurar tipo y personaje/clase
+                      </p>
+                    )}
+                    {showPromptPanel && promptType === 'personaje' && !selectedPersonajeId && (
+                      <p className="text-xs text-yellow-400 mt-2 text-center">
+                        ⚠️ Selecciona un personaje en el panel de Prompt
+                      </p>
+                    )}
+                    {showPromptPanel && promptType === 'heroe' && !selectedClase && (
+                      <p className="text-xs text-yellow-400 mt-2 text-center">
+                        ⚠️ Selecciona una clase en el panel de Prompt
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1665,7 +2482,298 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         {/* Tab Galería */}
         {showGallery && (
-          <div className=" space-y-4">
+          <div className="space-y-4">
+            {/* Imagen seleccionada para IA (si hay) */}
+            {selectedGalleryImage && (
+              <div className="space-y-4">
+                {/* Preview y Panel de Prompt */}
+                <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {/* Preview de imagen seleccionada */}
+                  <div className="bg-d4-bg p-4 rounded border-2 border-purple-500/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-purple-400" />
+                        <h4 className="text-sm font-bold text-purple-300">
+                          Imagen Seleccionada para Procesar
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Botón toggle prompt panel */}
+                        <button
+                          onClick={() => setShowPromptPanel(!showPromptPanel)}
+                          className={`px-3 py-2 rounded font-semibold transition-all ${
+                            showPromptPanel
+                              ? 'bg-d4-accent text-black shadow-lg'
+                              : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                          }`}
+                          title={showPromptPanel ? 'Ocultar prompt' : 'Mostrar prompt'}
+                        >
+                          <Copy className="w-4 h-4 inline mr-1" />
+                          Prompt
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedGalleryImage(null);
+                            setSelectedGalleryImageBlob(null);
+                            showToast('🔄 Selección cancelada', 'info');
+                          }}
+                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-white p-4 rounded max-h-96 overflow-auto border-2 border-purple-500/50">
+                      <img src={selectedGalleryImage} alt="Selected" className="w-full h-auto object-contain" style={{ maxWidth: '100%', transform: 'scale(0.85)' }} />
+                    </div>
+                  </div>
+
+                  {/* Panel de Prompt (igual que en tab Capturar) */}
+                  {showPromptPanel && (
+                    <div className="bg-d4-bg p-2 rounded border border-d4-accent/30 flex flex-col">
+                      <h3 className="text-sm font-bold text-d4-accent mb-2">
+                        Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
+                      </h3>
+                      
+                      <div className="mb-2">
+                        <label className="block text-xs font-semibold text-d4-text mb-1">
+                          Tipo:
+                        </label>
+                        <div className="flex gap-2">
+                          {selectedCategory !== 'estadisticas' && (
+                            <button
+                              onClick={() => setPromptType('heroe')}
+                              className={`px-3 py-1.5 rounded text-sm font-semibold ${
+                                promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                              }`}
+                            >
+                              Héroe
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setPromptType('personaje')}
+                            className={`px-3 py-1.5 rounded text-sm font-semibold ${
+                              promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                            }`}
+                          >
+                            Personaje
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Selector de clase (solo si tipo = heroe) */}
+                      {promptType === 'heroe' && (
+                        <div className="mb-2">
+                          <label className="block text-xs font-semibold text-d4-text mb-1">
+                            Clase:
+                          </label>
+                          <select
+                            value={selectedClase}
+                            onChange={(e) => setSelectedClase(e.target.value)}
+                            className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                          >
+                            <option value="">Selecciona una clase...</option>
+                            {availableClasses.map(clase => (
+                              <option key={clase} value={clase}>
+                                {clase}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Selector de personaje (solo si tipo = personaje) */}
+                      {promptType === 'personaje' && (
+                        <div className="mb-2">
+                          <label className="block text-xs font-semibold text-d4-text mb-1">
+                            Personaje:
+                          </label>
+                          <select
+                            value={selectedPersonajeId || ''}
+                            onChange={(e) => setSelectedPersonajeId(e.target.value || null)}
+                            className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text"
+                          >
+                            <option value="">Ninguno (extracción genérica)</option>
+                            {personajes && personajes.length > 0 ? (
+                              personajes.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
+                                </option>
+                              ))
+                            ) : (
+                              <option value="" disabled>No hay personajes creados</option>
+                            )}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="bg-d4-surface p-2 rounded border border-d4-border max-h-[220px] overflow-y-auto flex-1">
+                        <pre className="text-xs text-d4-text whitespace-pre-wrap font-mono">
+                          {getPromptForCategory()}
+                        </pre>
+                      </div>
+
+                      <button
+                        onClick={copyPromptToClipboard}
+                        className="mt-2 btn-primary flex items-center gap-2 w-full justify-center"
+                      >
+                        <Copy className="w-4 h-4" />
+                        {copiedPrompt ? '✅ Copiado!' : 'Copiar Prompt'}
+                      </button>
+
+                      <div className="mt-2">
+                        <label className="block text-xs font-semibold text-d4-text mb-1">
+                          Cantidad de elementos (opcional)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={promptElementCount}
+                          onChange={(e) => setPromptElementCount(e.target.value)}
+                          className="w-full p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-xs"
+                          placeholder="Ej: 5"
+                          title="Si lo defines, el prompt extrae solo esa cantidad de elementos señalados"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Botón Procesar con IA (igual que en tab Capturar) */}
+                <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 p-4 rounded-lg border-2 border-purple-500/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-purple-400" />
+                      <h4 className="text-sm font-bold text-purple-300">
+                        Procesamiento Automático con IA
+                      </h4>
+                    </div>
+                    {aiExtractedJSON && (
+                      <button
+                        onClick={() => setShowJSONViewer(!showJSONViewer)}
+                        className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-all"
+                        title="Ver JSON obtenido"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Ver JSON
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Barra de progreso */}
+                  {aiProcessing && (
+                    <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-d4-border">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${aiProgress !== 'idle' ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          <span className={`text-xs ${aiProgress !== 'idle' ? 'text-green-300' : 'text-gray-500'}`}>
+                            Input entregado
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {aiProgress === 'processing' ? (
+                            <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                          ) : (
+                            <div className={`w-3 h-3 rounded-full ${['received', 'saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          )}
+                          <span className={`text-xs ${aiProgress === 'processing' ? 'text-yellow-300 font-semibold' : ['received', 'saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
+                            Procesando con IA
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {aiProgress === 'received' ? (
+                            <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                          ) : (
+                            <div className={`w-3 h-3 rounded-full ${['saving', 'done'].includes(aiProgress) ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          )}
+                          <span className={`text-xs ${aiProgress === 'received' ? 'text-yellow-300 font-semibold' : ['saving', 'done'].includes(aiProgress) ? 'text-green-300' : 'text-gray-500'}`}>
+                            JSON obtenido
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {aiProgress === 'saving' ? (
+                            <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                          ) : (
+                            <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          )}
+                          <span className={`text-xs ${aiProgress === 'saving' ? 'text-yellow-300 font-semibold' : aiProgress === 'done' ? 'text-green-300' : 'text-gray-500'}`}>
+                            Guardando datos
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${aiProgress === 'done' ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          <span className={`text-xs ${aiProgress === 'done' ? 'text-green-300 font-semibold' : 'text-gray-500'}`}>
+                            ✅ Proceso completado
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Modal/Viewer del JSON */}
+                  {showJSONViewer && aiExtractedJSON && (
+                    <div className="mb-3 bg-d4-surface rounded-lg p-3 border border-blue-500">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-blue-300">JSON Obtenido de Gemini:</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(aiExtractedJSON);
+                            showToast('📋 JSON copiado al portapapeles', 'success');
+                          }}
+                          className="text-xs text-blue-400 hover:text-blue-300 underline"
+                        >
+                          Copiar JSON
+                        </button>
+                      </div>
+                      <div className="bg-black/50 rounded p-2 max-h-40 overflow-y-auto">
+                        <pre className="text-xs text-green-300 font-mono whitespace-pre-wrap break-all">
+                          {aiExtractedJSON}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={processWithAI}
+                    disabled={aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold transition-all ${
+                      !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
+                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {aiProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        Procesando con IA...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5" />
+                        Procesar con IA y Guardar Automáticamente
+                      </>
+                    )}
+                  </button>
+                  
+                  {!showPromptPanel && (
+                    <p className="text-xs text-yellow-400 mt-2 text-center">
+                      ⚠️ Abre el panel de Prompt primero para configurar tipo y personaje/clase
+                    </p>
+                  )}
+                  {showPromptPanel && promptType === 'personaje' && !selectedPersonajeId && (
+                    <p className="text-xs text-yellow-400 mt-2 text-center">
+                      ⚠️ Selecciona un personaje en el panel de Prompt
+                    </p>
+                  )}
+                  {showPromptPanel && promptType === 'heroe' && !selectedClase && (
+                    <p className="text-xs text-yellow-400 mt-2 text-center">
+                      ⚠️ Selecciona una clase en el panel de Prompt
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="bg-d4-bg p-4 rounded border border-d4-accent/30">
               <h3 className="text-lg font-semibold text-d4-accent mb-4">
                 Galería de {CATEGORIES.find(c => c.value === selectedCategory)?.label}
@@ -1678,17 +2786,43 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {galleryImages.map((img, index) => (
-                    <div key={index} className="bg-d4-surface p-2 rounded border border-d4-border relative group">
+                    <div 
+                      key={index} 
+                      className={`bg-d4-surface p-2 rounded border relative group transition-all ${
+                        selectedGalleryImage === img.url 
+                          ? 'border-purple-500 ring-2 ring-purple-500/50' 
+                          : 'border-d4-border'
+                      }`}
+                    >
                       <div className="relative">
                         <img src={img.url} alt={img.nombre} className="w-full h-32 object-contain bg-white rounded" />
-                        {/* Botón copiar (aparece al hover) */}
-                        <button
-                          onClick={() => copyGalleryImage(img.url, img.nombre)}
-                          className="absolute top-2 right-2 p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Copiar imagen al portapapeles"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
+                        {/* Indicador de selección */}
+                        {selectedGalleryImage === img.url && (
+                          <div className="absolute top-2 left-2 bg-purple-600 text-white rounded-full p-1">
+                            <CheckCircle className="w-4 h-4" />
+                          </div>
+                        )}
+                        {/* Botones de acción (aparecen al hover) */}
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => selectGalleryImage(img.url, img.nombre)}
+                            className={`p-2 ${
+                              selectedGalleryImage === img.url
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : 'bg-purple-600 hover:bg-purple-700'
+                            } text-white rounded-full shadow-lg`}
+                            title={selectedGalleryImage === img.url ? 'Deseleccionar' : 'Seleccionar para procesar con IA'}
+                          >
+                            <Zap className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => copyGalleryImage(img.url, img.nombre)}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
+                            title="Copiar imagen al portapapeles"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-d4-text-dim mt-2 truncate" title={img.nombre}>
                         {img.nombre}
@@ -1704,6 +2838,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </div>
         )}
       </div>
+      
+      {/* Modal de Resultados de Importación */}
+      <ImportResultsModal
+        isOpen={showImportResults}
+        onClose={() => setShowImportResults(false)}
+        results={importResults}
+      />
     </div>
   );
 };

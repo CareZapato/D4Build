@@ -27,7 +27,7 @@ export const TagTooltip = memo(function TagTooltip({ tagId, className = '', icon
   const [position, setPosition] = useState<'top' | 'bottom'>('bottom');
   const tooltipRef = useRef<HTMLDivElement>(null);
   const iconRef = useRef<HTMLDivElement>(null);
-  const hoverTimeoutRef = useRef<number | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Memoizar la carga del tag para mejor performance
   const tag = useMemo(() => TagService.getTagById(tagId), [tagId]);
