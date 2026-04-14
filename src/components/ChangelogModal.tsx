@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">13 de Abril, 2026</p>
+                <p className="text-d4-text font-semibold">14 de Abril, 2026</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,64 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.14 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.14</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">Sistema Avanzado de Prompts IA</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🧠 Prompts de Diagnóstico Profesional
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Análisis de puntos fuertes y débiles</strong> detallados de la build actual</li>
+                <li>Prompts enriquecidos con <strong>todos los datos disponibles</strong>: modificadores, efectos, escalados, bonificaciones</li>
+                <li>Información de <strong>tags</strong> incluida para análisis más profundo de sinergias</li>
+                <li>Sugerencias de qué <strong>cambiar, mejorar o mantener</strong> en la configuración</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🔄 Sistema de Multi-Prompts Comparativos
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Comparación con todas las opciones disponibles</strong> del héroe en habilidades, glifos y aspectos</li>
+                <li><strong>Stage 1</strong>: Recopilación de datos y generación de resumen de opciones</li>
+                <li><strong>Stage 2</strong>: Análisis profundo comparativo con recomendaciones específicas</li>
+                <li>Los prompts sugieren <strong>guardar información clave</strong> en memoria del chat para análisis continuos</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                🧮 Análisis Matemático de Build
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Cálculos de daño</strong>: Desglose matemático de cómo se obtiene el DPS final</li>
+                <li><strong>Cálculos defensivos</strong>: Análisis de reducción de daño y efectividad del aguante</li>
+                <li>Identificación de <strong>multiplicadores clave</strong> y su impacto en la build</li>
+                <li>Sugerencias basadas en <strong>teorycrafting matemático</strong> para maximizar potencia</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                ⚙️ Activación Condicional Inteligente
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Los prompts se <strong>activan/desactivan</strong> según datos disponibles</li>
+                <li><strong>Análisis básico</strong>: Requiere datos del personaje cargados</li>
+                <li><strong>Análisis comparativo</strong>: Requiere datos del héroe disponibles</li>
+                <li>Indicadores visuales muestran <strong>qué falta cargar</strong> para habilitar cada prompt</li>
+              </ul>
             </div>
           </div>
         </div>
