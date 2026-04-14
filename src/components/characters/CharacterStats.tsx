@@ -336,6 +336,16 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
       normalized.armaduraYResistencias = normalizeFieldNames(normalized.armaduraYResistencias, 'armaduraYResistencias');
     }
 
+    // Compatibilidad: algunos JSON guardan aguante en personaje.aguante.
+    // Lo reflejamos en armaduraYResistencias para que la pestaña Armaduras lo renderice.
+    const aguantePersonaje = normalized.personaje?.aguante;
+    if (aguantePersonaje !== undefined && aguantePersonaje !== null) {
+      normalized.armaduraYResistencias = {
+        ...(normalized.armaduraYResistencias || {}),
+        aguante: normalized.armaduraYResistencias?.aguante ?? aguantePersonaje
+      };
+    }
+
     return normalized;
   };
 
@@ -933,13 +943,26 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   };
 
   const updateArmaduraYResistencias = (field: string, value: number | string) => {
-    setEstadisticas(prev => ({
-      ...prev,
-      armaduraYResistencias: {
-        ...prev.armaduraYResistencias,
-        [field]: typeof value === 'string' ? parseFloat(value) || 0 : value
+    const parsedValue = typeof value === 'string' ? parseFloat(value) || 0 : value;
+    setEstadisticas(prev => {
+      const next: Estadisticas = {
+        ...prev,
+        armaduraYResistencias: {
+          ...prev.armaduraYResistencias,
+          [field]: parsedValue
+        }
+      };
+
+      // Mantener sincronizado aguante también en personaje para no perderlo en guardados futuros.
+      if (field === 'aguante') {
+        next.personaje = {
+          ...prev.personaje,
+          aguante: typeof parsedValue === 'number' ? parsedValue : Number(parsedValue) || 0
+        };
       }
-    }));
+
+      return next;
+    });
   };
 
   const updateOfensivo = (field: string, value: number | string) => {
@@ -1277,7 +1300,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <StatField 
               label="Aguante" 
-              value={estadisticas.armaduraYResistencias?.aguante || ''} 
+              value={estadisticas.armaduraYResistencias?.aguante ?? estadisticas.personaje?.aguante ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('aguante', v)}
               descripcion={heroStats.get('aguante')?.descripcion}
               detalles={heroStats.get('aguante')?.detalles}

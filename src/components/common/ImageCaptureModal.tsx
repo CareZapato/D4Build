@@ -1067,16 +1067,40 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         return (data?.aspectos?.length || 0) + (data?.aspectos_equipados?.length || 0);
       case 'estadisticas': {
         const stats = data?.estadisticas && typeof data.estadisticas === 'object' ? data.estadisticas : data;
-        const countLeaf = (value: any): number => {
-          if (value === null || value === undefined || value === '') return 0;
-          if (Array.isArray(value)) return value.reduce((acc, item) => acc + countLeaf(item), 0);
-          if (typeof value === 'object') {
-            if ('valor' in value) return countLeaf(value.valor);
-            return Object.values(value).reduce<number>((acc, item) => acc + countLeaf(item), 0);
-          }
-          return 1;
-        };
-        return countLeaf(stats);
+        if (!stats || typeof stats !== 'object') return 0;
+
+        const metadataKeys = new Set([
+          'atributo_ref',
+          'atributo_nombre',
+          'detalles',
+          'palabras_clave',
+          'texto',
+          'texto_original',
+          'significado',
+          'categoria',
+          'fuente',
+          'tag'
+        ]);
+
+        let count = 0;
+        Object.entries(stats as Record<string, any>).forEach(([, sectionValue]) => {
+          if (!sectionValue || typeof sectionValue !== 'object' || Array.isArray(sectionValue)) return;
+          Object.entries(sectionValue as Record<string, any>).forEach(([childKey, childValue]) => {
+            if (metadataKeys.has(childKey)) return;
+            if (childValue === null || childValue === undefined) return;
+
+            if (typeof childValue !== 'object' || Array.isArray(childValue)) {
+              count++;
+              return;
+            }
+
+            if ('valor' in childValue || 'atributo_ref' in childValue || 'atributo_nombre' in childValue) {
+              count++;
+            }
+          });
+        });
+
+        return count;
       }
       default:
         return Object.keys(data || {}).length;
@@ -1101,6 +1125,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (!statsData || typeof statsData !== 'object') return [];
 
     const entries: Array<{ section: string; name: string }> = [];
+    const metadataKeys = new Set([
+      'atributo_ref',
+      'atributo_nombre',
+      'detalles',
+      'palabras_clave',
+      'texto',
+      'texto_original',
+      'significado',
+      'categoria',
+      'fuente',
+      'tag'
+    ]);
 
     Object.entries(statsData).forEach(([section, sectionValue]) => {
       if (!sectionValue || typeof sectionValue !== 'object' || Array.isArray(sectionValue)) {
@@ -1116,6 +1152,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
       let pushedChildren = 0;
       children.forEach(([childKey, childValue]) => {
+        if (metadataKeys.has(childKey)) return;
+
+        if (childValue === null || childValue === undefined) return;
+
+        if (typeof childValue !== 'object' || Array.isArray(childValue)) {
+          entries.push({ section, name: childKey });
+          pushedChildren++;
+          return;
+        }
+
         if (childValue && typeof childValue === 'object' && !Array.isArray(childValue)) {
           const childName = childValue.atributo_nombre || childValue.atributo_ref || childKey;
           entries.push({ section, name: String(childName) });
@@ -2176,6 +2222,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
 
       let totalItems = 0;
+      let totalImported = 0;
+      let totalUpdated = 0;
       let totalInputItems = 0;
       let totalSuccess = 0;
       let totalFail = 0;
@@ -2242,6 +2290,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         const repeated = result.itemsSkipped || 0;
         const inputItems = result.totalInputItems || 0;
         totalItems += imported + updated;
+        totalImported += imported;
+        totalUpdated += updated;
         totalInputItems += inputItems;
         totalRepeated += repeated;
 
@@ -2267,8 +2317,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         const rows = executionResults.filter(r => r.cat === cat);
         const ok = rows.filter(r => r.result.success).length;
         const fail = rows.length - ok;
-        const items = rows.reduce((acc, r) => acc + (r.result.itemsImported || 0) + (r.result.itemsUpdated || 0), 0);
-        return `${cat}: ${ok}/${rows.length} JSONs, ${items} elementos${fail > 0 ? `, ${fail} errores` : ''}`;
+        const imported = rows.reduce((acc, r) => acc + (r.result.itemsImported || 0), 0);
+        const updated = rows.reduce((acc, r) => acc + (r.result.itemsUpdated || 0), 0);
+        const repeated = rows.reduce((acc, r) => acc + (r.result.itemsSkipped || 0), 0);
+        return `${cat}: ${ok}/${rows.length} JSONs, nuevos ${imported}, actualizados ${updated}, repetidos ${repeated}${fail > 0 ? `, ${fail} errores` : ''}`;
       });
 
       const validationErrors = executionResults
@@ -2298,8 +2350,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         targetName: scope === 'all' ? 'Todas las categorías' : `Categoría ${selectedCategory}`,
         jsonInputsProcessed: allEntries.length,
         totalInputItems,
-        itemsImported: totalItems,
-        itemsUpdated: 0,
+        itemsImported: totalImported,
+        itemsUpdated: totalUpdated,
         itemsSkipped: totalRepeated,
         fieldsAdded: [
           `JSONs procesados: ${allEntries.length}`,
