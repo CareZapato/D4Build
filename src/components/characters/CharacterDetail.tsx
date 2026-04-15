@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, ChevronDown, ChevronUp } from 'lucide-react';
-import { Personaje, Estadisticas } from '../../types';
+import { Personaje, Estadisticas, ParagonPersonaje } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
 import CharacterGlyphs from './CharacterGlyphs';
 import CharacterSkills from './CharacterSkills';
 import CharacterAspects from './CharacterAspects';
 import CharacterPrompts from './CharacterPrompts';
+import CharacterParagon from './CharacterParagon';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 
@@ -33,12 +34,16 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
   );
+  const [pendingParagon, setPendingParagon] = useState<ParagonPersonaje | null>(
+    personaje.paragon || null
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
   // Estados para secciones colapsables
   const [skillsCollapsed, setSkillsCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [glyphsCollapsed, setGlyphsCollapsed] = useState(false);
+  const [paragonCollapsed, setParagonCollapsed] = useState(false);
   const [aspectsCollapsed, setAspectsCollapsed] = useState(false);
   const [promptsCollapsed, setPromptsCollapsed] = useState(false);
 
@@ -48,6 +53,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     setPendingStats(personaje.estadisticas);
     setPendingGlyphs(personaje.glifos_refs || []);
     setPendingSkills(personaje.habilidades_refs || { activas: [], pasivas: [] });
+    setPendingParagon(personaje.paragon || null);
   }, [personaje]);
 
   const handleSaveBasicInfo = async () => {
@@ -74,6 +80,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
         estadisticas: pendingStats,
         glifos_refs: pendingGlyphs,
         habilidades_refs: pendingSkills,
+        paragon: pendingParagon || undefined,
         fecha_actualizacion: new Date().toISOString(),
       };
       
@@ -192,6 +199,29 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     }
   };
 
+  const handleParagonChange = async (paragonData: ParagonPersonaje) => {
+    setPendingParagon(paragonData);
+    
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      paragon: paragonData,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente con merge seguro
+    try {
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando Paragon:', error);
+      modal.showError('Error al guardar la configuración Paragon');
+    }
+  };
+
   const formatLastUpdate = (isoDate: string) => {
     const date = new Date(isoDate);
     return date.toLocaleString('es-ES', {
@@ -297,6 +327,20 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
                 />
               </div>
               <div>
+                <label className="block text-sm text-d4-text-dim mb-1">Puertas de Anexo</label>
+                <div className="text-xs text-d4-text-dim mb-1">
+                  Cada puerta otorga +5 a todos los atributos principales
+                </div>
+                <input
+                  type="number"
+                  value={editedPersonaje.puertas_anexo || 0}
+                  onChange={(e) => setEditedPersonaje({...editedPersonaje, puertas_anexo: parseInt(e.target.value) || 0})}
+                  className="input w-full"
+                  min="0"
+                  max="50"
+                />
+              </div>
+              <div>
                 <label className="block text-sm text-d4-text-dim mb-1">Notas</label>
                 <textarea
                   value={editedPersonaje.notas || ''}
@@ -323,6 +367,12 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
                   <span className="text-d4-text font-semibold">{editedPersonaje.nivel_paragon}</span>
                 </div>
               )}
+              {editedPersonaje.puertas_anexo !== undefined && editedPersonaje.puertas_anexo > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-d4-text-dim">Puertas de Anexo:</span>
+                  <span className="text-d4-text font-semibold">{editedPersonaje.puertas_anexo}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-d4-text-dim">Creado:</span>
                 <span className="text-d4-text text-xs">
@@ -339,7 +389,128 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
           )}
         </div>
 
-        {/* Estadísticas */}
+        {/* Atributos Principales */}
+        <div className="card">
+          <h3 className="text-lg font-bold text-d4-text mb-4">Atributos Principales</h3>
+          
+          <div className="space-y-3 text-sm">
+            {(() => {
+              // Obtener atributos base de las estadísticas
+              const atributos = editedPersonaje.estadisticas?.atributosPrincipales;
+              const fuerza = atributos?.fuerza || 0;
+              const inteligencia = atributos?.inteligencia || 0;
+              const voluntad = atributos?.voluntad || 0;
+              const destreza = atributos?.destreza || 0;
+              
+              // Calcular bonus por puertas de anexo (cada puerta da +5 a todos)
+              const bonusPuertas = (editedPersonaje.puertas_anexo || 0) * 5;
+              
+              // Calcular totales
+              const fuerzaTotal = fuerza + bonusPuertas;
+              const inteligenciaTotal = inteligencia + bonusPuertas;
+              const voluntadTotal = voluntad + bonusPuertas;
+              const destrezaTotal = destreza + bonusPuertas;
+              
+              return (
+                <>
+                  <div className="flex justify-between items-center pb-2 border-b border-d4-border">
+                    <span className="text-d4-text-dim">Fuerza:</span>
+                    <div className="text-right">
+                      <span className="text-d4-text font-bold text-lg">{fuerzaTotal}</span>
+                      {bonusPuertas > 0 && (
+                        <span className="text-xs text-green-400 ml-2">
+                          ({fuerza} + {bonusPuertas})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-d4-border">
+                    <span className="text-d4-text-dim">Inteligencia:</span>
+                    <div className="text-right">
+                      <span className="text-d4-text font-bold text-lg">{inteligenciaTotal}</span>
+                      {bonusPuertas > 0 && (
+                        <span className="text-xs text-green-400 ml-2">
+                          ({inteligencia} + {bonusPuertas})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-d4-border">
+                    <span className="text-d4-text-dim">Voluntad:</span>
+                    <div className="text-right">
+                      <span className="text-d4-text font-bold text-lg">{voluntadTotal}</span>
+                      {bonusPuertas > 0 && (
+                        <span className="text-xs text-green-400 ml-2">
+                          ({voluntad} + {bonusPuertas})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-d4-text-dim">Destreza:</span>
+                    <div className="text-right">
+                      <span className="text-d4-text font-bold text-lg">{destrezaTotal}</span>
+                      {bonusPuertas > 0 && (
+                        <span className="text-xs text-green-400 ml-2">
+                          ({destreza} + {bonusPuertas})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {editedPersonaje.puertas_anexo && editedPersonaje.puertas_anexo > 0 && (
+                    <div className="mt-4 p-3 bg-green-900/20 border border-green-600/30 rounded text-xs">
+                      <p className="text-green-400 font-semibold mb-1">
+                        🚪 Bonus de Puertas de Anexo
+                      </p>
+                      <p className="text-d4-text-dim">
+                        {editedPersonaje.puertas_anexo} {editedPersonaje.puertas_anexo === 1 ? 'puerta' : 'puertas'} × 5 = +{bonusPuertas} a cada atributo
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Estadísticas Adicionales */}
+        <div className="card">
+          <h3 className="text-lg font-bold text-d4-text mb-4">Estadísticas Adicionales</h3>
+          <div className="space-y-2 text-sm">
+            {editedPersonaje.estadisticas?.personaje && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-d4-text-dim">Daño de Arma:</span>
+                  <span className="text-d4-text font-semibold">
+                    {editedPersonaje.estadisticas.personaje.danioArma || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-d4-text-dim">Aguante:</span>
+                  <span className="text-d4-text font-semibold">
+                    {editedPersonaje.estadisticas.personaje.aguante?.toLocaleString() || 0}
+                  </span>
+                </div>
+              </>
+            )}
+            {editedPersonaje.estadisticas?.defensivo && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-d4-text-dim">Vida Máxima:</span>
+                  <span className="text-d4-text font-semibold">
+                    {editedPersonaje.estadisticas.defensivo.vidaMaxima?.toLocaleString() || 0}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Secciones de contenido */}
+      <div className="space-y-6 mt-6">
+        {/* Estadísticas Completas */}
         <div className="lg:col-span-3">
           <div className="card">
             <button
@@ -415,6 +586,35 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             {!glyphsCollapsed && (
               <div className="px-4 pb-4">
                 <CharacterGlyphs personaje={editedPersonaje} onChange={handleGlyphsChange} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sistema Paragon */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setParagonCollapsed(!paragonCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Sistema Paragon</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  {editedPersonaje.paragon 
+                    ? `Nivel ${editedPersonaje.paragon.nivel_paragon} - ${editedPersonaje.paragon.tableros_equipados?.length || 0} tableros`
+                    : 'Sin configuración Paragon'}
+                </p>
+              </div>
+              {paragonCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!paragonCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterParagon personaje={editedPersonaje} onChange={handleParagonChange} />
               </div>
             )}
           </div>

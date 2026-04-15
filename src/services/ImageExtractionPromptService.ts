@@ -230,8 +230,20 @@ Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADA
 - **Cada glifo debe incluir:**
   - Todos sus efectos y bonificaciones
   - Requisitos exactos (valores numéricos)
-  - Todos los detalles visibles
+  - Todos los detalles visibles (con campo 'activo')
   - Palabras clave (tags) que aparezcan en BLANCO/SUBRAYADAS
+
+**⚠️ NUEVO EN v0.5.4 - CAMPO DETALLES[] CON ESTADO ACTIVO:**
+
+Cada glifo DEBE incluir un array \`detalles[]\` con TODOS los efectos, bonificaciones y requisitos:
+- **texto**: El texto exacto del efecto/bonificación
+- **activo**: \`true\` si el texto está en BLANCO/VERDE, \`false\` si está en GRIS (requisito no cumplido)
+- **valor**: El valor numérico extraído (ej: "9.6%", "25", "+0.66%")
+
+Esto es CRÍTICO para:
+1. Saber qué bonificaciones están activas en el personaje
+2. Enlazar correctamente los glifos equipados en zócalos de tableros Paragon
+3. Mostrar correctamente en gris las bonificaciones inactivas en la UI
 
 **⚠️ IMPORTANTE - TAGS ESTRUCTURADOS:**
 
@@ -243,11 +255,12 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
 **Instrucciones:**
 1. Identifica cada glifo visible en la imagen
 2. Extrae todos los datos: nombre, rareza, efectos, bonificaciones, requisitos
-3. Para cada bonificación: captura requisitos exactos y descripción completa
-4. Identifica palabras en BLANCO/SUBRAYADAS y crea tags estructurados
-5. Presta especial atención a los valores numéricos
+3. **CRÍTICO**: Crea array \`detalles[]\` con TODOS los efectos/bonificaciones (marca activo: true/false según color del texto)
+4. Para cada bonificación: captura requisitos exactos y descripción completa
+5. Identifica palabras en BLANCO/SUBRAYADAS y crea tags estructurados
+6. Presta especial atención a los valores numéricos
 
-**Formato JSON esperado:**
+**Formato JSON esperado (v0.5.4 con detalles[]):**
 
 \`\`\`json
 {
@@ -270,6 +283,28 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
         "requisito": "40 puntos de Inteligencia",
         "descripcion": "Mientras tienes una barrera activa, obtienes un 10% de reducción de tiempo de reutilización."
       },
+      "detalles": [
+        {
+          "texto": "Aumenta el daño que infliges a las entidades afectadas por el control de masas",
+          "activo": true,
+          "valor": "9.6%"
+        },
+        {
+          "texto": "Otorga +0.66% de daño por cada punto de Inteligencia comprado dentro del radio",
+          "activo": true,
+          "valor": "0.66%"
+        },
+        {
+          "texto": "Aumenta la duración de los efectos de control de masas (Requiere: 25 Inteligencia)",
+          "activo": false,
+          "valor": "25%"
+        },
+        {
+          "texto": "Mientras tienes una barrera activa, obtienes reducción de tiempo de reutilización (Requiere: 40 Inteligencia)",
+          "activo": false,
+          "valor": "10%"
+        }
+      ],
       "tamano_radio": "5 nodos",
       "requisitos_especiales": null,
       "estado": "Encontrado",
@@ -290,6 +325,23 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
         "descripcion": "Mientras estás fortificado, infliges un 3% más de daño."
       },
       "bonificacion_legendaria": null,
+      "detalles": [
+        {
+          "texto": "Aumentas la Vida máxima",
+          "activo": true,
+          "valor": "4%"
+        },
+        {
+          "texto": "Otorga +0.07% de Vida máxima por cada punto de Voluntad comprado dentro del radio",
+          "activo": true,
+          "valor": "0.07%"
+        },
+        {
+          "texto": "Mientras estás fortificado, infliges más daño (Requiere: 25 Voluntad)",
+          "activo": true,
+          "valor": "3%"
+        }
+      ],
       "tamano_radio": "4 nodos",
       "requisitos_especiales": null,
       "estado": "Encontrado",
@@ -337,34 +389,45 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
    - ❌ INCORRECTO: NO crear tag "daño con barrera" si solo "barrera" está en blanco
    - ❌ INCORRECTO: NO inventar tags de texto normal que no esté resaltado
 
-2. **IDs únicos y descriptivos**:
+2. **Campo detalles[] con activo (v0.5.4) - ⚠️ OBLIGATORIO:**
+   - **DEBE** estar presente en cada glifo
+   - Incluir TODOS los efectos y bonificaciones del glifo
+   - **activo: true** → Texto en BLANCO/VERDE (efecto está activo)
+   - **activo: false** → Texto en GRIS (requisito no cumplido, efecto inactivo)
+   - Ejemplo: Si falta Inteligencia para bonificación adicional → activo: false
+   - **valor**: Extraer números del texto ("25%" → "25%", "0.66%" → "0.66%")
+
+3. **IDs únicos y descriptivos**:
+   - Formato: "glifo_" + nombre_normalizado
+3. **IDs únicos y descriptivos**:
    - Formato: "glifo_" + nombre_normalizado
    - Ejemplos: "glifo_dominio", "glifo_guardian", "glifo_esencia_combate"
    - Usa snake_case y caracteres ASCII
 
-3. **Rareza** (EXACTAMENTE uno de estos):
+4. **Rareza** (EXACTAMENTE uno de estos):
    - "Común"
    - "Raro"
    - "Legendario"
 
-4. **Atributos escalados**:
+5. **Atributos escalados**:
    - Atributos válidos: "Fuerza", "Destreza", "Inteligencia", "Voluntad"
    - Captura el texto EXACTO de la bonificación (incluye símbolo + y porcentajes)
 
-5. **Bonificaciones adicional y legendaria**:
+6. **Bonificaciones adicional y legendaria**:
    - Captura el requisito EXACTO (ej: "25 puntos de Inteligencia")
    - Si no existe la bonificación, usa null (no omitir el campo)
    - Solo glifos Legendarios tienen bonificacion_legendaria
 
-6. **Tamaño/radio**:
+7. **Tamaño/radio**:
    - Captura como aparece: "5 nodos", "3 nodos", etc.
    - Si no está visible, usa null
 
-7. **Estado**:
+8. **Estado**:
    - Siempre "Encontrado" para glifos que el jugador posee
    - Si quieres listar glifos no encontrados, usa "No encontrado"
 
-8. **Estructura de tag (en palabras_clave global)**:
+9. **Estructura de tag (en palabras_clave global)**:
+9. **Estructura de tag (en palabras_clave global)**:
    \`\`\`json
    {
      "tag": "control_de_masas",
@@ -386,7 +449,7 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
    }
    \`\`\`
 
-9. **Categorías de tags**:
+10. **Categorías de tags**:
    - "mecanica": Mecánicas del juego (fortificar, barrera, crítico)
    - "atributo": Atributos y stats (vida, daño, velocidad)
    - "efecto": Efectos específicos
@@ -394,7 +457,7 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
    - "recurso": Fe, maná, furia, energía
    - "tipo_de_danio": Físico, sagrado, sombra, etc.
 
-10. **Sección palabras_clave global**:
+11. **Sección palabras_clave global**:
     - Recopila TODOS los tags detectados en TODOS los glifos
     - Incluir significado si está disponible en tooltip
     - Sin duplicados por tag normalizado
@@ -1268,5 +1331,819 @@ Usa estos nombres de campos EXACTOS para cada sección:
   static generateStatsPromptV2(): string {
     return this.generateStatsPrompt();
   }
+
+  // ============================================================================
+  // PROMPTS PARA SISTEMA PARAGON (v0.4.15)
+  // ============================================================================
+
+  // Generar prompt para extraer tableros Paragon (catálogo nivel héroe)
+  static generateParagonBoardsPrompt(): string {
+    return `Analiza la imagen que te voy a proporcionar y extrae la información de los tableros Paragon de Diablo 4.
+
+**⚠️ IMPORTANTE - TABLEROS PARAGON:**
+
+Los tableros Paragon son las estructuras base donde se colocan los nodos. Cada clase tiene acceso a diferentes tableros.
+
+**Categorías de tableros:**
+- **inicial**: El tablero central de inicio (ej: "Empezar")
+- **legendario**: Tableros legendarios específicos de clase
+- **especial**: Tableros temáticos especiales
+- **general**: Tableros genéricos disponibles para todas las clases
+
+**Instrucciones:**
+1. Identifica cada tablero visible en la imagen
+2. Extrae: nombre completo, categoría, descripción
+3. Si es visible, identifica las conexiones disponibles con otros tableros
+4. Captura tags (palabras blancas/subrayadas) relacionadas
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "tableros": [
+    {
+      "id": "tablero_empezar",
+      "nombre": "Empezar",
+      "categoria": "inicial",
+      "descripcion": "Tu punto de partida en el sistema Paragon",
+      "orden": 0,
+      "conexiones_disponibles": [],
+      "nodos_totales": 64,
+      "tags": []
+    },
+    {
+      "id": "tablero_clamor_ancestros",
+      "nombre": "Clamor de los Ancestros",
+      "categoria": "legendario",
+      "descripcion": "Cuando usas Clamor de los Ancestros, obtienes un 30% de daño adicional durante X segundos.",
+      "orden": 1,
+      "conexiones_disponibles": ["tablero_empezar"],
+      "nodos_totales": 64,
+      "tags": ["clamor_ancestros", "danio"]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "clamor_ancestros",
+      "texto_original": "Clamor de los Ancestros",
+      "significado": "Habilidad definitiva del Bárbaro",
+      "categoria": "habilidad",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "danio",
+      "texto_original": "daño",
+      "significado": null,
+      "categoria": "atributo",
+      "fuente": "tablero"
+    }
+  ]
 }
+\`\`\`
+
+**REGLAS CRÍTICAS:**
+
+1. **ID único**: "tablero_" + nombre_normalizado (snake_case, sin tildes)
+2. **Categoría**: Debe ser exactamente una de: "inicial" | "legendario" | "especial" | "general"
+3. **Descripción**: Efecto o bonificación principal del tablero (si visible)
+4. **Orden**: 0 para inicial, 1+ para consecutivos
+5. **Tags**: Solo palabras en BLANCO/SUBRAYADAS
+
+**VALIDACIONES:**
+
+- ✅ Cada tablero DEBE tener: id, nombre, categoria
+- ✅ categoria debe ser exactamente una de las 4 opciones
+- ✅ nodos_totales típicamente es 64 (si no visible, omitir)`;
+  }
+
+  // Generar prompt GENÉRICO para extraer nodos Paragon (todas las rarezas)
+  static generateParagonNodesPrompt(): string {
+    return `Analiza la imagen y extrae los nodos del tablero Paragon de Diablo 4.
+
+**⚠️ CRÍTICO - INCLUIR ZÓCALOS DE GLIFO**
+
+🔴 **IMPORTANTE**: Los tableros Paragon tienen ZÓCALOS DE GLIFO que son nodos especiales (generalmente hexagonales, color naranja/legendario).
+
+**CÓMO IDENTIFICAR UN ZÓCALO:**
+- Forma hexagonal especial (diferente a nodos normales)
+- Generalmente color NARANJA/LEGENDARIO
+- Nombre: "Zócalo de Glifo" o "Glyph Socket"
+- Puede tener un glifo equipado dentro (con su nombre e íconos)
+
+**SI ENCUENTRAS UN ZÓCALO → DEBES INCLUIRLO EN EL ARRAY "nodos"**
+
+**ESTRUCTURA DE ZÓCALO CON GLIFO:**
+\`\`\`json
+{
+  "id": "zocalo_glifo_tablero_2",
+  "nombre": "Zócalo de Glifo",
+  "rareza": "legendario",
+  "glifo_info": {
+    "nombre": "Revancha",
+    "rareza": "Legendario",
+    "nivel_actual": 15,
+    "tamano_radio": "4 nodos",
+    "detalles": [
+      {
+        "texto": "+4.1% de probabilidad de golpe afortunado",
+        "activo": true,
+        "valor": "4.1%"
+      },
+      {
+        "texto": "+16 de Fuerza",
+        "activo": true,
+        "valor": 16
+      },
+      {
+        "texto": "Bonificación adicional: Cuando infliges daño de Espinas (Requiere: 25 Fuerza)",
+        "activo": true,
+        "valor": "1%"
+      },
+      {
+        "texto": "Bonificación legendaria: Aumenta el daño (Requiere: 40 Fuerza)",
+        "activo": false,
+        "valor": "5.0%"
+      }
+    ],
+    "tags": ["espinas", "golpe_afortunado"]
+  },
+  "nivel_glifo": 15,
+  "radio_bonus": 4,
+  "detalles": [
+    {
+      "texto": "+4.1% de probabilidad de golpe afortunado",
+      "activo": true,
+      "valor": "4.1%"
+    },
+    {
+      "texto": "+16 de Fuerza",
+      "activo": true,
+      "valor": 16
+    },
+    {
+      "texto": "Bonificación legendaria (Requiere: 40 Fuerza)",
+      "activo": false,
+      "valor": "5.0%"
+    }
+  ],
+  "tablero_id": "tablero_2",
+  "tags": ["espinas", "golpe_afortunado"]
+}
+\`\`\`
+
+**ZÓCALO SIN GLIFO:**
+\`\`\`json
+{
+  "id": "zocalo_glifo_vacio",
+  "nombre": "Zócalo de Glifo",
+  "rareza": "legendario",
+  "tablero_id": "tablero_2"
+}
+\`\`\`
+
+---
+
+**⚠️ IMPORTANTE - NODOS PARAGON NORMALES:**
+
+Los nodos Paragon normales otorgan bonificaciones estadísticas. Existen 4 rarezas identificables por color:
+
+**RAREZAS:**
+- **normal** (⚪ gris/blanco): Bonificación simple a UN atributo
+- **magico** (🔵 azul): Bonificación a 2-3 atributos
+- **raro** (🟡 amarillo): Bonificación a 3-4 atributos + efecto especial
+- **legendario** (🟠 naranja): Nodos especiales con efectos únicos y poderosos
+
+**NUEVOS CAMPOS (v0.5.3):**
+
+1. **detalles[]**: Array con TODOS los efectos del nodo
+   - \`texto\`: El texto exacto del efecto
+   - \`activo\`: true si el texto está en BLANCO/VERDE, false si está en GRIS
+   - \`valor\`: El valor numérico extraído (ej: "4.0%", 16, "+10")
+
+2. **requisitos**: Si hay texto tipo "Necesario: 253/435 Voluntad"
+   - \`atributo\`: 'fuerza' | 'inteligencia' | 'voluntad' | 'destreza'
+   - \`valor_actual\`: El valor que tiene (253)
+   - \`valor_requerido\`: El valor que necesita (435)
+
+3. **replicas**: Si hay MÚLTIPLES nodos EXACTAMENTE IGUALES (mismo nombre + detalles)
+   - Agrupa en UN solo objeto con \`replicas: N\`
+   - SI NO hay réplicas, OMITE este campo (no pongas replicas: 1)
+
+**INSTRUCCIONES:**
+
+1. **Identificar rareza** por el color del nodo en la imagen
+2. **Extraer detalles completos** con el campo \`activo\`
+3. **Detectar requisitos** (texto gris tipo "Necesario: X/Y Atributo")
+4. **Consolidar duplicados** en un solo nodo con \`replicas\`
+5. **Incluir el campo "rareza"** en cada nodo del JSON
+
+**ESTRUCTURA POR RAREZA:**
+
+- **Normal**: \`tipo_atributo\` + \`valor\` + \`detalles[]\`
+- **Mágico**: Array \`atributos[]\` + \`detalles[]\` + opcional \`requisitos\`
+- **Raro**: Array \`atributos[]\` + \`detalles[]\` + \`efecto_especial\` + opcional \`requisitos\`
+- **Legendario**: \`efecto_principal\` + \`detalles[]\` + \`condicion\` + opcional \`requisitos_numericos\`
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "nodos": [
+    {
+      "id": "nodo_magico_armadura",
+      "nombre": "+1.5% armadura total",
+      "rareza": "magico",
+      "atributos": [
+        { "tipo": "armadura", "valor": 1.5 }
+      ],
+      "detalles": [
+        {
+          "texto": "+1.5% de armadura",
+          "activo": true,
+          "valor": "1.5%"
+        }
+      ],
+      "replicas": 3,
+      "tablero_id": "tablero_empezar",
+      "tags": []
+    },
+    {
+      "id": "nodo_raro_restaurador",
+      "nombre": "Restaurador",
+      "rareza": "raro",
+      "atributos": [
+        { "tipo": "vida_maxima", "valor": 4.0 },
+        { "tipo": "sanacion_recibida", "valor": 6.0 }
+      ],
+      "detalles": [
+        {
+          "texto": "4.0% de vida máxima",
+          "activo": true,
+          "valor": "4.0%"
+        },
+        {
+          "texto": "+6.0% de sanación recibida",
+          "activo": true,
+          "valor": "6.0%"
+        },
+        {
+          "texto": "Otro 4.0% de vida máxima si se cumplen los requisitos",
+          "activo": false,
+          "valor": "4.0%"
+        }
+      ],
+      "bonificacion": {
+        "descripcion": "Otro 4.0% de vida máxima si se cumplen los requisitos",
+        "requisitos": "Necesario: 253/435 Voluntad"
+      },
+      "requisitos": {
+        "atributo": "voluntad",
+        "valor_actual": 253,
+        "valor_requerido": 435
+      },
+      "tablero_id": "tablero_empezar",
+      "tags": ["vida", "sanacion"]
+    },
+    {
+      "id": "nodo_legendario_implacable",
+      "nombre": "Implacable",
+      "rareza": "legendario",
+      "efecto_principal": "Al moverte y durante los siguientes 2 segundos infliges un 80% más de daño",
+      "detalles": [
+        {
+          "texto": "Al moverte infliges un 80% más de daño",
+          "activo": true,
+          "valor": "80%"
+        },
+        {
+          "texto": "Duración: 2 segundos",
+          "activo": true,
+          "valor": "2"
+        }
+      ],
+      "condicion": "Después de moverte",
+      "bonificacion": {
+        "tipo": "danio",
+        "valor": 80,
+        "duracion_segundos": 2
+      },
+      "tablero_id": "tablero_fuerza",
+      "tags": ["danio", "movimiento"]
+    },
+    {
+      "id": "zocalo_glifo_revancha",
+      "nombre": "Zócalo de Glifo",
+      "rareza": "legendario",
+      "glifo_info": {
+        "nombre": "Revancha",
+        "rareza": "Legendario",
+        "nivel_requerido": 1,
+        "detalles": [
+          {
+            "texto": "+4.1% de probabilidad de golpe afortunado",
+            "activo": true,
+            "valor": "4.1%"
+          },
+          {
+            "texto": "+16 de Fuerza",
+            "activo": true,
+            "valor": 16
+          },
+          {
+            "texto": "+16.4% de daño de Sagrado",
+            "activo": true,
+            "valor": "16.4%"
+          },
+          {
+            "texto": "Bonificación adicional: Cuando infliges daño de Espinas aumenta todo el daño (Requiere: 25 Fuerza)",
+            "activo": true,
+            "valor": "1%"
+          },
+          {
+            "texto": "Bonificación legendaria: Aumenta el daño (Requiere: 40 Fuerza)",
+            "activo": false,
+            "valor": "5.0%"
+          }
+        ],
+        "tamano_radio": "4 nodos",
+        "nivel_actual": 1,
+        "tags": ["espinas", "golpe_afortunado", "sagrado"]
+      },
+      "nivel_glifo": 1,
+      "radio_bonus": 4,
+      "detalles": [
+        {
+          "texto": "+4.1% de probabilidad de golpe afortunado",
+          "activo": true,
+          "valor": "4.1%"
+        },
+        {
+          "texto": "+16 de Fuerza",
+          "activo": true,
+          "valor": 16
+        },
+        {
+          "texto": "+16.4% de daño de Sagrado",
+          "activo": true,
+          "valor": "16.4%"
+        },
+        {
+          "texto": "Bonificación legendaria (Requiere: 40 Fuerza)",
+          "activo": false,
+          "valor": "5.0%"
+        }
+      ],
+      "bonificacion_adicional": "Cuando infliges daño de Espinas a un enemigo aumenta todo el daño que recibe de ti un 1%, hasta un máximo del 15% durante 10 segundos",
+      "bonificacion_legendaria": "Aumenta el daño un 5.0%",
+      "requisitos": {
+        "descripcion": "Requiere la mejora: Legendario (se desbloquea en el nivel 45)",
+        "nivel_requerido": 45
+      },
+      "tablero_id": "tablero_empezar",
+      "tags": ["espinas", "golpe_afortunado"]
+    }
+  ],
+  "palabras_clave": []
+}
+\`\`\`
+
+**REGLAS CRÍTICAS:**
+
+🔴 **0. ZÓCALOS DE GLIFO**: **OBLIGATORIO** incluir cualquier zócalo hexagonal naranja/legendario en el array 'nodos' con rareza: "legendario" y glifo_info si tiene glifo equipado
+
+1. **rareza**: OBLIGATORIO en todos los nodos
+2. **detalles[]**: OBLIGATORIO - incluir TODOS los efectos del tooltip
+3. **detalles[].activo**: 
+   - true = texto en blanco/verde/amarillo (bonificación activa)
+   - false = texto en GRIS (requisito no cumplido)
+4. **requisitos**: SOLO si aparece texto tipo "Necesario: X/Y Atributo"
+5. **replicas**: SOLO si hay nodos idénticos. OMITIR si es único (no poner replicas: 1)
+6. **Detectar por color**: 
+   - Gris/Blanco → normal
+   - Azul → magico
+   - Amarillo → raro
+   - Naranja → legendario (o zócalo de glifo)
+
+**CONSOLIDACIÓN DE DUPLICADOS:**
+
+Si encuentras 3 nodos con:
+- Mismo nombre: "+1.5% armadura total"
+- Mismos detalles exactos
+- Mismas bonificaciones
+
+Agrúpalos en UN SOLO objeto con \`replicas: 3\`
+
+**ATRIBUTOS COMUNES:**
+
+- **Principales**: fuerza, destreza, inteligencia, voluntad
+- **Defensivos**: vida_maxima, armadura, resistencia_todos_elementos, reduccion_danio
+- **Ofensivos**: danio, probabilidad_golpe_critico, danio_golpe_critico, velocidad_ataque
+- **Utilidad**: velocidad_movimiento, reduccion_cooldown, generacion_recurso
+
+**VALIDACIONES:**
+
+- ✅ TODOS los nodos DEBEN incluir "rareza"
+- ✅ TODOS los nodos DEBEN incluir "detalles[]" con campo "activo"
+- ✅ Texto en GRIS → activo: false
+- ✅ Texto "Necesario: X/Y" → agregar "requisitos"
+- ✅ Nodos idénticos → consolidar con "replicas"
+- ✅ Nodo único → OMITIR campo "replicas"`;
+  }
+
+  // Generar prompt para extraer nodos normales Paragon (DEPRECATED - usar generateParagonNodesPrompt)
+  static generateParagonNormalNodesPrompt(): string {
+    return `Analiza la imagen y extrae los nodos normales del tablero Paragon de Diablo 4.
+
+**⚠️ IMPORTANTE - NODOS NORMALES:**
+
+Los nodos normales (color gris/común) otorgan bonificaciones simples a un solo atributo.
+
+**Atributos comunes:**
+- Atributos principales: fuerza, destreza, inteligencia, voluntad
+- Defensivos: vida_maxima, armadura, resistencia_todos_elementos
+- Ofensivos: daño, probabilidad_golpe_critico, daño_golpe_critico, velocidad_ataque
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "nodos_normales": [
+    {
+      "id": "nodo_fuerza_01",
+      "nombre": "+5 Fuerza",
+      "rareza": "normal",
+      "tipo_atributo": "fuerza",
+      "valor": 5,
+      "tablero_id": "tablero_empezar",
+      "tags": []
+    },
+    {
+      "id": "nodo_vida_01",
+      "nombre": "+50 Vida Máxima",
+      "rareza": "normal",
+      "tipo_atributo": "vida_maxima",
+      "valor": 50,
+      "tablero_id": "tablero_empezar",
+      "tags": []
+    }
+  ],
+  "palabras_clave": []
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **rareza**: Siempre "normal"
+2. **tipo_atributo**: Uno de los tipos predefinidos
+3. **valor**: Número sin símbolo +
+4. **nombre**: Incluye + y unidad
+5. **ID**: "nodo_" + atributo + "_" + numero_secuencial`;
+  }
+
+  // Generar prompt para extraer nodos mágicos Paragon
+  static generateParagonMagicNodesPrompt(): string {
+    return `Analiza la imagen y extrae los nodos mágicos del tablero Paragon de Diablo 4.
+
+**⚠️ IMPORTANTE - NODOS MÁGICOS:**
+
+Los nodos mágicos (color azul) otorgan bonificaciones a múltiples atributos.
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "nodos_magicos": [
+    {
+      "id": "nodo_magico_fuerza_vida",
+      "nombre": "+5 Fuerza, +50 Vida",
+      "rareza": "magico",
+      "atributos": [
+        {
+          "tipo": "fuerza",
+          "valor": 5
+        },
+        {
+          "tipo": "vida_maxima",
+          "valor": 50
+        }
+      ],
+      "tablero_id": "tablero_empezar",
+      "tags": []
+    }
+  ],
+  "palabras_clave": []
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **rareza**: Siempre "magico"
+2. **atributos**: Array con 2-3 bonificaciones típicamente
+3. **nombre**: Resumen de todos los atributos
+4. **ID**: "nodo_magico_" + combinacion_atributos`;
+  }
+
+  // Generar prompt para extraer nodos raros Paragon
+  static generateParagonRareNodesPrompt(): string {
+    return `Analiza la imagen y extrae los nodos raros del tablero Paragon de Diablo 4.
+
+**⚠️ IMPORTANTE - NODOS RAROS:**
+
+Los nodos raros (color amarillo/dorado) otorgan múltiples atributos y pueden tener efectos adicionales condicionales.
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "nodos_raros": [
+    {
+      "id": "nodo_raro_fuerza_critico",
+      "nombre": "Fuerza y Crítico",
+      "rareza": "raro",
+      "atributos": [
+        {
+          "tipo": "fuerza",
+          "valor": 10
+        },
+        {
+          "tipo": "probabilidad_golpe_critico",
+          "valor": "3%",
+          "condicion": "con habilidades de armas"
+        }
+      ],
+      "efecto_adicional": "Tus habilidades de armas tienen un 5% más de probabilidad de crítico",
+      "tablero_id": "tablero_clamor_ancestros",
+      "tags": ["critico", "armas"]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "critico",
+      "texto_original": "crítico",
+      "significado": null,
+      "categoria": "mecanica",
+      "fuente": "nodo"
+    }
+  ]
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **rareza**: Siempre "raro"
+2. **atributos**: Puede incluir condiciones adicionales
+3. **efecto_adicional**: Descripción de bonificación especial (opcional)
+4. **Tags**: Captura palabras resaltadas en el efecto`;
+  }
+
+  // Generar prompt para extraer nodos legendarios Paragon
+  static generateParagonLegendaryNodesPrompt(): string {
+    return `Analiza la imagen y extrae los nodos legendarios del tablero Paragon de Diablo 4.
+
+**⚠️ IMPORTANTE - NODOS LEGENDARIOS:**
+
+Los nodos legendarios (color naranja/legendario) son los más poderosos y otorgan efectos únicos y complejos.
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "nodos_legendarios": [
+    {
+      "id": "nodo_leg_consagrada_fuerza",
+      "nombre": "Consagrada Fuerza",
+      "rareza": "legendario",
+      "descripcion": "Obtienes un 10% de fuerza adicional. Mientras estés en terreno consagrado, infliges un 25% más de daño.",
+      "tipo": "pasivo",
+      "bonificacion_principal": "+10% Fuerza",
+      "bonificaciones_secundarias": [
+        "+25% Daño en terreno consagrado"
+      ],
+      "requisitos": "Estar en terreno consagrado para activar bonificación de daño",
+      "tablero_id": "tablero_sagrado",
+      "tags": ["fuerza", "consagrado", "danio"]
+    },
+    {
+      "id": "nodo_leg_velocidad_leviatan",
+      "nombre": "Velocidad del Leviatán",
+      "rareza": "legendario",
+      "descripcion": "Cuando usas Aura de Rebeldía, tu velocidad de movimiento aumenta un 30% durante 5 segundos.",
+      "tipo": "activo",
+      "bonificacion_principal": "+30% Velocidad de movimiento",
+      "bonificaciones_secundarias": [],
+      "requisitos": "Usar Aura de Rebeldía",
+      "tablero_id": "tablero_leviatan",
+      "tags": ["velocidad_movimiento", "aura_rebeldia"]
+    }
+  ],
+  "palabras_clave": [
+    {
+      "tag": "consagrado",
+      "texto_original": "consagrado",
+      "significado": "Terreno sagrado creado por habilidades del Paladín",
+      "categoria": "mecanica",
+      "fuente": "tooltip"
+    },
+    {
+      "tag": "aura_rebeldia",
+      "texto_original": "Aura de Rebeldía",
+      "significado": null,
+      "categoria": "habilidad",
+      "fuente": "nodo"
+    }
+  ]
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **rareza**: Siempre "legendario"
+2. **tipo**: "pasivo" o "activo" según si requiere activación
+3. **bonificacion_principal**: Efecto más importante
+4. **bonificaciones_secundarias**: Efectos adicionales
+5. **requisitos**: Condiciones para activar (si aplica)
+6. **descripcion**: Texto completo del efecto
+7. **Tags**: Todas las palabras clave resaltadas`;
+  }
+
+  // Generar prompt para extraer zócalos de glifos Paragon
+  static generateParagonGlyphSocketsPrompt(): string {
+    return `Analiza la imagen y extrae los zócalos de glifos del tablero Paragon de Diablo 4.
+
+**⚠️ IMPORTANTE - ZÓCALOS DE GLIFOS:**
+
+Los zócalos son ranuras especiales en los tableros Paragon donde puedes equipar glifos. 
+Cada tablero típicamente tiene 1-2 zócalos.
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "zocalos": [
+    {
+      "id": "zocalo_tablero_empezar_01",
+      "nombre": "Zócalo de Glifo",
+      "tablero_id": "tablero_empezar",
+      "glifo_equipado_id": "glifo_centinela",
+      "nivel_glifo": 21,
+      "radio_bonus": 5,
+      "tags": []
+    },
+    {
+      "id": "zocalo_tablero_clamor_01",
+      "nombre": "Zócalo de Glifo",
+      "tablero_id": "tablero_clamor_ancestros",
+      "glifo_equipado_id": null,
+      "nivel_glifo": null,
+      "radio_bonus": null,
+      "tags": []
+    }
+  ],
+  "palabras_clave": []
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **ID**: "zocalo_" + tablero_id + "_" + numero
+2. **glifo_equipado_id**: ID del glifo si hay uno equipado, null si vacío
+3. **nivel_glifo**: Nivel actual del glifo equipado
+4. **radio_bonus**: Radio de nodos afectados por el glifo
+5. **tablero_id**: Referencia al tablero donde está el zócalo`;
+  }
+
+  // Generar prompt para extraer configuración Paragon del personaje
+  static generateParagonCharacterPrompt(): string {
+    return `Analiza la imagen y extrae la configuración Paragon completa del personaje en Diablo 4.
+
+**⚠️ IMPORTANTE - PARAGON DEL PERSONAJE:**
+
+Esta extracción captura qué tableros tiene equipados el personaje, qué nodos ha activado, y sus estadísticas acumuladas.
+
+**Información a extraer:**
+1. Nivel Paragon actual (0-300)
+2. Puntos gastados y disponibles
+3. Tableros equipados con su posición
+4. Lista de IDs de todos los nodos activados
+5. Glifos equipados en zócalos
+6. Atributos acumulados totales de Paragon
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "paragon": {
+    "nivel_paragon": 150,
+    "puntos_gastados": 145,
+    "puntos_disponibles": 5,
+    "tableros_equipados": [
+      {
+        "tablero_id": "tablero_empezar",
+        "posicion": 0,
+        "rotacion": 0,
+        "nodos_activados": [
+          "nodo_fuerza_01",
+          "nodo_fuerza_02",
+          "nodo_vida_01",
+          "nodo_magico_fuerza_vida"
+        ],
+        "zocalo_glifo": {
+          "zocalo_id": "zocalo_tablero_empezar_01",
+          "glifo_id": "glifo_centinela",
+          "nivel_glifo": 21
+        }
+      },
+      {
+        "tablero_id": "tablero_clamor_ancestros",
+        "posicion": 1,
+        "rotacion": 90,
+        "nodos_activados": [
+          "nodo_leg_consagrada_fuerza",
+          "nodo_raro_fuerza_critico"
+        ],
+        "zocalo_glifo": null
+      }
+    ],
+    "atributos_acumulados": [
+      {
+        "tipo": "fuerza",
+        "valor_total": 150,
+        "contribuciones": [
+          {
+            "fuente": "nodo_normal",
+            "nodo_id": "nodo_fuerza_01",
+            "valor": 5
+          },
+          {
+            "fuente": "nodo_normal",
+            "nodo_id": "nodo_fuerza_02",
+            "valor": 5
+          },
+          {
+            "fuente": "nodo_magico",
+            "nodo_id": "nodo_magico_fuerza_vida",
+            "valor": 5
+          },
+          {
+            "fuente": "nodo_legendario",
+            "nodo_id": "nodo_leg_consagrada_fuerza",
+            "valor": "10%"
+          }
+        ]
+      },
+      {
+        "tipo": "vida_maxima",
+        "valor_total": 850,
+        "contribuciones": [
+          {
+            "fuente": "nodo_normal",
+            "nodo_id": "nodo_vida_01",
+            "valor": 50
+          },
+          {
+            "fuente": "nodo_magico",
+            "nodo_id": "nodo_magico_fuerza_vida",
+            "valor": 50
+          }
+        ]
+      }
+    ],
+    "nodos_activados_total": [
+      "nodo_fuerza_01",
+      "nodo_fuerza_02",
+      "nodo_vida_01",
+      "nodo_magico_fuerza_vida",
+      "nodo_leg_consagrada_fuerza",
+      "nodo_raro_fuerza_critico"
+    ],
+    "glifos_equipados": [
+      {
+        "zocalo_id": "zocalo_tablero_empezar_01",
+        "glifo_id": "glifo_centinela",
+        "nivel": 21
+      }
+    ]
+  }
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **nivel_paragon**: Nivel Paragon actual (visible en la UI)
+2. **puntos_gastados**: Total de puntos invertidos
+3. **puntos_disponibles**: Puntos sin usar
+4. **tableros_equipados**: Array ordenado por posición (0 = central)
+5. **rotacion**: 0, 90, 180, o 270 grados
+6. **nodos_activados**: IDs de nodos activos en ese tablero específico
+7. **atributos_acumulados**: Suma total por tipo de atributo
+8. **contribuciones**: Desglose de de dónde viene cada valor
+
+**IMPORTANTE:**
+
+- Si no tienes toda la información visible, captura lo que puedas
+- nodos_activados_total es la combinación de todos los nodos de todos los tableros
+- atributos_acumulados es opcional si no es visible en la captura`;
+  }
+}
+
 

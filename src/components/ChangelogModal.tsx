@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">14 de Abril, 2026</p>
+                <p className="text-d4-text font-semibold">15 de Abril, 2026 (v0.5.0)</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,154 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.5.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.5.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-emerald-600/20 to-teal-600/20 text-emerald-300 px-2 py-1 rounded">Sistema de Subcategorías Paragon</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-emerald-300 mb-2 flex items-center gap-2">
+                🎯 Sistema Inteligente de Subcategorías
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>8 subcategorías especializadas</strong> para datos Paragon: tableros, nodos (normal/mágico/raro/legendario), zócalos, atributos, configuración</li>
+                <li><strong>Selección visual en Modal de Captura</strong>: dropdown dinámico que aparece solo al seleccionar categoría Paragon</li>
+                <li><strong>Asignación automática de destino</strong>: cada subcategoría determina si los datos van a Héroe, Personaje o Ambos</li>
+                <li>Indicadores claros en la UI mostrando el <strong>destino de guardado</strong> de cada subcategoría</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-teal-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-teal-300 mb-2 flex items-center gap-2">
+                🤖 Selección Automática de Prompts IA
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Mapeo automático</strong> de subcategoría → prompt específico</li>
+                <li><code className="bg-d4-surface px-1 rounded">tableros</code> → Prompt de catálogo de tableros Paragon</li>
+                <li><code className="bg-d4-surface px-1 rounded">nodos_*</code> → Prompts especializados por rareza (4 tipos)</li>
+                <li><code className="bg-d4-surface px-1 rounded">zocalos</code> → Prompt de ranuras de glifos en tableros</li>
+                <li><code className="bg-d4-surface px-1 rounded">atributos/configuracion</code> → Prompt de configuración del personaje</li>
+                <li>Eliminada ambigüedad: <strong>cada subcategoría tiene su propio prompt optimizado</strong></li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                💾 Lógica de Guardado Inteligente
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Datos de Héroe</strong>: tableros, nodos, zócalos → guardados en <code className="bg-d4-surface px-1 rounded">/heroes/{'{clase}'}_paragon_*.json</code></li>
+                <li><strong>Datos de Personaje</strong>: configuración → guardada en <code className="bg-d4-surface px-1 rounded">/personajes/{'{id}'}.json</code> bajo bloque <code className="bg-d4-surface px-1 rounded">paragon</code></li>
+                <li><strong>Datos mixtos</strong>: atributos → pueden importarse en ambos contextos según necesidad</li>
+                <li>MERGE inteligente que <strong>preserva datos existentes</strong> al importar</li>
+                <li>Detección de duplicados con notificaciones de <strong>nuevos/actualizados/repetidos</strong></li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🔀 Actualización Automática de Tipo de Prompt
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Al seleccionar una subcategoría, el <strong>tipo de prompt</strong> (Héroe/Personaje) se actualiza automáticamente</li>
+                <li>Tableros y nodos → cambio automático a <strong>"Héroe"</strong></li>
+                <li>Configuración → cambio automático a <strong>"Personaje"</strong></li>
+                <li>Atributos → permite <strong>ambos tipos</strong>, usuario decide contexto</li>
+                <li>Reducción de errores al evitar combinaciones inválidas de tipo/subcategoría</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-indigo-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-indigo-300 mb-2 flex items-center gap-2">
+                🏗️ Mejoras de Arquitectura
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Nuevo tipo <code className="bg-d4-surface px-1 rounded">ParagonSubcategory</code> con 8 valores posibles</li>
+                <li>Estado <code className="bg-d4-surface px-1 rounded">paragonSubcategory</code> en ImageCaptureModal</li>
+                <li>Handlers <code className="bg-d4-surface px-1 rounded">handleCategoryChange</code> y <code className="bg-d4-surface px-1 rounded">handleParagonSubcategoryChange</code> con lógica de sincronización</li>
+                <li>Estructura <code className="bg-d4-surface px-1 rounded">CATEGORIES</code> extendida con array <code className="bg-d4-surface px-1 rounded">subcategories</code> opcional</li>
+                <li>Funciones <code className="bg-d4-surface px-1 rounded">getPromptForCategory</code> y <code className="bg-d4-surface px-1 rounded">getShortPrompt</code> actualizadas con switch anidado</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.4.15 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.4.15</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-orange-600/20 to-yellow-600/20 text-orange-300 px-2 py-1 rounded">Sistema Paragon Completo</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                ⚡ Sistema Paragon Implementado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Tipos TypeScript completos</strong> para tableros, nodos (normales, mágicos, raros, legendarios) y zócalos de glifos</li>
+                <li><strong>Estructura de datos para héroe</strong>: catálogos de tableros y nodos Paragon por clase</li>
+                <li><strong>Estructura de datos para personaje</strong>: tableros equipados, nodos activados, atributos acumulados</li>
+                <li>Servicios de <strong>carga/guardado</strong> en WorkspaceService para datos Paragon</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                🎯 7 Prompts Especializados para Extracción con IA
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Prompt para tableros Paragon</strong>: extrae catálogo de tableros disponibles</li>
+                <li><strong>Prompts para nodos</strong>: normales, mágicos, raros y legendarios (4 prompts especializados)</li>
+                <li><strong>Prompt para zócalos de glifos</strong>: ranuras especiales en tableros</li>
+                <li><strong>Prompt para configuración del personaje</strong>: tableros equipados, nodos activados, atributos totales</li>
+                <li>Formato JSON optimizado con ejemplos completos en cada prompt</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🎨 Componente UI CharacterParagon
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Vista completa</strong> del sistema Paragon del personaje</li>
+                <li>Muestra <strong>nivel Paragon, puntos gastados/disponibles</strong> y tableros equipados</li>
+                <li>Visualización de <strong>nodos activados</strong> por tablero con rotación</li>
+                <li>Muestra <strong>atributos acumulados</strong> con desglose de contribuciones</li>
+                <li>Importación desde JSON (archivo o texto) con validación</li>
+                <li>Botón de <strong>copiar prompt IA</strong> para extracción de configuración</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                📁 Nueva Categoría en Modal de Captura
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Categoría "Paragon"</strong> agregada al sistema de captura de imágenes</li>
+                <li>Carpeta <strong>/imagenes/paragon/</strong> creada automáticamente en workspace</li>
+                <li>Límite recomendado de <strong>8 capturas</strong> para datos completos de Paragon</li>
+                <li>Integración completa con el sistema de extracción por IA</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🔧 Integración en CharacterDetail
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Componente Paragon <strong>integrado</strong> en vista de detalle del personaje</li>
+                <li>Guardado automático con <strong>merge seguro</strong> en archivo del personaje</li>
+                <li>Estado reactivo sincronizado con cambios del personaje</li>
+                <li>Gestión de errores con modales de notificación</li>
+              </ul>
             </div>
           </div>
         </div>

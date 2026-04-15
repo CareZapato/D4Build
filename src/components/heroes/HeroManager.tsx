@@ -7,6 +7,7 @@ import { ImageExtractionPromptService } from '../../services/ImageExtractionProm
 import HeroSkills from './HeroSkills';
 import HeroGlyphs from './HeroGlyphs';
 import HeroAspects from './HeroAspects';
+import HeroParagon from './HeroParagon';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 import { useAppContext } from '../../context/AppContext';
@@ -16,7 +17,7 @@ const HeroManager: React.FC = () => {
   const { personajes, availableClasses } = useAppContext();
   const [selectedClass, setSelectedClass] = useState('Paladín');
   const [currentView, setCurrentView] = useState<'import' | 'manage'>('manage');
-  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos'>('habilidades');
+  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'paragon'>('habilidades');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -766,6 +767,16 @@ const HeroManager: React.FC = () => {
                 >
                   Aspectos
                 </button>
+                <button
+                  onClick={() => setImportType('paragon')}
+                  className={`px-4 py-2 rounded transition-colors ${
+                    importType === 'paragon'
+                      ? 'bg-d4-accent text-black font-semibold'
+                      : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                  }`}
+                >
+                  Paragon
+                </button>
               </div>
 
               {/* Render appropriate component */}
@@ -791,6 +802,12 @@ const HeroManager: React.FC = () => {
                   aspects={heroAspects}
                   onUpdate={handleUpdateAspects}
                 />
+              )}
+
+              {importType === 'paragon' && (
+                <div className="card">
+                  <HeroParagon clase={selectedClass} />
+                </div>
               )}
 
               {/* No data message */}

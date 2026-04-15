@@ -15,7 +15,30 @@ export class PromptService {
     if (personaje.nivel_paragon) {
       prompt += ` | **Nivel Paragon**: ${personaje.nivel_paragon}`;
     }
+    if (personaje.puertas_anexo) {
+      prompt += `\n- **Puertas de Anexo**: ${personaje.puertas_anexo} (otorga +${personaje.puertas_anexo * 5} a todos los atributos principales)`;
+    }
     prompt += `\n\n`;
+
+    // Atributos principales con bonus de puertas
+    if (personaje.estadisticas?.atributosPrincipales) {
+      const atrib = personaje.estadisticas.atributosPrincipales;
+      const bonusPuertas = (personaje.puertas_anexo || 0) * 5;
+      
+      prompt += `## Atributos Principales\n`;
+      prompt += `- **Fuerza**: ${(atrib.fuerza || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.fuerza} base + ${bonusPuertas} puertas)`;
+      prompt += `\n`;
+      prompt += `- **Inteligencia**: ${(atrib.inteligencia || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.inteligencia} base + ${bonusPuertas} puertas)`;
+      prompt += `\n`;
+      prompt += `- **Voluntad**: ${(atrib.voluntad || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.voluntad} base + ${bonusPuertas} puertas)`;
+      prompt += `\n`;
+      prompt += `- **Destreza**: ${(atrib.destreza || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.destreza} base + ${bonusPuertas} puertas)`;
+      prompt += `\n\n`;
+    }
 
     // Estadísticas detalladas
     if (personaje.estadisticas) {
@@ -37,30 +60,57 @@ export class PromptService {
       prompt += await this.formatAspectosEquipados(personaje);
     }
 
+    // Sistema Paragon (mejorado con conteo de nodos activos)
+    if (personaje.paragon_refs || personaje.paragon || personaje.atributos_paragon) {
+      prompt += await this.formatParagonEquipado(personaje);
+      
+      // Agregar información adicional de nodos activos
+      const nodosHuerfanos = personaje.paragon_refs?.nodos_huerfanos || [];
+      const nodosEnTableros = personaje.paragon_refs?.tableros_equipados?.flatMap(t => 
+        t.nodos_activados_ids || []
+      ) || [];
+      const totalNodosActivos = nodosHuerfanos.length + nodosEnTableros.length;
+      
+      if (totalNodosActivos > 0) {
+        prompt += `\n**IMPORTANTE**: Nodos activos totales: ${totalNodosActivos}`;
+        if (nodosHuerfanos.length > 0) {
+          prompt += ` (incluye ${nodosHuerfanos.length} nodos huérfanos sin tablero asignado)`;
+        }
+        prompt += `\n`;
+      }
+    }
+
     // Pregunta de análisis
     prompt += `\n## Tarea de Análisis\n\n`;
     prompt += `Proporciona un análisis detallado del build:\n\n`;
     prompt += `### 1. Evaluación General (0-10)\n`;
     prompt += `- **Coherencia del Build**: ¿Las habilidades, glifos y aspectos trabajan juntos?\n`;
     prompt += `- **Optimización de Stats**: ¿Las estadísticas están bien distribuidas?\n`;
-    prompt += `- **Viabilidad**: ¿Es viable para contenido endgame?\n\n`;
+    prompt += `- **Viabilidad**: ¿Es viable para contenido endgame?\n`;
+    prompt += `- **Sistema Paragon**: ¿La configuración Paragon es óptima?\n\n`;
     
     prompt += `### 2. Fortalezas Identificadas\n`;
     prompt += `- ¿Qué está haciendo bien este build?\n`;
     prompt += `- ¿Qué sinergias efectivas existen?\n`;
-    prompt += `- ¿Qué aspectos son particularmente fuertes?\n\n`;
+    prompt += `- ¿Qué aspectos son particularmente fuertes?\n`;
+    prompt += `- ¿Los tableros y nodos Paragon complementan el build?\n\n`;
     
     prompt += `### 3. Debilidades y Puntos Críticos\n`;
     prompt += `- ¿Qué carencias tiene el build?\n`;
     prompt += `- ¿Hay habilidades/glifos/aspectos que no aportan valor?\n`;
-    prompt += `- ¿Qué mecánicas del juego no está aprovechando?\n\n`;
+    prompt += `- ¿Qué mecánicas del juego no está aprovechando?\n`;
+    prompt += `- ¿La configuración Paragon es óptima para el build?\n`;
+    prompt += `- ¿Debería conseguir más puertas de anexo?\n\n`;
     
     prompt += `### 4. Prioridades de Optimización\n`;
     prompt += `Ordena por importancia (1 = más urgente):\n`;
     prompt += `- Estadísticas a mejorar\n`;
     prompt += `- Habilidades a cambiar\n`;
     prompt += `- Glifos a reemplazar\n`;
-    prompt += `- Aspectos a buscar\n\n`;
+    prompt += `- Aspectos a buscar\n`;
+    prompt += `- Tableros Paragon a optimizar\n`;
+    prompt += `- Nodos Paragon a activar/cambiar\n`;
+    prompt += `- Puertas de Anexo a conseguir\n\n`;
     
     prompt += `### 5. Plan de Acción Inmediato\n`;
     prompt += `Dame 3-5 cambios concretos que pueda hacer YA para mejorar el rendimiento.\n`;
@@ -74,6 +124,33 @@ export class PromptService {
     
     prompt += `Eres un experto en teorycrafting de Diablo 4. Compara lo que el personaje tiene equipado contra todas las opciones disponibles.\n\n`;
 
+    // Info del personaje con atributos
+    prompt += `## Información del Personaje\n`;
+    prompt += `- **Clase**: ${personaje.clase} | **Nivel**: ${personaje.nivel}`;
+    if (personaje.nivel_paragon) {
+      prompt += ` | **Nivel Paragon**: ${personaje.nivel_paragon}`;
+    }
+    if (personaje.puertas_anexo) {
+      prompt += `\n- **Puertas de Anexo**: ${personaje.puertas_anexo} (+${personaje.puertas_anexo * 5} a todos los atributos)`;
+    }
+    prompt += `\n\n`;
+
+    // Atributos con bonus
+    if (personaje.estadisticas?.atributosPrincipales) {
+      const atrib = personaje.estadisticas.atributosPrincipales;
+      const bonusPuertas = (personaje.puertas_anexo || 0) * 5;
+      
+      prompt += `### Atributos Principales\n`;
+      prompt += `- Fuerza: ${(atrib.fuerza || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (base: ${atrib.fuerza})`;
+      prompt += ` | Inteligencia: ${(atrib.inteligencia || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (base: ${atrib.inteligencia})`;
+      prompt += `\n- Voluntad: ${(atrib.voluntad || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (base: ${atrib.voluntad})`;
+      prompt += ` | Destreza: ${(atrib.destreza || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (base: ${atrib.destreza})`;
+      prompt += `\n\n`;
+    }
     // Habilidades equipadas vs disponibles
     try {
       const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
@@ -200,6 +277,60 @@ export class PromptService {
     }
 
     // Preguntas de comparación
+    // Paragon equipado vs disponible
+    if (personaje.paragon_refs || personaje.paragon || personaje.atributos_paragon) {
+      try {
+        const paragonBoards = await WorkspaceService.loadParagonBoards(personaje.clase);
+        const paragonNodes = await WorkspaceService.loadParagonNodes(personaje.clase);
+        
+        if (paragonBoards || paragonNodes) {
+          prompt += `\n## Sistema Paragon: Equipado vs Disponible\n\n`;
+          
+          // Tableros equipados vs disponibles (nuevo modelo de referencias v0.5.1)
+          const tablerosEquipados = personaje.paragon_refs?.tableros_equipados || personaje.paragon?.tableros_equipados || [];
+          
+          if (paragonBoards && tablerosEquipados && tablerosEquipados.length > 0) {
+            const equipadosTablerosIds = new Set(
+              tablerosEquipados.map((t: any) => t.tablero_id)
+            );
+            
+            prompt += `### Tableros Equipados (${tablerosEquipados.length})\n`;
+            tablerosEquipados.forEach((tableroEquip: any) => {
+              const tablero = paragonBoards.tableros?.find((t: any) => t.id === tableroEquip.tablero_id);
+              if (tablero) {
+                prompt += `- **${tablero.nombre}** (Posición ${tableroEquip.posicion})\n`;
+                prompt += `  - Nodos activados: ${tableroEquip.nodos_activados?.length || 0}\n`;
+                if (tablero.bonificacion_especial) {
+                  prompt += `  - Bonificación: ${tablero.bonificacion_especial.descripcion}\n`;
+                }
+              }
+            });
+            
+            // Tableros disponibles NO equipados
+            const disponiblesTableros = paragonBoards.tableros?.filter(
+              (t: any) => t.id && !equipadosTablerosIds.has(t.id)
+            ) || [];
+            
+            if (disponiblesTableros.length > 0) {
+              prompt += `\n### Tableros Disponibles NO Equipados (${disponiblesTableros.length})\n`;
+              disponiblesTableros.forEach((tablero: any) => {
+                prompt += `- **${tablero.nombre}**\n`;
+                if (tablero.bonificacion_especial) {
+                  prompt += `  - ${tablero.bonificacion_especial.descripcion}\n`;
+                }
+              });
+            }
+          }
+          
+          // @deprecated (v0.5.3) - Los atributos acumulados se manejan en estadisticas. atributosPrincipales
+          // Los atributos Paragon se suman directamente a los atributos principales del personaje
+          // Ya no duplicamos esta información en paragon.atributos_acumulados
+        }
+      } catch (error) {
+        console.error('Error cargando datos Paragon:', error);
+      }
+    }
+
     prompt += `\n## Análisis Solicitado\n\n`;
     prompt += `### 1. Cambios Recomendados de Habilidades\n`;
     prompt += `- ¿Qué habilidades equipadas deberían reemplazarse y por cuáles?\n`;
@@ -216,7 +347,12 @@ export class PromptService {
     prompt += `- ¿Qué aspectos disponibles crean mejores sinergias?\n`;
     prompt += `- Top 3 aspectos a conseguir/equipar\n\n`;
     
-    prompt += `### 4. Conclusión\n`;
+    prompt += `### 4. Optimización del Sistema Paragon\n`;
+    prompt += `- ¿Los tableros equipados son los más adecuados para este build?\n`;
+    prompt += `- ¿Qué nodos Paragon deberían priorizarse?\n`;
+    prompt += `- ¿Hay tableros disponibles que ofrezcan mejores sinergias?\n\n`;
+    
+    prompt += `### 5. Conclusión\n`;
     prompt += `Resume los 5 cambios más impactantes que puede hacer usando SOLO lo que ya tiene disponible.\n`;
 
     return prompt;
@@ -606,6 +742,89 @@ Identifica:
     return prompt;
   }
 
+  // Helper: Formatear sistema Paragon equipado
+  private static async formatParagonEquipado(personaje: Personaje): Promise<string> {
+    let prompt = '';
+    
+    try {
+      // Usar nuevo modelo de referencias (v0.5.1) con retrocompatibilidad
+      const paragonRefs = personaje.paragon_refs;
+      const atributosParagon = personaje.atributos_paragon;
+      const paragonLegacy = personaje.paragon; // Retrocompatibilidad
+      
+      if (!paragonRefs && !paragonLegacy && !atributosParagon) return prompt;
+      
+      const paragonBoards = await WorkspaceService.loadParagonBoards(personaje.clase);
+      
+      prompt += `\n## Sistema Paragon\n`;
+      
+      // Información general de Paragon (desde atributos_paragon o paragon legacy)
+      prompt += `\n### Progresión Paragon\n`;
+      const nivelParagon = atributosParagon?.nivel_paragon ?? paragonLegacy?.nivel_paragon;
+      const puntosGastados = atributosParagon?.puntos_gastados ?? paragonLegacy?.puntos_gastados;
+      const puntosDisponibles = atributosParagon?.puntos_disponibles ?? paragonLegacy?.puntos_disponibles;
+      
+      if (nivelParagon !== undefined && nivelParagon !== null) {
+        prompt += `- **Nivel Paragon**: ${nivelParagon}\n`;
+      }
+      if (puntosGastados !== undefined) {
+        prompt += `- **Puntos Gastados**: ${puntosGastados}\n`;
+      }
+      if (puntosDisponibles !== undefined) {
+        prompt += `- **Puntos Disponibles**: ${puntosDisponibles}\n`;
+      }
+      
+      // Tableros equipados (desde paragon_refs o paragon legacy)
+      const tablerosEquipados = paragonRefs?.tableros_equipados || paragonLegacy?.tableros_equipados || [];
+      
+      if (paragonBoards && tablerosEquipados && tablerosEquipados.length > 0) {
+        prompt += `\n### Tableros Equipados (${tablerosEquipados.length})\n`;
+        
+        tablerosEquipados.forEach((tableroEquip: any) => {
+          const tablero = paragonBoards.tableros?.find((t: any) => t.id === tableroEquip.tablero_id);
+          if (tablero) {
+            prompt += `\n#### ${tablero.nombre}\n`;
+            prompt += `- **Posición**: ${tableroEquip.posicion}\n`;
+            if (tableroEquip.rotacion !== undefined) {
+              prompt += `- **Rotación**: ${tableroEquip.rotacion}°\n`;
+            }
+            if (tableroEquip.nodos_activados && tableroEquip.nodos_activados.length > 0) {
+              prompt += `- **Nodos Activados**: ${tableroEquip.nodos_activados.length}\n`;
+            }
+            if (tablero.bonificacion_especial) {
+              prompt += `- **Bonificación**: ${tablero.bonificacion_especial.descripcion}\n`;
+            }
+            if (tableroEquip.zocalo_glifo) {
+              prompt += `- **Glifo Equipado**: ${tableroEquip.zocalo_glifo.glifo_id} (Nivel ${tableroEquip.zocalo_glifo.nivel_glifo})\n`;
+            }
+          }
+        });
+      }
+      
+      // @deprecated (v0.5.3) - Los atributos acumulados se manejan en estadisticas.atributosPrincipales
+      // Los atributos Paragon se suman directamente a los atributos principales del personaje
+      // Ya no duplicamos esta información en paragon.atributos_acumulados
+      
+      // Nodos activados totales (desde paragon_refs o paragon legacy)
+      const nodosActivadosTotal = paragonRefs?.nodos_activados_ids || paragonLegacy?.nodos_activados_total || [];
+      
+      if (nodosActivadosTotal && nodosActivadosTotal.length > 0) {
+        prompt += `\n### Total de Nodos Activados: ${nodosActivadosTotal.length}\n`;
+      }
+      
+      // Nodos huérfanos (solo en paragon_refs v0.5.1)
+      if (paragonRefs?.nodos_huerfanos && paragonRefs.nodos_huerfanos.length > 0) {
+        prompt += `\n### Nodos Huérfanos (sin tablero asignado): ${paragonRefs.nodos_huerfanos.length}\n`;
+        prompt += `- Estos nodos se enlazarán automáticamente al agregar los tableros correspondientes\n`;
+      }
+      
+    } catch (error) {
+      console.error('Error cargando datos Paragon:', error);
+    }
+    
+    return prompt;
+  }
+
   // Helper: Dividir prompt largo en múltiples partes
   static splitIntoMultiplePrompts(prompt: string, maxTokens: number = 8000): string[] {
     // Estimación: ~4 caracteres por token
@@ -694,4 +913,352 @@ Identifica:
       return false;
     }
   }
+
+  // ============================================================================
+  // PROMPTS DE ANÁLISIS DE PARAGON (v0.5.2+)
+  // ============================================================================
+
+  /**
+   * Generar prompt de análisis completo del sistema Paragon
+   * Analiza tableros, nodos, glifos, atributos acumulados y balance general
+   */
+  static async generateParagonAnalysisPrompt(personaje: Personaje): Promise<string> {
+    let prompt = `# Análisis del Sistema Paragon - ${personaje.nombre} (${personaje.clase})\n\n`;
+    
+    prompt += `Eres un experto en el sistema Paragon de Diablo 4. Analiza la configuración actual de este personaje.\n\n`;
+    
+    // Información básica del personaje
+    prompt += `## Información del Personaje\n`;
+    prompt += `- **Clase**: ${personaje.clase}\n`;
+    prompt += `- **Nivel**: ${personaje.nivel}\n`;
+    if (personaje.nivel_paragon) {
+      prompt += `- **Nivel Paragon**: ${personaje.nivel_paragon}\n`;
+    }
+    if (personaje.puertas_anexo) {
+      prompt += `- **Puertas de Anexo**: ${personaje.puertas_anexo} (+${personaje.puertas_anexo * 5} a cada atributo principal)\n`;
+    }
+    prompt += `\n`;
+
+    // Atributos principales actuales (incluyendo bonus de puertas)
+    if (personaje.estadisticas?.atributosPrincipales) {
+      const atrib = personaje.estadisticas.atributosPrincipales;
+      const bonusPuertas = (personaje.puertas_anexo || 0) * 5;
+      
+      prompt += `## Atributos Principales\n`;
+      prompt += `- **Fuerza**: ${(atrib.fuerza || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.fuerza} base + ${bonusPuertas} puertas)`;
+      prompt += `\n`;
+      prompt += `- **Inteligencia**: ${(atrib.inteligencia || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.inteligencia} base + ${bonusPuertas} puertas)`;
+      prompt += `\n`;
+      prompt += `- **Voluntad**: ${(atrib.voluntad || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.voluntad} base + ${bonusPuertas} puertas)`;
+      prompt += `\n`;
+      prompt += `- **Destreza**: ${(atrib.destreza || 0) + bonusPuertas}`;
+      if (bonusPuertas > 0) prompt += ` (${atrib.destreza} base + ${bonusPuertas} puertas)`;
+      prompt += `\n\n`;
+    }
+
+    // Sistema Paragon detallado
+    prompt += await this.formatParagonEquipado(personaje);
+
+    // Cargar catálogos para análisis detallado
+    try {
+      const paragonNodes = await WorkspaceService.loadParagonNodes(personaje.clase);
+      
+      // Nodos equipados vs disponibles
+      const nodosHuerfanos = personaje.paragon_refs?.nodos_huerfanos || [];
+      const nodosEnTableros = personaje.paragon_refs?.tableros_equipados?.flatMap(t => 
+        t.nodos_activados_ids || []
+      ) || [];
+      const totalNodosActivos = nodosHuerfanos.length + nodosEnTableros.length;
+
+      if (paragonNodes) {
+        const totalNodosDisponibles = 
+          (paragonNodes.nodos_normales?.length || 0) +
+          (paragonNodes.nodos_magicos?.length || 0) +
+          (paragonNodes.nodos_raros?.length || 0) +
+          (paragonNodes.nodos_legendarios?.length || 0);
+
+        prompt += `\n### Resumen de Nodos\n`;
+        prompt += `- **Nodos Activos**: ${totalNodosActivos}\n`;
+        if (nodosHuerfanos.length > 0) {
+          prompt += `- **Nodos Huérfanos** (sin tablero): ${nodosHuerfanos.length}\n`;
+        }
+        prompt += `- **Nodos Disponibles** (catálogo): ${totalNodosDisponibles}\n`;
+        prompt += `- **Utilización**: ${((totalNodosActivos / totalNodosDisponibles) * 100).toFixed(1)}%\n`;
+      }
+    } catch (error) {
+      console.error('Error cargando datos Paragon:', error);
+    }
+
+    // Preguntas de análisis
+    prompt += `\n## Análisis Solicitado\n\n`;
+    
+    prompt += `### 1. Evaluación del Estado Actual (0-10)\n`;
+    prompt += `- **Eficiencia de Tableros**: ¿Los tableros equipados son óptimos para la clase?\n`;
+    prompt += `- **Distribución de Nodos**: ¿Los nodos activados están bien balanceados?\n`;
+    prompt += `- **Sinergia con Build**: ¿El Paragon complementa las habilidades/glifos/aspectos?\n`;
+    prompt += `- **Aprovechamiento de Puntos**: ¿Se están usando eficientemente los puntos Paragon?\n\n`;
+    
+    prompt += `### 2. Fortalezas Identificadas\n`;
+    prompt += `- ¿Qué aspectos del sistema Paragon están bien configurados?\n`;
+    prompt += `- ¿Qué sinergias efectivas existen entre tableros y nodos?\n`;
+    prompt += `- ¿Los atributos acumulados están alineados con el build?\n\n`;
+    
+    prompt += `### 3. Debilidades y Áreas de Mejora\n`;
+    prompt += `- ¿Hay tableros subóptimos que deberían reemplazarse?\n`;
+    prompt += `- ¿Nodos activados que no aportan valor significativo?\n`;
+    prompt += `- ¿Nodos huérfanos que indican configuración incompleta?\n`;
+    prompt += `- ¿Falta algún tipo de bonificación importante (daño, defensa, recurso)?\n\n`;
+    
+    prompt += `### 4. Recomendaciones Prioritarias\n`;
+    prompt += `Ordena por prioridad (1 = más urgente):\n`;
+    prompt += `1. Tableros a cambiar (especifica cuáles y por cuáles)\n`;
+    prompt += `2. Nodos a activar (especifica tipos y ubicación)\n`;
+    prompt += `3. Nodos a desactivar (no aportan valor)\n`;
+    prompt += `4. Glifos en zócalos de Paragon a optimizar\n`;
+    prompt += `5. Puertas de Anexo a conseguir (si aplica)\n\n`;
+    
+    prompt += `### 5. Plan de Mejora por Fases\n`;
+    prompt += `Divide las mejoras en 3 fases:\n`;
+    prompt += `- **Fase 1 (Inmediato)**: Cambios que puedo hacer ya con los recursos actuales\n`;
+    prompt += `- **Fase 2 (Corto plazo)**: Mejoras que requieren farmeo de nodos específicos\n`;
+    prompt += `- **Fase 3 (Largo plazo)**: Optimización completa del sistema Paragon\n`;
+
+    return prompt;
+  }
+
+  /**
+   * Generar prompt de optimización de nodos Paragon
+   * Compara nodos equipados vs disponibles para maximizar eficiencia
+   */
+  static async generateParagonOptimizationPrompt(personaje: Personaje): Promise<string> {
+    let prompt = `# Optimización de Nodos Paragon - ${personaje.nombre}\n\n`;
+    
+    prompt += `Eres un experto en teorycrafting del sistema Paragon de Diablo 4. Optimiza la selección de nodos.\n\n`;
+
+    try {
+      const paragonNodes = await WorkspaceService.loadParagonNodes(personaje.clase);
+      
+      if (!paragonNodes) {
+        prompt += `No hay catálogo de nodos disponible para análisis.\n`;
+        return prompt;
+      }
+
+      // Nodos equipados
+      const nodosHuerfanos = personaje.paragon_refs?.nodos_huerfanos || [];
+      const nodosEnTableros = personaje.paragon_refs?.tableros_equipados?.flatMap(t => 
+        (t.nodos_activados_ids || []).map(id => ({ nodo_id: id, tablero: t.tablero_id }))
+      ) || [];
+      
+      prompt += `## Nodos Actualmente Equipados\n\n`;
+      
+      // Resolver datos completos de nodos equipados
+      const todosNodosCatalogo = [
+        ...(paragonNodes.nodos_normales || []),
+        ...(paragonNodes.nodos_magicos || []),
+        ...(paragonNodes.nodos_raros || []),
+        ...(paragonNodes.nodos_legendarios || [])
+      ];
+
+      if (nodosHuerfanos.length > 0) {
+        prompt += `### Nodos Huérfanos (${nodosHuerfanos.length})\n`;
+        nodosHuerfanos.forEach(h => {
+          const nodo = todosNodosCatalogo.find(n => n.id === h.nodo_id);
+          if (nodo) {
+            prompt += `- **${nodo.nombre}** (${nodo.rareza})\n`;
+            
+            // Detalles activos (v0.5.3)
+            if ((nodo as any).detalles) {
+              const detallesActivos = (nodo as any).detalles.filter((d: any) => d.activo !== false);
+              detallesActivos.forEach((det: any) => {
+                prompt += `  - ${det.texto}\n`;
+              });
+            }
+            
+            // Atributos (retrocompatibilidad)
+            if ((nodo as any).atributos) {
+              (nodo as any).atributos.forEach((attr: any) => {
+                prompt += `  - ${attr.tipo}: +${attr.valor}\n`;
+              });
+            }
+            
+            // Requisitos (v0.5.3)
+            if ((nodo as any).requisitos) {
+              const req = (nodo as any).requisitos;
+              const cumplido = req.valor_actual >= req.valor_requerido;
+              prompt += `  - Requisito: ${req.atributo} ${req.valor_actual}/${req.valor_requerido} ${cumplido ? '✓' : '✗'}\n`;
+            }
+          }
+        });
+        prompt += `\n`;
+      }
+
+      if (nodosEnTableros.length > 0) {
+        prompt += `### Nodos en Tableros (${nodosEnTableros.length})\n`;
+        nodosEnTableros.forEach(n => {
+          const nodo = todosNodosCatalogo.find(nd => nd.id === n.nodo_id);
+          if (nodo) {
+            prompt += `- **${nodo.nombre}** (${nodo.rareza}) - Tablero: ${n.tablero}\n`;
+          }
+        });
+        prompt += `\n`;
+      }
+
+      // Nodos disponibles (no equipados)
+      const idsEquipados = new Set([
+        ...nodosHuerfanos.map(h => h.nodo_id),
+        ...nodosEnTableros.map(n => n.nodo_id)
+      ]);
+
+      const nodosDisponibles = todosNodosCatalogo.filter(n => !idsEquipados.has(n.id));
+
+      prompt += `## Nodos Disponibles NO Equipados\n\n`;
+      
+      // Agrupar por rareza
+      const porRareza = {
+        legendario: nodosDisponibles.filter(n => n.rareza === 'legendario'),
+        raro: nodosDisponibles.filter(n => n.rareza === 'raro'),
+        magico: nodosDisponibles.filter(n => n.rareza === 'magico'),
+        normal: nodosDisponibles.filter(n => n.rareza === 'normal')
+      };
+
+      ['legendario', 'raro', 'magico', 'normal'].forEach(rareza => {
+        const nodos = (porRareza as any)[rareza];
+        if (nodos.length > 0) {
+          prompt += `### Nodos ${rareza.charAt(0).toUpperCase() + rareza.slice(1)}s (${nodos.length})\n`;
+          nodos.slice(0, 10).forEach((nodo: any) => { // Mostrar máximo 10 por rareza
+            prompt += `- **${nodo.nombre}**\n`;
+            
+            // Detalles activos (v0.5.3)
+            if (nodo.detalles) {
+              const detallesActivos = nodo.detalles.filter((d: any) => d.activo !== false);
+              detallesActivos.forEach((det: any) => {
+                prompt += `  - ${det.texto}\n`;
+              });
+            }
+            
+            // Atributos (retrocompatibilidad)
+            if (nodo.atributos) {
+              nodo.atributos.forEach((attr: any) => {
+                prompt += `  - ${attr.tipo}: +${attr.valor}\n`;
+              });
+            }
+            
+           // Efectos especiales
+            if (nodo.efecto_especial) {
+              prompt += `  - Efecto: ${nodo.efecto_especial}\n`;
+            }
+            if (nodo.efecto_principal) {
+              prompt += `  - Efecto Principal: ${nodo.efecto_principal}\n`;
+            }
+            
+            // Requisitos (v0.5.3)
+            if (nodo.requisitos) {
+              const req = nodo.requisitos;
+              const cumplido = req.valor_actual >= req.valor_requerido;
+              prompt += `  - ⚠️ Requisito: ${req.atributo} ${req.valor_actual}/${req.valor_requerido} ${cumplido ? '✓ Cumplido' : '✗ No cumplido'}\n`;
+            }
+          });
+          if (nodos.length > 10) {
+            prompt += `- ... y ${nodos.length - 10} nodos más\n`;
+          }
+          prompt += `\n`;
+        }
+      });
+
+    } catch (error) {
+      console.error('Error cargando nodos:', error);
+      prompt += `Error cargando catálogo de nodos.\n`;
+    }
+
+    // Preguntas de optimización
+    prompt += `## Análisis de Optimización\n\n`;
+    
+    prompt += `### 1. Nodos a Reemplazar\n`;
+    prompt += `- ¿Qué nodos equipados son subóptimos para el build?\n`;
+    prompt += `- ¿Por qué nodos disponibles deberían reemplazarse?\n`;
+    prompt += `- Prioriza los cambios por impacto en el build\n\n`;
+    
+    prompt += `### 2. Nodos Prioritarios a Conseguir\n`;
+    prompt += `- ¿Qué nodos disponibles ofrecen mayor valor?\n`;
+    prompt += `- ¿Qué sinergias crearían con el build actual?\n`;
+    prompt += `- Top 5 nodos que mejorarían significativamente el personaje\n\n`;
+    
+    prompt += `### 3. Balance de Atributos\n`;
+    prompt += `- ¿Los nodos actuales están desbalanceados (mucho ofensivo/defensivo)?\n`;
+    prompt += `- ¿Qué tipo de nodos faltan (daño, vida, resistencias, recurso)?\n`;
+    prompt += `- Sugerencias para equilibrar el Paragon\n\n`;
+    
+    prompt += `### 4. Plan de Acción Específico\n`;
+    prompt += `Dame una lista concreta:\n`;
+    prompt += `1. **Desactivar**: [Nodo X] - Motivo\n`;
+    prompt += `2. **Activar**: [Nodo Y] - Beneficio\n`;
+    prompt += `3. **Farmear**: [Nodo Z] - Prioridad alta/media/baja\n`;
+
+    return prompt;
+  }
+
+  /**
+   * Generar prompt de comparación de nodos para decisiones estratégicas
+   */
+  static async generateParagonNodeComparisonPrompt(personaje: Personaje, nodoIds?: string[]): Promise<string> {
+    let prompt = `# Comparación de Nodos Paragon - ${personaje.nombre}\n\n`;
+    
+    prompt += `Compara nodos específicos para ayudar a tomar decisiones estratégicas.\n\n`;
+
+    try {
+      const paragonNodes = await WorkspaceService.loadParagonNodes(personaje.clase);
+      
+      if (!paragonNodes) {
+        prompt += `No hay catálogo de nodos disponible.\n`;
+        return prompt;
+      }
+
+      const todosNodos = [
+        ...(paragonNodes.nodos_normales || []),
+        ...(paragonNodes.nodos_magicos || []),
+        ...(paragonNodes.nodos_raros || []),
+        ...(paragonNodes.nodos_legendarios || [])
+      ];
+
+      // Si se especifican IDs, comparar esos nodos
+      if (nodoIds && nodoIds.length > 0) {
+        prompt += `## Nodos a Comparar\n\n`;
+        
+        nodoIds.forEach(id => {
+          const nodo = todosNodos.find(n => n.id === id);
+          if (nodo) {
+            prompt += `### ${nodo.nombre} (${nodo.rareza})\n`;
+            if ((nodo as any).atributos) {
+              (nodo as any).atributos.forEach((attr: any) => {
+                prompt += `- ${attr.tipo}: +${attr.valor}\n`;
+              });
+            }
+            if ((nodo as any).efecto_especial) {
+              prompt += `- **Efecto Especial**: ${(nodo as any).efecto_especial}\n`;
+            }
+            prompt += `\n`;
+          }
+        });
+      } else {
+        // Si no se especifican, mostrar nodos equipados vs top disponibles
+        prompt += `## Análisis General de Opciones\n\n`;
+        prompt += `Analiza todas las opciones disponibles y recomienda las mejores combinaciones.\n\n`;
+      }
+
+    } catch (error) {
+      console.error('Error cargando nodos:', error);
+    }
+
+    prompt += `## Preguntas de Comparación\n\n`;
+    prompt += `1. **Eficiencia por Tipo**: ¿Qué nodos ofrecen mejor retorno por punto invertido?\n`;
+    prompt += `2. **Sinergias**: ¿Qué combinaciones de nodos potencian el build?\n`;
+    prompt += `3. **Oportunidad de Costo**: ¿Vale la pena invertir en nodo X vs nodo Y?\n`;
+    prompt += `4. **Recomendación Final**: ¿Cuál es la combinación óptima de nodos?\n`;
+
+    return prompt;
+  }
 }
+

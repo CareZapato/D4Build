@@ -144,6 +144,7 @@ export class WorkspaceService {
       await imagesDir.getDirectoryHandle('glifos', { create: true });
       await imagesDir.getDirectoryHandle('aspectos', { create: true });
       await imagesDir.getDirectoryHandle('estadisticas', { create: true });
+      await imagesDir.getDirectoryHandle('paragon', { create: true });
       await imagesDir.getDirectoryHandle('otros', { create: true });
     } catch (error) {
       console.error('Error creando estructura:', error);
@@ -479,4 +480,106 @@ export class WorkspaceService {
       return [];
     }
   }
+
+  // ============================================================================
+  // MÉTODOS PARA SISTEMA PARAGON (v0.4.15)
+  // ============================================================================
+
+  // Guardar tableros Paragon de héroe
+  static async saveParagonBoards(clase: string, tableros: any): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_paragon_tableros.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(tableros, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando tableros Paragon:', error);
+      throw error;
+    }
+  }
+
+  // Cargar tableros Paragon de héroe
+  static async loadParagonBoards(clase: string): Promise<any | null> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_paragon_tableros.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      return JSON.parse(content);
+    } catch (error) {
+      if ((error as DOMException)?.name !== 'NotFoundError') {
+        console.error('Error cargando tableros Paragon:', error);
+      }
+      return null;
+    }
+  }
+
+  // Guardar nodos Paragon de héroe (catálogo completo)
+  static async saveParagonNodes(clase: string, nodos: any): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_paragon_nodos.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(nodos, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando nodos Paragon:', error);
+      throw error;
+    }
+  }
+
+  // Cargar nodos Paragon de héroe
+  static async loadParagonNodes(clase: string): Promise<any | null> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_paragon_nodos.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      return JSON.parse(content);
+    } catch (error) {
+      if ((error as DOMException)?.name !== 'NotFoundError') {
+        console.error('Error cargando nodos Paragon:', error);
+      }
+      return null;
+    }
+  }
+
+  // Guardar configuración Paragon del personaje (ya incluido en savePersonaje)
+  // El campo paragon se guarda automáticamente dentro del objeto Personaje
+  // No se requiere método separado, pero se puede usar el merge:
+  static async updatePersonajeParagon(personajeId: string, paragonData: any): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const personajesDir = await this.fileSystemHandle.getDirectoryHandle('personajes');
+      
+      // Leer personaje actual
+      const fileHandle = await personajesDir.getFileHandle(`${personajeId}.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      const personaje = JSON.parse(content);
+
+      // Actualizar solo el bloque paragon
+      personaje.paragon = paragonData;
+      personaje.fecha_actualizacion = new Date().toISOString();
+
+      // Guardar
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(personaje, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error actualizando Paragon del personaje:', error);
+      throw error;
+    }
+  }
 }
+

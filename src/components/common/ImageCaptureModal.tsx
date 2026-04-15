@@ -25,17 +25,26 @@ interface CapturedImage {
 
 type CaptureMode = 'new' | 'continue';
 
-const CATEGORIES: { value: ImageCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+// Estructura jerárquica para Paragon
+type ParagonType = 'tablero' | 'nodo' | 'atributos';
+
+const CATEGORIES: { 
+  value: ImageCategory; 
+  label: string; 
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
   { value: 'skills', label: 'Habilidades', icon: Swords },
   { value: 'glifos', label: 'Glifos', icon: Hexagon },
   { value: 'aspectos', label: 'Aspectos', icon: Gem },
   { value: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
-  { value: 'otros', label: 'Otros', icon: Grid3x3 },
+  { value: 'paragon', label: 'Paragon', icon: Grid3x3 },
+  { value: 'otros', label: 'Otros', icon: FileText },
 ];
 
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const { personajes, availableClasses, selectedPersonaje, setSelectedPersonaje, setPersonajes } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
+  const [paragonType, setParagonType] = useState<ParagonType>('tablero');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
@@ -95,6 +104,28 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (selectedPersonaje?.id === updatedPersonaje.id) {
       setSelectedPersonaje(updatedPersonaje);
     }
+  };
+
+  // Manejar cambio de categoría con lógica de Paragon
+  const handleCategoryChange = (newCategory: ImageCategory) => {
+    setSelectedCategory(newCategory);
+    
+    // Si es Paragon, establecer tipo por defecto
+    if (newCategory === 'paragon') {
+      setParagonType('tablero');
+      // Tablero permite ambos destinos, mantener selección actual
+    }
+  };
+
+  // Manejar cambio de tipo Paragon
+  const handleParagonTypeChange = (type: ParagonType) => {
+    setParagonType(type);
+    
+    // Si es atributos, forzar destino a personaje
+    if (type === 'atributos') {
+      setPromptType('personaje');
+    }
+    // Para tablero y nodo, permitir ambos destinos (mantener selección actual)
   };
 
   // Cargar contadores de categorías al abrir
@@ -496,6 +527,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       case 'glifos': return 6;  // Reducido de 8 a 6 (recomendación óptima)
       case 'aspectos': return 5;  // Reducido de 7 a 5 (recomendación óptima)
       case 'estadisticas': return 5; // 5 capturas ideales (secciones distintas)
+      case 'paragon': return 8;  // 8 capturas (tableros, nodos, configuración)
       case 'otros': return 6;  // Reducido de 8 a 6 (recomendación óptima)
     }
   };
@@ -632,6 +664,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       case 'estadisticas':
         basePrompt = ImageExtractionPromptService.generateStatsPrompt();
         break;
+      case 'paragon':
+        // Usar prompts específicos según tipo (SIN rareza)
+        if (paragonType === 'tablero') {
+          basePrompt = ImageExtractionPromptService.generateParagonBoardsPrompt();
+        } else if (paragonType === 'nodo') {
+          // Prompt genérico que detecta rareza automáticamente
+          basePrompt = ImageExtractionPromptService.generateParagonNodesPrompt();
+        } else if (paragonType === 'atributos') {
+          basePrompt = ImageExtractionPromptService.generateParagonCharacterPrompt();
+        }
+        break;
       default:
         basePrompt = 'Analiza esta imagen y extrae la información relevante en formato JSON.';
     }
@@ -701,6 +744,24 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           prompt,
           parsedManualCount,
           'estadísticas'
+        );
+        break;
+      case 'paragon':
+        // Usar prompts específicos según tipo (SIN rareza)
+        if (paragonType === 'tablero') {
+          prompt = ImageExtractionPromptService.generateParagonBoardsPrompt();
+        } else if (paragonType === 'nodo') {
+          prompt = ImageExtractionPromptService.generateParagonNodesPrompt();
+        } else if (paragonType === 'atributos') {
+          prompt = ImageExtractionPromptService.generateParagonCharacterPrompt();
+        }
+        if (contextLine) {
+          prompt = `${contextLine}${prompt}`;
+        }
+        prompt = ImageExtractionPromptService.withElementLimit(
+          prompt,
+          parsedManualCount,
+          paragonType
         );
         break;
       default:
@@ -1484,6 +1545,207 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
             shouldReload = true;
             break;
+          
+          case 'paragon':
+            console.log('⬡ [handleImportJSON] Importando datos de Paragon a héroe...');
+            console.log('   - Tipo:', paragonType);
+            
+            // Determinar qué tipo de dato importar según paragonType
+            if (paragonType === 'tablero') {
+              if (data.tableros && Array.isArray(data.tableros)) {
+                const heroBoards = await WorkspaceService.loadParagonBoards(clase) || { tableros: [] };
+                
+                (data.tableros as any[]).forEach((board: any) => {
+                  const idx = heroBoards.tableros.findIndex((b: any) => b.nombre === board.nombre);
+                  const boardId = idx >= 0 ? heroBoards.tableros[idx].id : (board.id || `tablero_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                  const boardWithId = { ...board, id: boardId };
+                  
+                  if (idx >= 0) {
+                    if (areEquivalentContent(heroBoards.tableros[idx], boardWithId)) {
+                      itemsRepeated++;
+                      repeatedItems.push(board.nombre);
+                    } else {
+                      heroBoards.tableros[idx] = boardWithId;
+                      itemsUpdated++;
+                      updatedItemsList.push(board.nombre);
+                    }
+                  } else {
+                    heroBoards.tableros.push(boardWithId);
+                    itemsImported++;
+                    addedItems.push(board.nombre);
+                  }
+                  fieldsAdded.push(board.nombre);
+                });
+                
+                await WorkspaceService.saveParagonBoards(clase, heroBoards);
+                console.log(`✅ [handleImportJSON] Tableros guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
+                showToast(`✅ ${itemsImported + itemsUpdated} tableros procesados en ${clase}`, 'success');
+                shouldReload = true;
+              }
+            } else if (paragonType === 'nodo') {
+              // Importar nodos detectando rareza automáticamente desde el JSON
+              if (data.nodos && Array.isArray(data.nodos)) {
+                const heroNodes = await WorkspaceService.loadParagonNodes(clase) || { 
+                  nodos_normales: [],
+                  nodos_magicos: [],
+                  nodos_raros: [],
+                  nodos_legendarios: []
+                };
+                
+                // Clasificar cada nodo según su rareza
+                for (const node of (data.nodos as any[])) {
+                  if (!node.rareza) {
+                    console.warn(`⚠️ Nodo sin rareza: ${node.nombre}. Asignando 'normal' por defecto.`);
+                    node.rareza = 'normal';
+                  }
+
+                  // Determinar el array correcto según rareza
+                  let nodosKey: string;
+                  let nodeList: any[];
+                  
+                  switch (node.rareza) {
+                    case 'normal':
+                      nodosKey = 'nodos_normales';
+                      nodeList = heroNodes.nodos_normales;
+                      break;
+                    case 'magico':
+                      nodosKey = 'nodos_magicos';
+                      nodeList = heroNodes.nodos_magicos;
+                      break;
+                    case 'raro':
+                      nodosKey = 'nodos_raros';
+                      nodeList = heroNodes.nodos_raros;
+                      break;
+                    case 'legendario':
+                      nodosKey = 'nodos_legendarios';
+                      nodeList = heroNodes.nodos_legendarios;
+                      break;
+                    default:
+                      console.warn(`⚠️ Rareza desconocida '${node.rareza}' para nodo ${node.nombre}. Asignando a normales.`);
+                      nodosKey = 'nodos_normales';
+                      nodeList = heroNodes.nodos_normales;
+                  }
+                  
+                  // ⚡ NUEVA LÓGICA v0.5.4: Detectar y procesar zócalos de glifo
+                  // Si el nodo es un zócalo de glifo con data completa del glifo, enlazar con glifo existente
+                  if (node.glifo_info && typeof node.glifo_info === 'object') {
+                    console.log(`🔮 [handleImportJSON][Glyph Socket] Zócalo de glifo detectado: ${node.nombre}`);
+                    
+                    try {
+                      // Cargar catálogo de glifos del héroe
+                      const heroGlyphs = await WorkspaceService.loadHeroGlyphs(clase) || { glifos: [] };
+                      
+                      // Buscar si el glifo ya existe en el catálogo (por nombre)
+                      const glyphName = node.glifo_info.nombre;
+                      const existingGlyphIndex = heroGlyphs.glifos.findIndex((g: any) => g.nombre === glyphName);
+                      
+                      let glyphId: string;
+                      
+                      if (existingGlyphIndex >= 0) {
+                        // Glifo existe: Actualizar solo detalles[] con estado activo actual
+                        console.log(`   ✓ Glifo "${glyphName}" ya existe en catálogo. Actualizando detalles...`);
+                        glyphId = heroGlyphs.glifos[existingGlyphIndex].id || `glifo_${glyphName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+                        
+                        // Actualizar detalles del glifo con el estado activo actual
+                        if (node.glifo_info.detalles && Array.isArray(node.glifo_info.detalles)) {
+                          heroGlyphs.glifos[existingGlyphIndex] = {
+                            ...heroGlyphs.glifos[existingGlyphIndex],
+                            detalles: node.glifo_info.detalles // Actualizar con estado activo actual
+                          };
+                          console.log(`   ✓ Detalles actualizados con ${node.glifo_info.detalles.length} efectos`);
+                        }
+                      } else {
+                        // Glifo NO existe: Crear en catálogo
+                        console.log(`   + Glifo "${glyphName}" no existe. Creando en catálogo...`);
+                        glyphId = node.glifo_info.id || `glifo_${glyphName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+                        
+                        const newGlyph = {
+                          ...node.glifo_info,
+                          id: glyphId
+                        };
+                        
+                        heroGlyphs.glifos.push(newGlyph);
+                        console.log(`   ✓ Glifo creado con ID: ${glyphId}`);
+                      }
+                      
+                      // Guardar catálogo de glifos actualizado
+                      await WorkspaceService.saveHeroGlyphs(clase, heroGlyphs);
+                      console.log(`   ✅ Catálogo de glifos guardado`);
+                      
+                      // Reemplazar data completa del glifo en el zócalo por solo la referencia
+                      node.glifo_equipado_id = glyphId;
+                      delete node.glifo_info; // Eliminar data completa, solo mantener referencia
+                      console.log(`   ✓ Zócalo ahora enlaza con glifo: ${glyphId}`);
+                      
+                    } catch (error) {
+                      console.error(`   ❌ Error procesando glifo en zócalo:`, error);
+                      // Si falla, mantener data completa en el zócalo como fallback
+                    }
+                  }
+                  
+                  // Manejar réplicas (v0.5.3): Si replicas > 1, el nodo está consolidado
+                  const replicas = node.replicas || 1;
+                  
+                  // Buscar nodo existente por nombre Y contenido equivalente
+                  const idx = nodeList.findIndex((n: any) => {
+                    if (n.nombre !== node.nombre) return false;
+                    // Comparar detalles si existen
+                    if (n.detalles && node.detalles) {
+                      if (n.detalles.length !== node.detalles.length) return false;
+                      return n.detalles.every((d: any, i: number) => 
+                        d.texto === node.detalles[i]?.texto && 
+                        d.activo === node.detalles[i]?.activo
+                      );
+                    }
+                    return true; // Si no hay detalles, comparar solo por nombre
+                  });
+                  
+                  const nodeId = idx >= 0 ? nodeList[idx].id : (node.id || `${nodosKey}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                  
+                  // Limpiar campo replicas si es 1 (optimización de espacio)
+                  const cleanNode = { ...node };
+                  if (cleanNode.replicas === 1) {
+                    delete cleanNode.replicas;
+                  }
+                  const nodeWithId = { ...cleanNode, id: nodeId };
+                  
+                  if (idx >= 0) {
+                    const existingNode = nodeList[idx];
+                    const existingReplicas = existingNode.replicas || 1;
+                    
+                    // Si el nodo nuevo tiene replicas, sumar
+                    if (replicas > 1 || existingReplicas > 1) {
+                      const totalReplicas = existingReplicas + replicas;
+                      nodeList[idx] = { 
+                        ...nodeWithId, 
+                        replicas: totalReplicas > 1 ? totalReplicas : undefined 
+                      };
+                      itemsUpdated++;
+                      updatedItemsList.push(`${node.nombre} (${replicas} réplicas → total: ${totalReplicas})`);
+                    } else if (areEquivalentContent(existingNode, nodeWithId)) {
+                      itemsRepeated++;
+                      repeatedItems.push(node.nombre);
+                    } else {
+                      nodeList[idx] = nodeWithId;
+                      itemsUpdated++;
+                      updatedItemsList.push(node.nombre);
+                    }
+                  } else {
+                    nodeList.push(nodeWithId);
+                    itemsImported++;
+                    const label = replicas > 1 ? `${node.nombre} (×${replicas})` : node.nombre;
+                    addedItems.push(label);
+                  }
+                  fieldsAdded.push(node.nombre);
+                }
+                
+                await WorkspaceService.saveParagonNodes(clase, heroNodes);
+                console.log(`✅ [handleImportJSON] Nodos Paragon guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
+                showToast(`✅ ${itemsImported + itemsUpdated} nodos procesados en ${clase}`, 'success');
+                shouldReload = true;
+              }
+            }
+            break;
         }
         
         const heroResult: ImportResultDetails = {
@@ -2007,6 +2269,254 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             console.log('✅ [handleImportJSON] Estadísticas guardadas en personaje');
             console.log('📊 [handleImportJSON] Estadísticas finales:', updatedPersonaje.estadisticas);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
+            shouldReload = true;
+            break;
+          }
+          case 'paragon': {
+            console.log('⬡ [handleImportJSON] Importando datos de Paragon a personaje...');
+            console.log('   - Tipo:', paragonType);
+            
+            // Cargar personaje del disco para preservar otros datos
+            const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+            const basePersonaje = personajeFromDisk || personaje;
+            
+            // Extraer datos según tipo y usar modelo de referencias (v0.5.1)
+            let updatedParagonRefs: any = { ...basePersonaje.paragon_refs };
+            let updatedAtributosParagon: any = { ...basePersonaje.atributos_paragon };
+            
+            if (paragonType === 'tablero') {
+              // 1️⃣ GUARDAR EN HÉROE PRIMERO (igual que Skills/Glifos)
+              const tablerosEquipados = data.tableros_equipados || data.tableros || [];
+              
+              if (tablerosEquipados.length > 0) {
+                const heroBoards = await WorkspaceService.loadParagonBoards(personaje.clase) || { tableros: [] };
+                
+                tablerosEquipados.forEach((board: any) => {
+                  const idx = heroBoards.tableros.findIndex((b: any) => b.nombre === board.nombre);
+                  const boardId = idx >= 0 ? heroBoards.tableros[idx].id : (board.id || `tablero_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                  const boardWithId = { ...board, id: boardId };
+                  
+                  if (idx >= 0) {
+                    if (areEquivalentContent(heroBoards.tableros[idx], boardWithId)) {
+                      itemsRepeated++;
+                      repeatedItems.push(board.nombre || boardId);
+                    } else {
+                      heroBoards.tableros[idx] = boardWithId;
+                      itemsUpdated++;
+                      updatedItemsList.push(board.nombre || boardId);
+                    }
+                  } else {
+                    heroBoards.tableros.push(boardWithId);
+                    itemsImported++;
+                    addedItems.push(board.nombre || boardId);
+                  }
+                  fieldsAdded.push(board.nombre || boardId);
+                });
+                
+                await WorkspaceService.saveParagonBoards(personaje.clase, heroBoards);
+                console.log(`✅ [handleImportJSON] Tableros guardados en héroe ${personaje.clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
+                
+                // 2️⃣ CREAR REFERENCIAS EN PERSONAJE
+                const newRefs = tablerosEquipados.map((tablero: any, index: number) => {
+                  const heroBoard = heroBoards.tableros.find((b: any) => b.nombre === tablero.nombre);
+                  return {
+                    tablero_id: heroBoard?.id || tablero.tablero_id || tablero.id || `tablero_ref_${index}`,
+                    posicion: tablero.posicion ?? index,
+                    rotacion: tablero.rotacion ?? 0,
+                    nodos_activados_ids: tablero.nodos_activados || tablero.nodos_activados_ids || [],
+                    zocalo_glifo: tablero.zocalo_glifo
+                  };
+                });
+                
+                updatedParagonRefs.tableros_equipados = newRefs;
+                
+                // Auto-enlazar nodos huérfanos a tableros recién agregados
+                if (updatedParagonRefs.nodos_huerfanos && updatedParagonRefs.nodos_huerfanos.length > 0) {
+                  console.log(`🔗 Intentando enlazar ${updatedParagonRefs.nodos_huerfanos.length} nodos huérfanos...`);
+                  const nodosEnlazados: string[] = [];
+                  
+                  updatedParagonRefs.nodos_huerfanos = updatedParagonRefs.nodos_huerfanos.filter((huerfano: any) => {
+                    const tableroContenedor = updatedParagonRefs.tableros_equipados?.find((t: any) =>
+                      t.nodos_activados_ids?.includes(huerfano.nodo_id)
+                    );
+                    
+                    if (tableroContenedor) {
+                      nodosEnlazados.push(huerfano.nodo_id);
+                      console.log(`✅ Enlazado: ${huerfano.nodo_id} → ${tableroContenedor.tablero_id}`);
+                      return false; // Remover de huérfanos
+                    }
+                    return true; // Mantener como huérfano
+                  });
+                  
+                  if (nodosEnlazados.length > 0) {
+                    showToast(`🔗 ${nodosEnlazados.length} nodos huérfanos enlazados a tableros`, 'success');
+                  }
+                }
+                
+                // Actualizar lista total de nodos activados
+                updatedParagonRefs.nodos_activados_ids = [];
+                updatedParagonRefs.tableros_equipados?.forEach((tablero: any) => {
+                  if (tablero.nodos_activados_ids) {
+                    updatedParagonRefs.nodos_activados_ids?.push(...tablero.nodos_activados_ids);
+                  }
+                });
+              }
+              
+            } else if (paragonType === 'nodo') {
+              // 1️⃣ GUARDAR EN HÉROE PRIMERO (igual que Skills/Glifos)
+              const nodosActivados = data.nodos_activados || data.nodos || [];
+              
+              if (nodosActivados.length > 0) {
+                const heroNodes = await WorkspaceService.loadParagonNodes(personaje.clase) || { 
+                  nodos_normales: [],
+                  nodos_magicos: [],
+                  nodos_raros: [],
+                  nodos_legendarios: []
+                };
+                
+                // Clasificar cada nodo según su rareza
+                nodosActivados.forEach((node: any) => {
+                  if (!node.rareza) {
+                    console.warn(`⚠️ Nodo sin rareza: ${node.nombre}. Asignando 'normal' por defecto.`);
+                    node.rareza = 'normal';
+                  }
+
+                  // Determinar el array correcto según rareza
+                  let nodosKey: string;
+                  let nodeList: any[];
+                  
+                  switch (node.rareza) {
+                    case 'normal':
+                      nodosKey = 'nodos_normales';
+                      nodeList = heroNodes.nodos_normales;
+                      break;
+                    case 'magico':
+                      nodosKey = 'nodos_magicos';
+                      nodeList = heroNodes.nodos_magicos;
+                      break;
+                    case 'raro':
+                      nodosKey = 'nodos_raros';
+                      nodeList = heroNodes.nodos_raros;
+                      break;
+                    case 'legendario':
+                      nodosKey = 'nodos_legendarios';
+                      nodeList = heroNodes.nodos_legendarios;
+                      break;
+                    default:
+                      console.warn(`⚠️ Rareza desconocida '${node.rareza}' para nodo ${node.nombre}. Asignando a normales.`);
+                      nodosKey = 'nodos_normales';
+                      nodeList = heroNodes.nodos_normales;
+                  }
+                  
+                  const idx = nodeList.findIndex((n: any) => n.nombre === node.nombre);
+                  const nodeId = idx >= 0 ? nodeList[idx].id : (node.id || `${nodosKey}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+                  const nodeWithId = { ...node, id: nodeId };
+                  
+                  if (idx >= 0) {
+                    if (areEquivalentContent(nodeList[idx], nodeWithId)) {
+                      itemsRepeated++;
+                      repeatedItems.push(node.nombre || nodeId);
+                    } else {
+                      nodeList[idx] = nodeWithId;
+                      itemsUpdated++;
+                      updatedItemsList.push(node.nombre || nodeId);
+                    }
+                  } else {
+                    nodeList.push(nodeWithId);
+                    itemsImported++;
+                    addedItems.push(node.nombre || nodeId);
+                  }
+                  fieldsAdded.push(node.nombre || nodeId);
+                });
+                
+                await WorkspaceService.saveParagonNodes(personaje.clase, heroNodes);
+                console.log(`✅ [handleImportJSON] Nodos guardados en héroe ${personaje.clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
+                
+                // 2️⃣ CREAR REFERENCIAS EN PERSONAJE (con nodos huérfanos si no hay tableros)
+                // Verificar si hay tableros para asignar estos nodos
+                if (!updatedParagonRefs.tableros_equipados || updatedParagonRefs.tableros_equipados.length === 0) {
+                  // No hay tableros → Guardar como nodos huérfanos
+                  console.log('⚠️ No hay tableros equipados. Guardando nodos como huérfanos.');
+                  
+                  updatedParagonRefs.nodos_huerfanos = updatedParagonRefs.nodos_huerfanos || [];
+                  
+                  nodosActivados.forEach((nodo: any) => {
+                    // Buscar el ID del nodo en el catálogo del héroe
+                    const heroNode = 
+                      heroNodes.nodos_normales.find((n: any) => n.nombre === nodo.nombre) ||
+                      heroNodes.nodos_magicos.find((n: any) => n.nombre === nodo.nombre) ||
+                      heroNodes.nodos_raros.find((n: any) => n.nombre === nodo.nombre) ||
+                      heroNodes.nodos_legendarios.find((n: any) => n.nombre === nodo.nombre);
+                    
+                    const nodoId = heroNode?.id || nodo.id || nodo.nodo_id || `nodo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    const yaExiste = updatedParagonRefs.nodos_huerfanos.some((h: any) => h.nodo_id === nodoId);
+                    
+                    if (!yaExiste) {
+                      updatedParagonRefs.nodos_huerfanos.push({
+                        nodo_id: nodoId,
+                        fecha_agregado: new Date().toISOString(),
+                        rareza: nodo.rareza || 'normal'
+                      });
+                    }
+                  });
+                  
+                  showToast(`⚠️ ${nodosActivados.length} nodos guardados como huérfanos (sin tablero). Se enlazarán automáticamente al agregar tableros.`, 'info');
+                  
+                } else {
+                  // Hay tableros → Intentar asignar nodos automáticamente
+                  const nodosIds = nodosActivados.map((n: any) => {
+                    // Buscar el ID en el catálogo del héroe
+                    const heroNode = 
+                      heroNodes.nodos_normales.find((hn: any) => hn.nombre === n.nombre) ||
+                      heroNodes.nodos_magicos.find((hn: any) => hn.nombre === n.nombre) ||
+                      heroNodes.nodos_raros.find((hn: any) => hn.nombre === n.nombre) ||
+                      heroNodes.nodos_legendarios.find((hn: any) => hn.nombre === n.nombre);
+                    
+                    return heroNode?.id || n.id || n.nodo_id || `nodo_${Date.now()}`;
+                  });
+                  
+                  updatedParagonRefs.nodos_activados_ids = updatedParagonRefs.nodos_activados_ids || [];
+                  nodosIds.forEach((id: string) => {
+                    if (!updatedParagonRefs.nodos_activados_ids.includes(id)) {
+                      updatedParagonRefs.nodos_activados_ids.push(id);
+                    }
+                  });
+                }
+              }
+              
+            } else if (paragonType === 'atributos') {
+              // Atributos acumulados del personaje (DEPRECATED v0.5.3)
+              // Los atributos ahora se manejan en estadisticas.atributosPrincipales
+              const paragonData = data.paragon || data.atributos_paragon || data;
+              
+              updatedAtributosParagon = {
+                nivel_paragon: paragonData.nivel_paragon ?? updatedAtributosParagon.nivel_paragon,
+                puntos_gastados: paragonData.puntos_gastados ?? updatedAtributosParagon.puntos_gastados,
+                puntos_disponibles: paragonData.puntos_disponibles ?? updatedAtributosParagon.puntos_disponibles
+                // @deprecated - atributos_acumulados eliminado: se maneja en estadisticas.atributosPrincipales
+              };
+              
+              itemsUpdated++;
+              fieldsAdded.push('atributos_paragon');
+              updatedItemsList.push('nivel_paragon');
+            }
+            
+            const updatedPersonaje = {
+              ...basePersonaje,
+              paragon_refs: updatedParagonRefs,
+              atributos_paragon: updatedAtributosParagon,
+              // Mantener compatibilidad retroactiva (deprecated)
+              paragon: {
+                ...basePersonaje.paragon,
+                ...(data.paragon || {})
+              },
+              fecha_actualizacion: new Date().toISOString()
+            };
+            
+            await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+            syncUpdatedPersonajeInContext(updatedPersonaje);
+            console.log('✅ [handleImportJSON] Datos de Paragon guardados en personaje (modelo de referencias v0.5.1)');
+            showToast(`✅ Datos de Paragon guardados en ${personaje.nombre} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
             shouldReload = true;
             break;
           }
@@ -2606,7 +3116,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 return (
                   <button
                     key={cat.value}
-                    onClick={() => setSelectedCategory(cat.value)}
+                    onClick={() => handleCategoryChange(cat.value)}
                     className={`px-2 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
                       selectedCategory === cat.value
                         ? 'bg-d4-accent text-black'
@@ -3045,12 +3555,38 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     <span className="lg:hidden">Prompt</span>
                   </h3>
                   
+                  {/* Selector de tipo de dato Paragon (PRIMERO) */}
+                  {selectedCategory === 'paragon' && (
+                    <div className="mb-1.5 lg:mb-2">
+                      <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
+                        Tipo de Dato Paragon:
+                      </label>
+                      <select
+                        value={paragonType}
+                        onChange={(e) => handleParagonTypeChange(e.target.value as ParagonType)}
+                        className="w-full p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] lg:text-sm"
+                      >
+                        <option value="tablero">📊 Tableros</option>
+                        <option value="nodo">⬢ Nodos</option>
+                        <option value="atributos">📈 Atributos Paragon</option>
+                      </select>
+                      <p className="text-[9px] lg:text-[10px] text-d4-text-dim mt-0.5">
+                        {paragonType === 'tablero' && 'Disponible para Héroe y Personaje'}
+                        {paragonType === 'nodo' && 'Disponible para Héroe y Personaje'}
+                        {paragonType === 'atributos' && 'Solo disponible para Personaje'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Selector de destino (SEGUNDO - condicionado) */}
                   <div className="mb-1.5 lg:mb-2">
                     <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
-                      Tipo:
+                      Destino:
                     </label>
                     <div className="flex gap-1.5 lg:gap-2">
-                      {selectedCategory !== 'estadisticas' && (
+                      {/* Mostrar Héroe solo si NO es paragon-atributos */}
+                      {(selectedCategory !== 'estadisticas' && selectedCategory !== 'paragon') || 
+                       (selectedCategory === 'paragon' && paragonType !== 'atributos') ? (
                         <button
                           onClick={() => setPromptType('heroe')}
                           className={`px-2 lg:px-3 py-1 lg:py-1.5 rounded text-[10px] lg:text-sm font-semibold ${
@@ -3059,7 +3595,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         >
                           Héroe
                         </button>
-                      )}
+                      ) : null}
                       <button
                         onClick={() => setPromptType('personaje')}
                         className={`px-2 lg:px-3 py-1 lg:py-1.5 rounded text-[10px] lg:text-sm font-semibold ${

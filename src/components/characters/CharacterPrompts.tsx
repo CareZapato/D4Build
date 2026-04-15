@@ -89,10 +89,15 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     }
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
+  const copyToClipboard = async (textOrPromise: string | Promise<string>, id: string) => {
+    try {
+      const text = typeof textOrPromise === 'string' ? textOrPromise : await textOrPromise;
+      await navigator.clipboard.writeText(text);
+      setCopied(id);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (error) {
+      console.error('Error copiando al portapapeles:', error);
+    }
   };
 
   // ============================================
@@ -399,6 +404,75 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     return context;
   };
 
+  const getParagonContext = () => {
+    // Usar nuevo modelo de referencias (v0.5.1) con retrocompatibilidad
+    const paragonRefs = personaje.paragon_refs;
+    const atributosParagon = personaje.atributos_paragon;
+    const paragonLegacy = personaje.paragon; // Retrocompatibilidad
+    
+    if (!paragonRefs && !paragonLegacy && !atributosParagon) {
+      return 'Ningún dato de Paragon disponible';
+    }
+    
+    let context = `\n**Sistema Paragon:**`;
+    
+    // Información general (desde atributos_paragon o paragon legacy)
+    const nivelParagon = atributosParagon?.nivel_paragon ?? paragonLegacy?.nivel_paragon;
+    const puntosGastados = atributosParagon?.puntos_gastados ?? paragonLegacy?.puntos_gastados;
+    const puntosDisponibles = atributosParagon?.puntos_disponibles ?? paragonLegacy?.puntos_disponibles;
+    
+    if (nivelParagon) {
+      context += `\n- Nivel Paragon: ${nivelParagon}`;
+    }
+    if (puntosGastados !== undefined && puntosGastados !== null) {
+      context += `\n- Puntos Gastados: ${puntosGastados}`;
+    }
+    if (puntosDisponibles !== undefined && puntosDisponibles !== null) {
+      context += `\n- Puntos Disponibles: ${puntosDisponibles}`;
+    }
+    
+    // Tableros equipados (desde paragon_refs o paragon legacy)
+    const tablerosEquipados = paragonRefs?.tableros_equipados || paragonLegacy?.tableros_equipados || [];
+    
+    if (tablerosEquipados && tablerosEquipados.length > 0) {
+      context += `\n\n**Tableros Equipados (${tablerosEquipados.length}):**`;
+      tablerosEquipados.forEach((tablero: any, index: number) => {
+        const tableroId = tablero.tablero_id || tablero.id || `tablero_${index}`;
+        context += `\n- Posición ${tablero.posicion ?? index}: ${tableroId}`;
+        if (tablero.rotacion !== undefined) {
+          context += ` (Rotación: ${tablero.rotacion}°)`;
+        }
+        const nodosActivados = tablero.nodos_activados || tablero.nodos_activados_ids || [];
+        if (nodosActivados && nodosActivados.length > 0) {
+          context += `\n  • Nodos activados: ${nodosActivados.length}`;
+        }
+        if (tablero.zocalo_glifo) {
+          context += `\n  • Glifo equipado: ${tablero.zocalo_glifo.glifo_id} (Nivel ${tablero.zocalo_glifo.nivel_glifo})`;
+        }
+      });
+    }
+    
+    // @deprecated (v0.5.3) - Los atributos acumulados ahora se manejan en estadisticas.atributosPrincipales
+    // Los atributos Paragon se suman directamente a los atributos principales del personaje
+    // const atributosAcumulados = atributosParagon?.atributos_acumulados || paragonLegacy?.atributos_acumulados || [];
+    // Ya no duplicamos esta información aquí
+    
+    // Total de nodos activados (desde paragon_refs o paragon legacy)
+    const nodosActivadosTotal = paragonRefs?.nodos_activados_ids || paragonLegacy?.nodos_activados_total || [];
+    
+    if (nodosActivadosTotal && nodosActivadosTotal.length > 0) {
+      context += `\n\n**Total de Nodos Activados: ${nodosActivadosTotal.length}**`;
+    }
+    
+    // Nodos huérfanos (solo en paragon_refs v0.5.1)
+    if (paragonRefs?.nodos_huerfanos && paragonRefs.nodos_huerfanos.length > 0) {
+      context += `\n\n**⚠️ Nodos Huérfanos (sin tablero asignado): ${paragonRefs.nodos_huerfanos.length}**`;
+      context += `\n- Estos nodos se enlazarán automáticamente al agregar los tableros correspondientes`;
+    }
+    
+    return context;
+  };
+
   const getAllGlyphsContext = () => {
     if (!allHeroGlyphs) return '';
     
@@ -462,7 +536,7 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
       aspects?: boolean;
       stats?: boolean;
     };
-    generate: () => string;
+    generate: () => string | Promise<string>;
   }
 
   const prompts: PromptConfig[] = [
@@ -487,6 +561,8 @@ ${getSkillsContext()}
 ${getGlyphsContext()}
 
 ${getAspectsContext()}
+
+${getParagonContext()}
 
 ${getStatsContext()}
 
@@ -568,6 +644,7 @@ ${getStatsContext()}
 3. **IMPACTO DE HABILIDADES Y ASPECTOS**
    - ¿Qué multiplicadores aportan mis habilidades activas?
    - ¿Qué bonificaciones dan mis aspectos?
+   - ¿Qué bonificaciones aportan los nodos Paragon?
    - ¿Cómo escalan con mis stats?
 
 4. **CÁLCULO ESTIMADO DE DPS**
@@ -578,6 +655,7 @@ ${getStatsContext()}
 5. **OPTIMIZACIÓN MATEMÁTICA**
    - ¿Qué stat tiene mayor impacto por punto invertido?
    - ¿Hay breakpoints importantes que debería alcanzar?
+   - ¿Los nodos Paragon están optimizados para daño?
    - ¿Dónde invertir para maximizar DPS? (Prioridad matemática)
 
 6. **QUÉ FALTA PARA ENTENDER MEJOR**
@@ -1069,6 +1147,56 @@ ${getStatsContext()}
 - EHP estimado: ... millones
 - Velocidad de clear: ... mobs/min
 - Healing sostenido: ... HP/s`
+    },
+
+    // ========== ANÁLISIS COMPLETO DE PARAGON ==========
+    {
+      id: 'paragon-analysis',
+      title: '⭐ Análisis Completo de Paragon',
+      icon: Sparkles,
+      color: 'text-purple-400',
+      bg: 'bg-purple-900/20',
+      border: 'border-purple-600',
+      description: 'Análisis profundo del sistema Paragon: tableros, nodos, glifos y sinergias',
+      requiredData: { stats: true },
+      generate: async () => {
+        const { PromptService } = await import('../../services/PromptService');
+        return await PromptService.generateParagonAnalysisPrompt(personaje);
+      }
+    },
+
+    // ========== OPTIMIZACIÓN DE NODOS PARAGON ==========
+    {
+      id: 'paragon-optimization',
+      title: '🎯 Optimización de Nodos Paragon',
+      icon: Target,
+      color: 'text-orange-400',
+      bg: 'bg-orange-900/20',
+      border: 'border-orange-600',
+      description: 'Compara nodos equipados vs disponibles para maximizar eficiencia del build',
+      requiresHeroData: true,
+      requiredData: { stats: true },
+      generate: async () => {
+        const { PromptService } = await import('../../services/PromptService');
+        return await PromptService.generateParagonOptimizationPrompt(personaje);
+      }
+    },
+
+    // ========== COMPARACIÓN DE NODOS ==========
+    {
+      id: 'paragon-node-comparison',
+      title: '🔍 Comparación Estratégica de Nodos',
+      icon: GitCompare,
+      color: 'text-cyan-400',
+      bg: 'bg-cyan-900/20',
+      border: 'border-cyan-600',
+      description: 'Analiza y compara nodos específicos para decisiones estratégicas',
+      requiresHeroData: true,
+      requiredData: { stats: true },
+      generate: async () => {
+        const { PromptService } = await import('../../services/PromptService');
+        return await PromptService.generateParagonNodeComparisonPrompt(personaje);
+      }
     }
   ];
 

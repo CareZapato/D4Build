@@ -435,6 +435,32 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
                 </div>
               )}
 
+              {/* Detalles con estado activo/inactivo (v0.5.4) */}
+              {glyph.detalles && glyph.detalles.length > 0 && (
+                <div className="bg-d4-surface/50 p-2 rounded border border-d4-border/30 mb-2">
+                  <p className="text-xs text-d4-text-dim font-semibold mb-1">Detalles:</p>
+                  <div className="space-y-1">
+                    {glyph.detalles.map((detalle: any, idx: number) => (
+                      <p 
+                        key={idx} 
+                        className={`text-sm leading-relaxed ${
+                          detalle.activo === false 
+                            ? 'text-gray-500' 
+                            : 'text-d4-text'
+                        }`}
+                      >
+                        {detalle.texto}
+                        {detalle.valor && (
+                          <span className="ml-1 font-semibold text-d4-accent">
+                            ({detalle.valor})
+                          </span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Atributo Escalado */}
               {glyph.atributo_escalado && (
                 <div className="bg-blue-900/30 p-2 rounded border border-blue-600/30 mb-2">

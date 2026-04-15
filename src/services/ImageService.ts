@@ -1,4 +1,4 @@
-export type ImageCategory = 'skills' | 'glifos' | 'aspectos' | 'estadisticas' | 'otros';
+export type ImageCategory = 'skills' | 'glifos' | 'aspectos' | 'estadisticas' | 'paragon' | 'otros';
 
 export interface SavedImage {
   nombre: string;

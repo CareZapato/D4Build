@@ -177,6 +177,7 @@ export interface Glifo {
   efecto_base?: EfectoBase | string | null; // Puede ser objeto o string directo
   bonificacion_adicional?: BonificacionAdicional | null;
   bonificacion_legendaria?: BonificacionLegendaria | null;
+  detalles?: DetalleEstadistica[];  // Detalles con campo 'activo' (v0.5.4)
   texto_referencia?: TextoReferencia;
   tags?: string[]; // IDs de tags globales
 }
@@ -198,6 +199,228 @@ export interface Aspecto {
 
 export interface AspectosHeroe {
   aspectos: Aspecto[];
+}
+
+// ============================================================================
+// TIPOS PARA SISTEMA PARAGON (v0.4.15)
+// ============================================================================
+
+// Tipos de atributos Paragon
+export type TipoAtributoParagon = 
+  | 'fuerza' | 'destreza' | 'inteligencia' | 'voluntad'
+  | 'vida_maxima' | 'resistencia_todos_elementos' | 'armadura'
+  | 'daño' | 'probabilidad_golpe_critico' | 'daño_golpe_critico'
+  | 'velocidad_ataque' | 'reduccion_cooldown' | 'otro';
+
+// Categorías de nodos Paragon
+export type CategoriaTablerParagon = 'inicial' | 'legendario' | 'especial' | 'general';
+export type RarezaNodo = 'normal' | 'magico' | 'raro' | 'legendario';
+
+// Tablero Paragon (catálogo nivel héroe)
+export interface TableroParagon {
+  id: string;                        // "tablero_empezar" | "tablero_clamor_ancestros"
+  nombre: string;                    // "Empezar" | "Clamor de los Ancestros"
+  categoria: CategoriaTablerParagon; // inicial | legendario | especial | general
+  descripcion?: string;              // Descripción del tablero
+  orden?: number;                    // Orden de colocación (0 = central, 1+ = consecuentes)
+  conexiones_disponibles?: string[]; // IDs de tableros que pueden conectarse
+  nodos_totales?: number;            // Total de nodos en el tablero
+  tags?: string[];                   // Tags globales
+}
+
+export interface TablerosParagonHeroe {
+  tableros: TableroParagon[];
+}
+
+// Nodo Normal Paragon
+export interface NodoNormalParagon {
+  id: string;                        // "nodo_fuerza_01"
+  nombre: string;                    // "+5 Fuerza"
+  rareza: 'normal';
+  tipo_atributo: TipoAtributoParagon;
+  valor: string | number;            // "+5" | "5"
+  detalles?: DetalleEstadistica[];   // Detalles con efectos (v0.5.3)
+  replicas?: number;                 // Cantidad de nodos idénticos (v0.5.3 - omitir si es 1)
+  tablero_id?: string;               // ID del tablero al que pertenece
+  posicion?: { x: number; y: number }; // Posición en el tablero (opcional)
+  tags?: string[];
+}
+
+// Nodo Mágico Paragon
+export interface NodoMagicoParagon {
+  id: string;                        // "nodo_magico_danio_01"
+  nombre: string;                    // "+3% Daño"
+  rareza: 'magico';
+  atributos: Array<{
+    tipo: TipoAtributoParagon;
+    valor: string | number;
+  }>;
+  detalles?: DetalleEstadistica[];   // Detalles con efectos (v0.5.3)
+  requisitos?: {                     // Requisitos para bonificación (v0.5.3)
+    atributo: 'fuerza' | 'inteligencia' | 'voluntad' | 'destreza';
+    valor_actual: number;
+    valor_requerido: number;
+  };
+  replicas?: number;                 // Cantidad de nodos idénticos (v0.5.3 - omitir si es 1)
+  tablero_id?: string;
+  posicion?: { x: number; y: number };
+  tags?: string[];
+}
+
+// Nodo Raro Paragon
+export interface NodoRaroParagon {
+  id: string;                        // "nodo_raro_fuerza_vida"
+  nombre: string;                    // "Fuerza y Vida"
+  rareza: 'raro';
+  atributos: Array<{
+    tipo: TipoAtributoParagon;
+    valor: string | number;
+    condicion?: string;              // Condición para activar el bono
+  }>;
+  detalles?: DetalleEstadistica[];   // Detalles con efectos (cada uno con campo 'activo') (v0.5.3)
+  bonificacion?: {                   // Bonificación extra si cumple requisitos (v0.5.3)
+    descripcion: string;
+    requisitos?: string;             // Descripción de requisitos
+  };
+  requisitos?: {                     // Requisitos numéricos para bonificación (v0.5.3)
+    atributo: 'fuerza' | 'inteligencia' | 'voluntad' | 'destreza';
+    valor_actual: number;
+    valor_requerido: number;
+  };
+  replicas?: number;                 // Cantidad de nodos idénticos (v0.5.3 - omitir si es 1)
+  efecto_adicional?: string;         // Efecto especial del nodo
+  tablero_id?: string;
+  posicion?: { x: number; y: number };
+  tags?: string[];
+}
+
+// Nodo Legendario Paragon
+export interface NodoLegendarioParagon {
+  id: string;                        // "nodo_leg_consagrada_fuerza"
+  nombre: string;                    // "Consagrada Fuerza" | "Velocidad del Leviatán"
+  rareza: 'legendario';
+  descripcion: string;               // Descripción completa del efecto
+  tipo: 'pasivo' | 'activo';         // Si otorga efecto pasivo o activa habilidad
+  bonificacion_principal: string;    // Bonificación principal
+  bonificaciones_secundarias?: string[]; // Bonificaciones adicionales
+  detalles?: DetalleEstadistica[];   // Detalles con efectos (v0.5.3)
+  requisitos?: string;               // Requisitos para activar (texto descriptivo)
+  requisitos_numericos?: {           // Requisitos numéricos (v0.5.3)
+    atributo: 'fuerza' | 'inteligencia' | 'voluntad' | 'destreza';
+    valor_actual: number;
+    valor_requerido: number;
+  };
+  replicas?: number;                 // Cantidad de nodos idénticos (v0.5.3 - omitir si es 1)
+  tablero_id?: string;               // Tablero donde se encuentra
+  posicion?: { x: number; y: number };
+  tags?: string[];
+}
+
+// Zócalo de Glifo (ranura especial en tableros Paragon)
+export interface ZocaloGlifoParagon {
+  id: string;                        // "zocalo_tablero_empezar_01"
+  nombre: string;                    // "Zócalo de Glifo"
+  tablero_id: string;                // ID del tablero donde está el zócalo
+  glifo_equipado_id?: string;        // ID del glifo equipado (opcional)
+  nivel_glifo?: number;              // Nivel del glifo equipado
+  radio_bonus?: number;              // Radio de bonificación del glifo
+  detalles?: DetalleEstadistica[];   // Detalles del zócalo y glifo (v0.5.3)
+  bonificacion_adicional?: string;   // Bonificación adicional del glifo (v0.5.3)
+  bonificacion_legendaria?: string;  // Bonificación legendaria del glifo (v0.5.3)
+  requisitos?: {                     // Requisitos para bonificación legendaria (v0.5.3)
+    descripcion: string;
+    nivel_requerido?: number;
+  };
+  replicas?: number;                 // Cantidad de nodos idénticos (v0.5.3 - omitir si es 1)
+  posicion?: { x: number; y: number };
+  tags?: string[];
+}
+
+// Unión de todos los tipos de nodos
+export type NodoParagon = 
+  | NodoNormalParagon 
+  | NodoMagicoParagon 
+  | NodoRaroParagon 
+  | NodoLegendarioParagon 
+  | ZocaloGlifoParagon;
+
+// Catálogo completo de nodos Paragon (nivel héroe)
+export interface NodosParagonHeroe {
+  nodos_normales: NodoNormalParagon[];
+  nodos_magicos: NodoMagicoParagon[];
+  nodos_raros: NodoRaroParagon[];
+  nodos_legendarios: NodoLegendarioParagon[];
+  zocalos: ZocaloGlifoParagon[];
+}
+
+// Atributo Paragon acumulado (para el personaje)
+export interface AtributoParagonPersonaje {
+  tipo: TipoAtributoParagon;
+  valor_total: number | string;     // Valor acumulado total
+  contribuciones?: Array<{           // De dónde viene el valor
+    fuente: string;                  // "nodo_normal" | "nodo_raro" | "nodo_legendario"
+    nodo_id: string;
+    valor: number | string;
+  }>;
+}
+
+// Tablero Paragon equipado por el personaje
+export interface TableroParagonPersonaje {
+  tablero_id: string;                // Referencia al tablero del héroe
+  posicion: number;                  // Posición en el árbol (0 = central, 1-N = anexos)
+  rotacion?: number;                 // Rotación del tablero (0, 90, 180, 270)
+  nodos_activados: string[];         // IDs de nodos activados en este tablero
+  zocalo_glifo?: {                   // Glifo equipado en el zócalo de este tablero
+    zocalo_id: string;
+    glifo_id: string;
+    nivel_glifo: number;
+  };
+}
+
+// Paragon completo del personaje
+export interface ParagonPersonaje {
+  nivel_paragon: number;             // Nivel Paragon actual (0-300)
+  puntos_gastados: number;           // Puntos invertidos en nodos
+  puntos_disponibles: number;        // Puntos disponibles para gastar
+  tableros_equipados: TableroParagonPersonaje[]; // Tableros en uso
+  // @deprecated (v0.5.3) - Los atributos se manejan en estadisticas.atributosPrincipales
+  // atributos_acumulados: AtributoParagonPersonaje[]; // ELIMINADO: duplica atributosPrincipales
+  nodos_activados_total: string[];   // Lista completa de IDs de todos los nodos activos
+  glifos_equipados: Array<{          // Glifos equipados en zócalos Paragon
+    zocalo_id: string;
+    glifo_id: string;
+    nivel: number;
+  }>;
+}
+
+// Referencias Paragon del personaje (v0.5.1) - Modelo de Referencias
+export interface ParagonRefs {
+  tableros_equipados?: Array<{
+    tablero_id: string;              // ID del tablero en el catálogo del héroe
+    posicion: number;                // Posición en el árbol (0 = central, 1-N = anexos)
+    rotacion?: number;               // Rotación (0, 90, 180, 270)
+    nodos_activados_ids: string[];   // IDs de nodos activados en ESTE tablero específico
+    zocalo_glifo?: {
+      zocalo_id: string;
+      glifo_id: string;              // ID del glifo del catálogo
+      nivel_glifo: number;
+    };
+  }>;
+  nodos_activados_ids?: string[];    // TODOS los IDs de nodos activos (de todos los tableros + huérfanos)
+  nodos_huerfanos?: Array<{          // Nodos agregados sin tablero asignado (se enlazarán automáticamente)
+    nodo_id: string;
+    fecha_agregado: string;
+    rareza?: string;                 // Normal, Mágico, Raro, Legendario
+  }>;
+}
+
+// Atributos Paragon del personaje (datos calculados, no del catálogo) (v0.5.1)
+export interface AtributosParagonPersonaje {
+  nivel_paragon?: number;            // Nivel Paragon actual (0-300)
+  puntos_gastados?: number;          // Puntos invertidos en nodos
+  puntos_disponibles?: number;       // Puntos disponibles para gastar
+  // @deprecated (v0.5.3) - Los atributos se manejan en estadisticas.atributosPrincipales con contribuciones
+  // atributos_acumulados?: AtributoParagonPersonaje[];  // ELIMINADO: duplica atributosPrincipales
 }
 
 // Tipos para Estadísticas del Héroe (v0.3.7) - Modelo de Referencias
@@ -225,6 +448,7 @@ export interface DetalleEstadistica {
   valor?: string | number | null;     // Valor específico si aplica
   unidad?: string | null;      // Unidad del valor (v0.3.7)
   contribucion?: string | null;       // De dónde viene (ej: "objetos", "pasivas") (v0.3.7)
+  activo?: boolean;            // Si el detalle está activo o inactivo (gris en UI) (v0.5.3)
   palabras_clave?: string[];   // Keywords específicas de este detalle (deprecated)
   tags?: string[];             // IDs de tags globales (v0.3.7)
 }
@@ -236,6 +460,7 @@ export interface Personaje {
   clase: string;
   nivel: number;
   nivel_paragon?: number;
+  puertas_anexo?: number; // Cada puerta otorga +5 a fuerza, inteligencia, voluntad y destreza
   // Referencias a habilidades del héroe con modificadores equipados
   habilidades_refs?: {
     activas: Array<{
@@ -266,6 +491,11 @@ export interface Personaje {
   stat_id: string;           // ID de la estadística en el héroe
     valor: string | number;    // Valor específico del personaje
   }>;
+  // Sistema Paragon del personaje (v0.5.1) - Modelo de Referencias
+  paragon_refs?: ParagonRefs;           // Referencias a tableros/nodos del catálogo del héroe
+  atributos_paragon?: AtributosParagonPersonaje;  // Datos calculados específicos del personaje
+  // @deprecated (v0.5.1) - Usar paragon_refs + atributos_paragon en su lugar
+  paragon?: ParagonPersonaje;
   // @deprecated (v0.3.7) - Usar estadisticas_refs en su lugar
   estadisticas?: Estadisticas;
   notas?: string;
