@@ -1,4 +1,4 @@
-export type ImageCategory = 'skills' | 'glifos' | 'aspectos' | 'estadisticas' | 'paragon' | 'otros';
+export type ImageCategory = 'skills' | 'glifos' | 'aspectos' | 'estadisticas' | 'paragon' | 'otros' | 'runas' | 'gemas' | 'build';
 
 export interface SavedImage {
   nombre: string;
@@ -37,14 +37,59 @@ export class ImageService {
     return 0;
   }
 
-  // Crear estructura /imagenes/{categoria}
-  private static async ensureCategoryImagesFolder(categoria: ImageCategory): Promise<FileSystemDirectoryHandle> {
+  // Carpeta real de almacenamiento (runas/gemas comparten gemas_runas)
+  private static resolveStorageCategory(categoria: ImageCategory): string {
+    if (categoria === 'runas' || categoria === 'gemas') {
+      return 'gemas_runas';
+    }
+    return categoria;
+  }
+
+  // Carpetas de lectura, con compatibilidad legacy
+  private static resolveReadCategories(categoria: ImageCategory): string[] {
+    if (categoria === 'runas' || categoria === 'gemas') {
+      return ['gemas_runas', 'runas', 'gemas'];
+    }
+    return [categoria];
+  }
+
+  private static async ensureImagesFolder(): Promise<FileSystemDirectoryHandle> {
     if (!this.fileSystemHandle) {
       throw new Error('No hay workspace seleccionado');
     }
 
-    const imagesFolder = await this.fileSystemHandle.getDirectoryHandle('imagenes', { create: true });
-    const categoryFolder = await imagesFolder.getDirectoryHandle(categoria, { create: true });
+    return await this.fileSystemHandle.getDirectoryHandle('imagenes', { create: true });
+  }
+
+  private static async getCategoryFolderByName(categoryName: string, create: boolean): Promise<FileSystemDirectoryHandle | null> {
+    try {
+      const imagesFolder = await this.ensureImagesFolder();
+      const folder = await imagesFolder.getDirectoryHandle(categoryName, { create });
+      return folder;
+    } catch {
+      return null;
+    }
+  }
+
+  private static async getReadCategoryFolders(categoria: ImageCategory): Promise<Array<{ name: string; handle: FileSystemDirectoryHandle }>> {
+    const folderNames = this.resolveReadCategories(categoria);
+    const folders: Array<{ name: string; handle: FileSystemDirectoryHandle }> = [];
+
+    for (const name of folderNames) {
+      const handle = await this.getCategoryFolderByName(name, false);
+      if (handle) {
+        folders.push({ name, handle });
+      }
+    }
+
+    return folders;
+  }
+
+  // Crear estructura /imagenes/{categoria}
+  private static async ensureCategoryImagesFolder(categoria: ImageCategory): Promise<FileSystemDirectoryHandle> {
+    const imagesFolder = await this.ensureImagesFolder();
+    const storageCategory = this.resolveStorageCategory(categoria);
+    const categoryFolder = await imagesFolder.getDirectoryHandle(storageCategory, { create: true });
     return categoryFolder;
   }
 
@@ -93,40 +138,52 @@ export class ImageService {
 
   // Verificar si existe JSON para una imagen
   static async hasJSON(categoria: ImageCategory, imageName: string): Promise<boolean> {
-    try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-      const jsonFileName = imageName.replace(/\.png$/, '.json');
-      await categoryFolder.getFileHandle(jsonFileName);
-      return true;
-    } catch {
-      return false;
+    const jsonFileName = imageName.replace(/\.png$/, '.json');
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        await folder.handle.getFileHandle(jsonFileName);
+        return true;
+      } catch {
+        // probar siguiente carpeta
+      }
     }
+
+    return false;
   }
 
   // Cargar JSON asociado a una imagen
   static async loadImageJSON(categoria: ImageCategory, imageName: string): Promise<any | null> {
-    try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-      const jsonFileName = imageName.replace(/\.png$/, '.json');
-      const fileHandle = await categoryFolder.getFileHandle(jsonFileName);
-      const file = await fileHandle.getFile();
-      const content = await file.text();
-      return JSON.parse(content);
-    } catch (error) {
-      console.error(`Error cargando JSON ${imageName}:`, error);
-      return null;
+    const jsonFileName = imageName.replace(/\.png$/, '.json');
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        const fileHandle = await folder.handle.getFileHandle(jsonFileName);
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        return JSON.parse(content);
+      } catch {
+        // probar siguiente carpeta
+      }
     }
+
+    return null;
   }
 
   // Eliminar JSON asociado a una imagen
   static async deleteImageJSON(categoria: ImageCategory, imageName: string): Promise<void> {
-    try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-      const jsonFileName = imageName.replace(/\.png$/, '.json');
-      await categoryFolder.removeEntry(jsonFileName);
-      console.log(`🗑️ JSON eliminado: imagenes/${categoria}/${jsonFileName}`);
-    } catch (error) {
-      console.warn(`No se pudo eliminar JSON para ${imageName}:`, error);
+    const jsonFileName = imageName.replace(/\.png$/, '.json');
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        await folder.handle.removeEntry(jsonFileName);
+        console.log(`🗑️ JSON eliminado: imagenes/${folder.name}/${jsonFileName}`);
+      } catch {
+        // si no existe en esa carpeta, continuar
+      }
     }
   }
 
@@ -145,27 +202,36 @@ export class ImageService {
   // Listar todas las imágenes de una categoría
   static async listImages(categoria: ImageCategory): Promise<SavedImage[]> {
     try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-      const images: SavedImage[] = [];
+      const categoryFolders = await this.getReadCategoryFolders(categoria);
+      if (categoryFolders.length === 0) {
+        return [];
+      }
 
-      // @ts-ignore - AsyncIterator no está completamente tipado
-      for await (const entry of categoryFolder.values()) {
-        if (entry.kind === 'file' && entry.name.endsWith('.png')) {
-          try {
-            const file = await entry.getFile();
-            const blob = new Blob([await file.arrayBuffer()], { type: 'image/png' });
-            const timestamp = this.extractTimestampFromFileName(entry.name) || file.lastModified;
-            const hasJSON = await this.hasJSON(categoria, entry.name);
-            
-            images.push({
-              nombre: entry.name,
-              categoria,
-              fecha: new Date(timestamp).toISOString(),
-              blob,
-              hasJSON
-            });
-          } catch (err) {
-            console.warn(`No se pudo cargar imagen: ${entry.name}`, err);
+      const images: SavedImage[] = [];
+      const seenNames = new Set<string>();
+
+      for (const folder of categoryFolders) {
+        // @ts-ignore - AsyncIterator no está completamente tipado
+        for await (const entry of folder.handle.values()) {
+          if (entry.kind === 'file' && entry.name.endsWith('.png')) {
+            if (seenNames.has(entry.name)) continue;
+            try {
+              const file = await entry.getFile();
+              const blob = new Blob([await file.arrayBuffer()], { type: 'image/png' });
+              const timestamp = this.extractTimestampFromFileName(entry.name) || file.lastModified;
+              const hasJSON = await this.hasJSON(categoria, entry.name);
+
+              images.push({
+                nombre: entry.name,
+                categoria,
+                fecha: new Date(timestamp).toISOString(),
+                blob,
+                hasJSON
+              });
+              seenNames.add(entry.name);
+            } catch (err) {
+              console.warn(`No se pudo cargar imagen: ${entry.name}`, err);
+            }
           }
         }
       }
@@ -182,9 +248,22 @@ export class ImageService {
 
   // Eliminar una imagen (y su JSON si existe)
   static async deleteImage(categoria: ImageCategory, nombreArchivo: string): Promise<void> {
-    const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-    await categoryFolder.removeEntry(nombreArchivo);
-    console.log(`🗑️ Imagen eliminada: imagenes/${categoria}/${nombreArchivo}`);
+    const folders = await this.getReadCategoryFolders(categoria);
+    let deleted = false;
+
+    for (const folder of folders) {
+      try {
+        await folder.handle.removeEntry(nombreArchivo);
+        console.log(`🗑️ Imagen eliminada: imagenes/${folder.name}/${nombreArchivo}`);
+        deleted = true;
+      } catch {
+        // continuar
+      }
+    }
+
+    if (!deleted) {
+      console.warn(`No se encontró imagen para eliminar: ${nombreArchivo}`);
+    }
     
     // Intentar eliminar JSON asociado
     await this.deleteImageJSON(categoria, nombreArchivo);
@@ -192,15 +271,19 @@ export class ImageService {
 
   // Cargar una imagen específica
   static async loadImage(categoria: ImageCategory, nombreArchivo: string): Promise<Blob | null> {
-    try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-      const fileHandle = await categoryFolder.getFileHandle(nombreArchivo);
-      const file = await fileHandle.getFile();
-      return new Blob([await file.arrayBuffer()], { type: 'image/png' });
-    } catch (error) {
-      console.error(`Error cargando imagen ${nombreArchivo}:`, error);
-      return null;
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        const fileHandle = await folder.handle.getFileHandle(nombreArchivo);
+        const file = await fileHandle.getFile();
+        return new Blob([await file.arrayBuffer()], { type: 'image/png' });
+      } catch {
+        // probar siguiente carpeta
+      }
     }
+
+    return null;
   }
 
   // Guardar JSON sin imagen asociada (entrada de galería solo-JSON)
@@ -222,33 +305,46 @@ export class ImageService {
 
   // Cargar texto raw del JSON asociado a un archivo (PNG o JSON directo)
   static async loadJSONText(categoria: ImageCategory, nombreArchivo: string): Promise<string | null> {
-    try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
-      const jsonFileName = nombreArchivo.endsWith('.json')
-        ? nombreArchivo
-        : nombreArchivo.replace(/\.png$/, '.json');
-      const fileHandle = await categoryFolder.getFileHandle(jsonFileName);
-      const file = await fileHandle.getFile();
-      return await file.text();
-    } catch {
-      return null;
+    const jsonFileName = nombreArchivo.endsWith('.json')
+      ? nombreArchivo
+      : nombreArchivo.replace(/\.png$/, '.json');
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        const fileHandle = await folder.handle.getFileHandle(jsonFileName);
+        const file = await fileHandle.getFile();
+        return await file.text();
+      } catch {
+        // probar siguiente carpeta
+      }
     }
+
+    return null;
   }
 
   // Listar entradas de galería: imágenes (con/sin JSON) + JSONs huérfanos
   static async listGalleryEntries(categoria: ImageCategory): Promise<GalleryEntry[]> {
     try {
-      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
+      const categoryFolders = await this.getReadCategoryFolders(categoria);
+      if (categoryFolders.length === 0) {
+        return [];
+      }
+
       const pngMap = new Map<string, File>();
       const jsonSet = new Set<string>();
 
-      // @ts-ignore
-      for await (const entry of categoryFolder.values()) {
-        if (entry.kind === 'file') {
-          if (entry.name.endsWith('.png')) {
-            try { pngMap.set(entry.name, await entry.getFile()); } catch { /* skip */ }
-          } else if (entry.name.endsWith('.json')) {
-            jsonSet.add(entry.name);
+      for (const folder of categoryFolders) {
+        // @ts-ignore
+        for await (const entry of folder.handle.values()) {
+          if (entry.kind === 'file') {
+            if (entry.name.endsWith('.png')) {
+              if (!pngMap.has(entry.name)) {
+                try { pngMap.set(entry.name, await entry.getFile()); } catch { /* skip */ }
+              }
+            } else if (entry.name.endsWith('.json')) {
+              jsonSet.add(entry.name);
+            }
           }
         }
       }

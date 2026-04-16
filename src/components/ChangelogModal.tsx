@@ -41,7 +41,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">15 de Abril, 2026 (v0.5.0)</p>
+                <p className="text-d4-text font-semibold">15 de Abril, 2026 (v0.5.1)</p>
               </div>
             </div>
           </div>
@@ -64,6 +64,65 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.5.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.5.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 px-2 py-1 rounded">Corrección Crítica</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🐛 Bug Crítico: Error en Guardado de Runas/Gemas
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Problema resuelto</strong>: Error <code className="bg-d4-surface px-1 rounded">Failed to execute 'getFileHandle'</code> al importar runas/gemas</li>
+                <li><strong>Causa raíz</strong>: Los nombres de archivo contenían el carácter "/" (ej: "runas/gemas_timestamp.png") que no está permitido por el File System API</li>
+                <li><strong>Solución</strong>: Uso directo de <code className="bg-d4-surface px-1 rounded">resolvedCategory</code> en lugar de <code className="bg-d4-surface px-1 rounded">categoryLabel.toLowerCase()</code></li>
+                <li>Ahora las runas generan nombres válidos como <strong>"runas_timestamp.png"</strong> y las gemas como <strong>"gemas_timestamp.png"</strong></li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                ✅ Corrección de Auto-Guardado en Galería
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>5 funciones corregidas</strong> en ImageCaptureModal.tsx que ahora usan correctamente <code className="bg-d4-surface px-1 rounded">resolveImportCategory()</code></li>
+                <li><code className="bg-d4-surface px-1 rounded">autoSaveJSONAfterImport()</code> - Auto-guardado tras importación exitosa</li>
+                <li><code className="bg-d4-surface px-1 rounded">saveComposedImage()</code> - Guardado manual desde botón</li>
+                <li><code className="bg-d4-surface px-1 rounded">handleSaveEmptyImport()</code> - Guardado con advertencias de validación</li>
+                <li>Detección de importación vacía para modos <strong>Héroe y Personaje</strong></li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                💾 Almacenamiento Unificado Confirmado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li>Todas las runas y gemas se guardan en <code className="bg-d4-surface px-1 rounded">workspace/imagenes/gemas_runas/</code></li>
+                <li><strong>Compatibilidad legacy</strong>: Sistema lee también de carpetas antiguas <code className="bg-d4-surface px-1 rounded">runas/</code> y <code className="bg-d4-surface px-1 rounded">gemas/</code></li>
+                <li>Sin pérdida de datos durante la migración a estructura unificada</li>
+                <li>Menos fragmentación de archivos y mejor organización</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🔧 Mejoras Técnicas
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>~129 líneas modificadas</strong> en ImageCaptureModal.tsx</li>
+                <li>Función <code className="bg-d4-surface px-1 rounded">resolveImportCategory()</code> utilizada consistentemente en todo el flujo</li>
+                <li>Validación TypeScript completa sin errores: <code className="bg-d4-surface px-1 rounded">npx tsc --noEmit</code> ✓</li>
+                <li>Workflow de importación completo ahora funcional: captura → importación → auto-guardado → galería</li>
+              </ul>
             </div>
           </div>
         </div>

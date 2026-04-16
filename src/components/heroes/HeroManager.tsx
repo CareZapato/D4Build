@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Upload, Download, FileJson, Copy, Check, Database, Package } from 'lucide-react';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagService } from '../../services/TagService';
-import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, Tag } from '../../types';
+import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, Tag, RunasHeroe, GemasHeroe } from '../../types';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import HeroSkills from './HeroSkills';
 import HeroGlyphs from './HeroGlyphs';
 import HeroAspects from './HeroAspects';
 import HeroParagon from './HeroParagon';
+import HeroRunes from './HeroRunes';
+import HeroGems from './HeroGems';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 import { useAppContext } from '../../context/AppContext';
@@ -17,7 +19,7 @@ const HeroManager: React.FC = () => {
   const { personajes, availableClasses } = useAppContext();
   const [selectedClass, setSelectedClass] = useState('Paladín');
   const [currentView, setCurrentView] = useState<'import' | 'manage'>('manage');
-  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'paragon'>('habilidades');
+  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'paragon' | 'runas' | 'gemas'>('habilidades');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -327,6 +329,72 @@ const HeroManager: React.FC = () => {
       if (agregados > 0) mensajes.push(`${agregados} nuevos`);
       
       modal.showSuccess(`Aspectos ${selectedClass}: ${mensajes.join(', ')}`);
+    } else if (importType === 'runas') {
+      if (!data.runas) {
+        modal.showError('El archivo no tiene el formato correcto de runas');
+        return;
+      }
+
+      const existingData = await WorkspaceService.loadHeroRunes(selectedClass);
+      const existing: RunasHeroe = existingData || { runas: [] };
+
+      let actualizados = 0;
+      let agregados = 0;
+
+      data.runas.forEach((runa: any) => {
+        const existingIndex = existing.runas.findIndex(r => r.nombre === runa.nombre);
+        if (existingIndex >= 0) {
+          existing.runas[existingIndex] = { ...runa, id: existing.runas[existingIndex].id };
+          actualizados++;
+        } else {
+          existing.runas.push({
+            ...runa,
+            id: runa.id || `runa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          });
+          agregados++;
+        }
+      });
+
+      await WorkspaceService.saveHeroRunes(selectedClass, existing);
+
+      const mensajesR = [];
+      if (actualizados > 0) mensajesR.push(`${actualizados} actualizadas`);
+      if (agregados > 0) mensajesR.push(`${agregados} nuevas`);
+
+      modal.showSuccess(`Runas ${selectedClass}: ${mensajesR.join(', ')}`);
+    } else if (importType === 'gemas') {
+      if (!data.gemas) {
+        modal.showError('El archivo no tiene el formato correcto de gemas');
+        return;
+      }
+
+      const existingData = await WorkspaceService.loadHeroGems(selectedClass);
+      const existing: GemasHeroe = existingData || { gemas: [] };
+
+      let actualizados = 0;
+      let agregados = 0;
+
+      data.gemas.forEach((gema: any) => {
+        const existingIndex = existing.gemas.findIndex(g => g.nombre === gema.nombre);
+        if (existingIndex >= 0) {
+          existing.gemas[existingIndex] = { ...gema, id: existing.gemas[existingIndex].id };
+          actualizados++;
+        } else {
+          existing.gemas.push({
+            ...gema,
+            id: gema.id || `gema_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          });
+          agregados++;
+        }
+      });
+
+      await WorkspaceService.saveHeroGems(selectedClass, existing);
+
+      const mensajesG = [];
+      if (actualizados > 0) mensajesG.push(`${actualizados} actualizadas`);
+      if (agregados > 0) mensajesG.push(`${agregados} nuevas`);
+
+      modal.showSuccess(`Gemas ${selectedClass}: ${mensajesG.join(', ')}`);
     }
   };
 
@@ -562,6 +630,28 @@ const HeroManager: React.FC = () => {
                     />
                     <span className="text-d4-text">Aspectos</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importType"
+                      value="runas"
+                      checked={importType === 'runas'}
+                      onChange={() => setImportType('runas')}
+                      className="text-d4-accent"
+                    />
+                    <span className="text-d4-text">Runas</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importType"
+                      value="gemas"
+                      checked={importType === 'gemas'}
+                      onChange={() => setImportType('gemas')}
+                      className="text-d4-accent"
+                    />
+                    <span className="text-d4-text">Gemas</span>
+                  </label>
                 </div>
               </div>
 
@@ -777,6 +867,26 @@ const HeroManager: React.FC = () => {
                 >
                   Paragon
                 </button>
+                <button
+                  onClick={() => setImportType('runas')}
+                  className={`px-4 py-2 rounded transition-colors ${
+                    importType === 'runas'
+                      ? 'bg-d4-accent text-black font-semibold'
+                      : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                  }`}
+                >
+                  Runas
+                </button>
+                <button
+                  onClick={() => setImportType('gemas')}
+                  className={`px-4 py-2 rounded transition-colors ${
+                    importType === 'gemas'
+                      ? 'bg-d4-accent text-black font-semibold'
+                      : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                  }`}
+                >
+                  Gemas
+                </button>
               </div>
 
               {/* Render appropriate component */}
@@ -808,6 +918,14 @@ const HeroManager: React.FC = () => {
                 <div className="card">
                   <HeroParagon clase={selectedClass} />
                 </div>
+              )}
+
+              {importType === 'runas' && (
+                <HeroRunes clase={selectedClass} />
+              )}
+
+              {importType === 'gemas' && (
+                <HeroGems clase={selectedClass} />
               )}
 
               {/* No data message */}

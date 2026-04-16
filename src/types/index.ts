@@ -498,6 +498,13 @@ export interface Personaje {
   paragon?: ParagonPersonaje;
   // @deprecated (v0.3.7) - Usar estadisticas_refs en su lugar
   estadisticas?: Estadisticas;
+  // Referencias a runas equipadas (v0.5.4) - Máximo 4: 2 invocación, 2 ritual
+  runas_refs?: Array<{
+    runa_id: string;                    // ID de la runa en el catálogo del héroe
+    vinculada_a?: 'arma' | 'escudo';    // A qué arma está vinculada (opcional)
+  }>;
+  // Build completa del personaje (v0.5.4)
+  build?: Build;                        // Equipamiento completo del personaje
   notas?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
@@ -764,4 +771,189 @@ export interface EstadisticasConPalabrasClave {
   nivel_paragon?: number;             // Nivel Paragon (separado, 1-300)
   estadisticas: EstadisticasV2;
   palabras_clave: PalabraClaveGlobal[];
+}
+
+// ============================================================================
+// RUNAS, GEMAS Y BUILD (v0.5.4)
+// ============================================================================
+
+/**
+ * Runa - Runa de Invocación o Ritual
+ * Las runas se equipan en armas (máx 4 por personaje: 2 invocación, 2 ritual)
+ */
+export interface Runa {
+  id: string;
+  nombre: string;                        // Ej: "EФM", "CHAC", "YAX", "LUM"
+  rareza: 'legendario' | 'raro' | 'magico';
+  tipo: 'invocacion' | 'ritual';         // Invocación: requiere ofrenda | Ritual: obtiene ofrenda
+  efecto: string;                        // Descripción del efecto
+  requerimiento?: {
+    tipo: 'requiere' | 'obtiene';        // Requiere ofrenda o Obtiene ofrenda
+    ofrenda: number;                     // Cantidad de ofrenda
+  };
+  descripcion?: string;                  // Texto en cursiva (ej: "Se vincula con una Runa de Ritual...")
+  puede_desguazar?: boolean;             // Si se puede desguazar o no
+  objeto_origen?: string;                // Ej: "Objeto de Vessel of Hatred"
+  valor_venta?: number;
+  en_bolsas?: number;
+  tags?: string[];
+}
+
+/**
+ * RunasHeroe - Catálogo de runas del héroe
+ */
+export interface RunasHeroe {
+  runas: Runa[];
+}
+
+/**
+ * Gema - Gema que se inserta en engarces del equipo
+ * Cada gema tiene efectos diferentes según dónde se inserte (arma, armadura, joyas)
+ */
+export interface EfectoSlot {
+  valor: number;
+  unidad: 'plano' | 'porcentaje';
+  atributo: string;
+  descripcion: string;
+  tags?: string[];
+}
+
+export interface Gema {
+  id: string;
+  tipo_objeto?: string;                  // "gema" (para consistencia con otros tipos)
+  nombre: string;                        // Ej: "Cráneo Marqués", "Topacio Impecable"
+  tipo?: string;                         // Tipo de gema: "craneo", "topacio", "esmeralda", etc. (DEPRECATED en favor de calidad)
+  calidad?: string;                      // Calidad: "marqués", "impecable", "sin pulir", etc.
+  rango_calidad?: number;                // Nivel numérico del tier (1, 2, 3...)
+  requerimientos?: {
+    nivel?: number;                      // Nivel mínimo requerido
+  };
+  
+  // Efectos antiguos (DEPRECATED - mantener para compatibilidad retroactiva)
+  efectos?: {
+    arma?: string;                       // Efecto textual cuando se inserta en arma
+    armadura?: string;                   // Efecto textual cuando se inserta en armadura
+    joyas?: string;                      // Efecto textual cuando se inserta en joyas (anillos/amuleto)
+  };
+  
+  // Efectos nuevos (estructura completa con valor, unidad, tags)
+  efectos_por_slot?: {
+    arma?: EfectoSlot;                   // Efecto estructurado para arma
+    armadura?: EfectoSlot;               // Efecto estructurado para armadura
+    joyas?: EfectoSlot;                  // Efecto estructurado para joyas
+  };
+  
+  descripcion_lore?: string;             // Texto descriptivo / lore
+  descripcion?: string;                  // Texto descriptivo adicional (DEPRECATED)
+  nivel_requerido?: number;              // (DEPRECATED - usar requerimientos.nivel)
+  valor_venta?: number;
+  
+  clasificacion?: {
+    perfil_general?: string[];           // Ej: ["ofensivo", "defensivo", "hibrido"]
+    afinidades?: string[];               // Ej: ["cuerpo_a_cuerpo", "distancia"]
+  };
+  
+  tags?: string[];
+}
+
+/**
+ * GemasHeroe - Catálogo de gemas del héroe
+ */
+export interface GemasHeroe {
+  gemas: Gema[];
+}
+
+/**
+ * GemasRunasCatalogo - Catálogo global compartido para runas y gemas
+ */
+export interface GemasRunasCatalogo {
+  runas: Runa[];
+  gemas: Gema[];
+}
+
+/**
+ * Engarce - Espacio en una pieza de equipo para insertar runa o gema
+ */
+export interface Engarce {
+  tipo: 'runa' | 'gema' | 'vacio';       // Tipo de engarce
+  runa_id?: string;                      // ID de runa del catálogo (si tipo='runa')
+  gema_id?: string;                      // ID de gema del catálogo (si tipo='gema')
+  calidad_runa?: 'invocacion' | 'ritual'; // Si es runa, tipo de runa
+}
+
+/**
+ * PiezaEquipo - Pieza individual de equipo/armadura
+ * Representa yelmo, peto, guantes, anillos, armas, etc.
+ */
+export interface PiezaEquipo {
+  id: string;
+  nombre: string;                        // Ej: "Yelmo Excepcional Frenético"
+  espacio: 'yelmo' | 'peto' | 'guantes' | 'pantalones' | 'botas' | 'arma' | 'amuleto' | 'anillo1' | 'anillo2' | 'escudo';
+  tipo: string;                          // Ej: "Yelmo ancestral legendario", "Peto ancestral", etc.
+  categoria?: 'ancestral' | 'excepcional' | 'normal';
+  rareza: 'legendario' | 'raro' | 'magico' | 'normal';
+  poder_objeto?: number;                 // Poder del objeto (Ej: 800)
+  armadura?: number;                     // Valor de armadura (solo para armaduras)
+  atributos: Array<{                     // Atributos de la pieza
+    texto: string;                       // Texto completo del atributo
+    valor?: string | number;             // Valor numérico extraído
+    tipo?: string;                       // Tipo: 'fuerza', 'vida_maxima', 'resistencia', etc.
+  }>;
+  efectos_especiales?: Array<{           // Efectos especiales (Desenfreno, Hambre, etc.)
+    nombre?: string;                     // Nombre del efecto: "Desenfreno", "Hambre"
+    descripcion: string;                 // Descripción completa del efecto
+    color?: 'rojo' | 'naranja' | 'verde' | 'azul' | 'morado'; // Color para UI
+  }>;
+  aspecto_id?: string;                   // Referencia al aspecto del catálogo (si tiene)
+  aspecto_vinculado_id?: string;         // ID del aspecto del catálogo al que se vincula este equipo
+  aspecto_descripcion_diferencia?: string; // Texto del aspecto tal como aparece en el arma (prevalece sobre catálogo)
+  engarces?: Engarce[];                  // Lista de engarces disponibles
+  durabilidad?: {
+    actual: number;
+    maxima: number;
+  };
+  templados?: {                          // Sistema de templado
+    usados: number;
+    maximos: number;
+  };
+  nivel_requerido?: number;
+  objeto_origen?: string;                // Ej: "Objeto de Lord of Hatred"
+  valor_venta?: number;
+  tags?: string[];
+}
+
+/**
+ * Build - Conjunto completo de equipamiento del personaje
+ */
+export interface Build {
+  id: string;
+  nombre?: string;                       // Nombre personalizado de la build
+  fecha_creacion: string;
+  fecha_actualizacion?: string;
+  piezas: {
+    yelmo?: PiezaEquipo;
+    peto?: PiezaEquipo;
+    guantes?: PiezaEquipo;
+    pantalones?: PiezaEquipo;
+    botas?: PiezaEquipo;
+    arma?: PiezaEquipo;
+    amuleto?: PiezaEquipo;
+    anillo1?: PiezaEquipo;
+    anillo2?: PiezaEquipo;
+    escudo?: PiezaEquipo;                // Segunda arma / escudo
+  };
+  runas_equipadas?: Array<{              // Runas equipadas (máx 4)
+    runa_id: string;                     // ID de runa del catálogo
+    vinculada_a: 'arma' | 'escudo';      // A qué arma está vinculada
+  }>;
+  poder_total?: number;                  // Poder total de la build (suma de todas las piezas)
+  atributos_totales?: {                  // Resumen de atributos totales
+    fuerza?: number;
+    inteligencia?: number;
+    voluntad?: number;
+    destreza?: number;
+    vida_maxima?: number;
+    armadura_total?: number;
+    // ... otros atributos agregados
+  };
 }

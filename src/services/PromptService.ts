@@ -60,6 +60,9 @@ export class PromptService {
       prompt += await this.formatAspectosEquipados(personaje);
     }
 
+    // Build equipada (si existe)
+    prompt += this.formatBuildEquipada(personaje);
+
     // Sistema Paragon (mejorado con conteo de nodos activos)
     if (personaje.paragon_refs || personaje.paragon || personaje.atributos_paragon) {
       prompt += await this.formatParagonEquipado(personaje);
@@ -130,6 +133,9 @@ export class PromptService {
     if (personaje.nivel_paragon) {
       prompt += ` | **Nivel Paragon**: ${personaje.nivel_paragon}`;
     }
+
+    // Build equipada actual
+    prompt += this.formatBuildEquipada(personaje);
     if (personaje.puertas_anexo) {
       prompt += `\n- **Puertas de Anexo**: ${personaje.puertas_anexo} (+${personaje.puertas_anexo * 5} a todos los atributos)`;
     }
@@ -478,6 +484,9 @@ export class PromptService {
       }
     }
 
+    // Incluir build equipada para dar contexto de optimización
+    prompt += this.formatBuildEquipada(personaje);
+
     if (personaje.notas) {
       prompt += `\n## Notas Adicionales\n`;
       prompt += personaje.notas + '\n';
@@ -822,6 +831,57 @@ Identifica:
       console.error('Error cargando datos Paragon:', error);
     }
     
+    return prompt;
+  }
+
+  // Helper: Formatear build equipada (equipo + engarces + aspectos por pieza)
+  private static formatBuildEquipada(personaje: Personaje): string {
+    const build = personaje.build;
+    if (!build || !build.piezas) return '';
+
+    const piezas = Object.values(build.piezas).filter(Boolean) as Array<any>;
+    if (piezas.length === 0) return '';
+
+    let prompt = `\n## Build Equipada\n`;
+    prompt += `- Piezas equipadas: ${piezas.length}\n`;
+
+    piezas.forEach((pieza) => {
+      prompt += `\n### ${pieza.nombre || pieza.id} (${pieza.espacio || 'slot'})\n`;
+      if (pieza.rareza) prompt += `- Rareza: ${pieza.rareza}\n`;
+      if (pieza.poder_objeto) prompt += `- Poder de objeto: ${pieza.poder_objeto}\n`;
+      if (pieza.aspecto_vinculado_id || pieza.aspecto_id) {
+        prompt += `- Aspecto vinculado: ${pieza.aspecto_vinculado_id || pieza.aspecto_id}\n`;
+      }
+      if (pieza.aspecto_descripcion_diferencia) {
+        prompt += `- Texto real del aspecto en pieza: ${pieza.aspecto_descripcion_diferencia}\n`;
+      }
+
+      if (Array.isArray(pieza.engarces) && pieza.engarces.length > 0) {
+        const engarces = pieza.engarces
+          .map((e: any) => {
+            if (e.tipo === 'runa' && e.runa_id) return `runa:${e.runa_id}`;
+            if (e.tipo === 'gema' && e.gema_id) return `gema:${e.gema_id}`;
+            return 'vacio';
+          })
+          .join(', ');
+        prompt += `- Engarces: ${engarces}\n`;
+      }
+
+      if (Array.isArray(pieza.atributos) && pieza.atributos.length > 0) {
+        prompt += `- Atributos principales:\n`;
+        pieza.atributos.slice(0, 8).forEach((attr: any) => {
+          prompt += `  - ${attr.texto || attr.tipo || 'atributo'}\n`;
+        });
+      }
+    });
+
+    if (Array.isArray(build.runas_equipadas) && build.runas_equipadas.length > 0) {
+      prompt += `\n### Runas equipadas (build.runas_equipadas)\n`;
+      build.runas_equipadas.forEach((r: any) => {
+        prompt += `- ${r.runa_id} (${r.vinculada_a})\n`;
+      });
+    }
+
     return prompt;
   }
 

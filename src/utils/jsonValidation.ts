@@ -338,13 +338,56 @@ export function validateJSONByCategory(
       return validateAspectsJSON(data);
     case 'estadisticas':
       return validateStatsJSON(data);
+    case 'runas': {
+      const hasRunes = Array.isArray(data?.runas);
+      return {
+        isValid: hasRunes,
+        errors: hasRunes ? [] : [{
+          field: 'runas',
+          expected: 'array',
+          received: data?.runas === undefined ? 'undefined' : typeof data?.runas,
+          severity: 'error'
+        }],
+        warnings: [],
+        detectedFields: hasRunes ? ['runas'] : []
+      };
+    }
+    case 'gemas': {
+      const hasGems = Array.isArray(data?.gemas);
+      return {
+        isValid: hasGems,
+        errors: hasGems ? [] : [{
+          field: 'gemas',
+          expected: 'array',
+          received: data?.gemas === undefined ? 'undefined' : typeof data?.gemas,
+          severity: 'error'
+        }],
+        warnings: [],
+        detectedFields: hasGems ? ['gemas'] : []
+      };
+    }
+    case 'build': {
+      const buildObj = data?.build && typeof data.build === 'object' ? data.build : data;
+      const hasPiezas = Array.isArray(buildObj?.piezas);
+      return {
+        isValid: hasPiezas,
+        errors: hasPiezas ? [] : [{
+          field: 'build.piezas',
+          expected: 'array',
+          received: buildObj?.piezas === undefined ? 'undefined' : typeof buildObj?.piezas,
+          severity: 'error'
+        }],
+        warnings: [],
+        detectedFields: hasPiezas ? ['build', 'build.piezas'] : []
+      };
+    }
     default:
       return {
         isValid: true,
         errors: [],
         warnings: [{
           field: 'category',
-          expected: 'skills, glifos, aspectos, o estadisticas',
+          expected: 'skills, glifos, aspectos, estadisticas, runas, gemas, o build',
           received: category,
           severity: 'warning'
         }],

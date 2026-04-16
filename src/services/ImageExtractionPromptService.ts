@@ -2144,6 +2144,434 @@ Esta extracción captura qué tableros tiene equipados el personaje, qué nodos 
 - nodos_activados_total es la combinación de todos los nodos de todos los tableros
 - atributos_acumulados es opcional si no es visible en la captura`;
   }
+
+  // ============================================================================
+  // PROMPTS PARA RUNAS (v0.5.4)
+  // ============================================================================
+
+  static generateRunesPrompt(): string {
+    return `Analiza la imagen y extrae la información de las Runas de Diablo 4.
+
+**⚠️ IMPORTANTE - RUNAS:**
+
+Existen DOS TIPOS de runas:
+1. **Runas de Invocación** (🟣 / morado): REQUIERE ofrenda para activarse
+2. **Runas de Ritual** (🟠 / naranjo): OBTIENE ofrenda al cumplir condición
+
+**Rarezas**: Legendario (naranja), Raro (amarillo), Mágico (azul)
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "runas": [
+    {
+      "id": "runa_efm",
+      "nombre": "EФM",
+      "rareza": "legendario",
+      "tipo": "invocacion",
+      "efecto": "Reduce tus recuperaciones activas en 0.1 segundos.",
+      "requerimiento": {
+        "tipo": "requiere",
+        "ofrenda": 100
+      },
+      "descripcion": "Se vincula con una Runa de Ritual en equipo con dos engarces para formar una palabra rúnica. Solo puedes tener dos palabras rúnicas activas al mismo tiempo.",
+      "puede_desguazar": false,
+      "objeto_origen": "Objeto de Vessel of Hatred",
+      "valor_venta": 1,
+      "en_bolsas": 0,
+      "tags": ["recuperacion", "reduccion_tiempo", "habilidades_activas"]
+    },
+    {
+      "id": "runa_chac",
+      "nombre": "CHAC",
+      "rareza": "raro",
+      "tipo": "invocacion",
+      "efecto": "Invoca el Rayo del Druida, que ataca a un enemigo cercano.",
+      "requerimiento": {
+        "tipo": "requiere",
+        "ofrenda": 20
+      },
+      "descripcion": "Se vincula con una Runa de Ritual en equipo con dos engarces para formar una palabra rúnica. Solo puedes tener dos palabras rúnicas activas al mismo tiempo.",
+      "objeto_origen": "Objeto de Vessel of Hatred",
+      "valor_venta": 3,
+      "en_bolsas": 0,
+      "tags": ["rayo", "invocacion", "druida"]
+    },
+    {
+      "id": "runa_yax",
+      "nombre": "YAX",
+      "rareza": "magico",
+      "tipo": "ritual",
+      "efecto": "Bebe una Poción de vida.",
+      "requerimiento": {
+        "tipo": "obtiene",
+        "ofrenda": 200
+      },
+      "descripcion": "Se vincula con una Runa de Invocación en equipo con dos engarces para formar una palabra rúnica. Solo puedes tener dos palabras rúnicas activas al mismo tiempo.",
+      "objeto_origen": "Objeto de Vessel of Hatred",
+      "valor_venta": 5,
+      "en_bolsas": 5,
+      "tags": ["pocion", "vida", "curacion"]
+    },
+    {
+      "id": "runa_lum",
+      "nombre": "LUM",
+      "rareza": "magico",
+      "tipo": "invocacion",
+      "efecto": "Restaura 3.5 de recurso primario.",
+      "requerimiento": {
+        "tipo": "requiere",
+        "ofrenda": 5
+      },
+      "descripcion": "Se vincula con una Runa de Ritual en equipo con dos engarces para formar una palabra rúnica. Solo puedes tener dos palabras rúnicas activas al mismo tiempo.",
+      "puede_desguazar": false,
+      "objeto_origen": "Objeto de Vessel of Hatred",
+      "valor_venta": 7,
+      "tags": ["recurso", "restauracion", "recurso_primario"]
+    }
+  ],
+  "palabras_clave": ["invocacion", "ritual", "ofrenda", "palabra_runica"]
 }
+\`\`\`
 
+**REGLAS:**
 
+1. **rareza**: "legendario", "raro", o "magico" (detectar por color del borde)
+2. **tipo**: "invocacion" o "ritual"
+  - Invocación: Tiene "Requiere: ofrenda de X" y suele mostrarse en morado
+  - Ritual: Tiene "Obtiene: ofrenda de X" y suele mostrarse en naranjo
+3. **requerimiento.tipo**: "requiere" (invocación) o "obtiene" (ritual)
+4. **requerimiento.ofrenda**: Número entero (5, 20, 100, 200, etc.)
+5. **efecto**: Descripción del efecto principal (texto morado/principal)
+6. **descripcion**: Texto en cursiva (explicación de palabras rúnicas)
+7. **puede_desguazar**: true si dice "No se puede desguazar", false otherwise
+8. **objeto_origen**: Típicamente "Objeto de Vessel of Hatred"
+9. **tags**: Palabras clave relevantes del efecto
+
+**DETECCIÓN VISUAL:**
+
+- 🟣 **Runa de Invocación**: Ícono/acentos morados, texto "Requiere: ofrenda"
+- 🟠 **Runa de Ritual**: Ícono/acentos naranjo, texto "Obtiene: ofrenda"
+- Color del borde: Naranja=legendario, Amarillo=raro, Azul=mágico
+
+**IMPORTANTE**: Captura toda la información visible. Si falta algo, omite ese campo.
+
+**📋 NOTA CONTEXTUAL:**
+Si el jugador ya tiene runas en su catálogo y estás analizando un arma con runas equipadas, los valores del campo \`nombre\` deben coincidir exactamente con los nombres del catálogo para permitir el enlace automático entre piezas de equipo y el catálogo de runas.`;
+  }
+
+  // ============================================================================
+  // PROMPTS PARA GEMAS (v0.5.4)
+  // ============================================================================
+
+  static generateGemsPrompt(): string {
+    return `Analiza la imagen y extrae la información de las Gemas de Diablo 4.
+
+**⚠️ IMPORTANTE - GEMAS:**
+
+Las gemas se insertan en engarces del equipo y tienen efectos DIFERENTES según dónde se inserten:
+- **Arma**: Efecto ofensivo
+- **Armadura**: Efecto defensivo/atributo
+- **Joyas** (anillos/amuleto): Efecto de resistencia
+
+**Tipos comunes**: Cráneo, Topacio, Esmeralda, Rubí, Diamante, Amatista, Zafiro
+
+**Mapa de color por tipo de gema (priorizar cuando el texto esté borroso):**
+- Rubí: rojo
+- Zafiro: azul
+- Esmeralda: verde
+- Topacio: amarillo
+- Amatista: morado
+- Diamante: blanco
+- Cráneo: gris
+
+**Calidades**: Sin pulir, Astillada, Normal, Impecable, Facetada, Marqués, Real
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "gemas": [
+    {
+      "id": "gema_craneo_marques",
+      "nombre": "Cráneo Marqués",
+      "tipo": "craneo",
+      "calidad": "marques",
+      "efectos": {
+        "arma": "+16 de vida con cada eliminación",
+        "armadura": "+10.0% de sanación recibida",
+        "joyas": "+900 de resistencia al daño físico"
+      },
+      "descripcion": "Se puede insertar en equipo con engarces.",
+      "nivel_requerido": 25,
+      "valor_venta": 2000,
+      "tags": ["vida", "curacion", "resistencia_fisica"]
+    },
+    {
+      "id": "gema_topacio_impecable",
+      "nombre": "Topacio Impecable",
+      "tipo": "topacio",
+      "calidad": "impecable",
+      "efectos": {
+        "arma": "+30.0% de daño de habilidades básicas",
+        "armadura": "+30 de Inteligencia",
+        "joyas": "+450 de resistencia al rayo"
+      },
+      "descripcion": "En sus profundidades reside una ambición esplendorosa.",
+      "nivel_requerido": 20,
+      "valor_venta": 200,
+      "tags": ["daño", "habilidades_basicas", "inteligencia", "resistencia_rayo"]
+    }
+  ],
+  "palabras_clave": ["gema", "engarce", "resistencia", "curacion"]
+}
+\`\`\`
+
+**REGLAS:**
+
+1. **tipo**: "craneo", "topacio", "esmeralda", "rubi", "diamante", "amatista", "zafiro"
+2. **calidad**: "sin_pulir", "astillada", "normal", "impecable", "facetada", "marques", "real"
+3. **efectos**: SIEMPRE incluir los 3 efectos (arma, armadura, joyas)
+   - Leer de los bullets con íconos (🗡️ Arma, 🛡️ Armadura, 💍 Joyas)
+4. **descripcion**: Texto en cursiva (flavor text)
+5. **nivel_requerido**: Nivel mínimo para usar la gema
+6. **tags**: Extraer conceptos clave de los efectos
+
+**DETECCIÓN VISUAL:**
+
+- **Icono de gema**: Forma de diamante/piedra brillante
+- **Color del ícono**: Usar este mapeo estricto
+  - Rubí=rojo, Zafiro=azul, Esmeralda=verde, Topacio=amarillo, Amatista=morado, Diamante=blanco, Cráneo=gris
+- **Tres secciones de efectos**: Con íconos de espada (arma), escudo (armadura), anillo (joyas)
+
+**IMPORTANTE**: Siempre captura los 3 efectos completos. Son críticos para el sistema.
+
+**📋 NOTA CONTEXTUAL:**
+Si el jugador ya tiene gemas en su catálogo y estás analizando un arma/armadura con gemas equipadas, los valores del campo \`nombre\` deben coincidir exactamente con los nombres del catálogo para permitir el enlace automático entre piezas de equipo y el catálogo de gemas.`;
+  }
+
+  // ============================================================================
+  // PROMPTS PARA EQUIPAMIENTO/BUILD (v0.5.4)
+  // ============================================================================
+
+  static generateEquipmentPrompt(): string {
+    return `Analiza la imagen y extrae la información del equipamiento/build de Diablo 4.
+
+**⚠️ IMPORTANTE - EQUIPAMIENTO:**
+
+El equipo incluye:
+- **Armas**: Arma principal, Escudo/Arma secundaria
+- **Armadura**: Yelmo, Peto, Guantes, Pantalones, Botas
+- **Joyas**: Amuleto, Anillo 1, Anillo 2
+
+**Categorías**: Ancestral legendario, Excepcional legendario, Legendario normal
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "build": {
+    "piezas": [
+      {
+        "id": "yelmo_frenetico_001",
+        "nombre": "YELMO EXCEPCIONAL FRENÉTICO",
+        "espacio": "yelmo",
+        "tipo": "Yelmo ancestral legendario",
+        "categoria": "excepcional",
+        "rareza": "legendario",
+        "poder_objeto": 800,
+        "armadura": 1508,
+        "atributos": [
+          { "texto": "+182 de Fuerza", "valor": 182, "tipo": "fuerza" },
+          { "texto": "+424 de vida máxima", "valor": 424, "tipo": "vida_maxima" }
+        ],
+        "efectos_especiales": [
+          { "nombre": "Desenfreno", "descripcion": "+3% de Vida máxima por nivel de racha de muertes.", "color": "rojo" },
+          { "nombre": "Efecto único", "descripcion": "Tras usar 5 habilidades Básicas, una recuperación activa se reduce en 2.0 segundos.", "color": "naranja" }
+        ],
+        "durabilidad": { "actual": 100, "maxima": 100 },
+        "templados": { "usados": 4, "maximos": 4 },
+        "nivel_requerido": 60,
+        "valor_venta": 24068,
+        "tags": ["fuerza", "vida", "habilidades_basicas"]
+      },
+      {
+        "id": "arma_frenesi_001",
+        "nombre": "ESPADA FRENÉTICA DEL CAOS",
+        "espacio": "arma",
+        "tipo": "Espada de una mano ancestral legendaria",
+        "categoria": "ancestral",
+        "rareza": "legendario",
+        "poder_objeto": 800,
+        "atributos": [
+          { "texto": "+1450.5 de daño de arma por segundo", "valor": "1450.5", "tipo": "dano_arma" },
+          { "texto": "+60.5% de daño de habilidades básicas", "valor": "60.5%", "tipo": "dano_habilidades_basicas" }
+        ],
+        "efectos_especiales": [
+          { "nombre": "Ira", "descripcion": "Cada vez que inflinges un golpe crítico, el daño de tus ataques aumenta un 5% durante 3 segundos.", "color": "rojo" },
+          { "nombre": "Efecto único", "descripcion": "Aumenta el daño de tus habilidades básicas en un 40% y el radio de Torbellino en un 20%.", "color": "naranja" }
+        ],
+        "engarces": [
+          { "tipo": "runa", "nombre": "EFM", "rareza": "legendario", "subtipo": "ritual" },
+          { "tipo": "runa", "nombre": "AMN", "rareza": "magico", "subtipo": "invocacion" }
+        ],
+        "aspecto_vinculado_id": "aspecto_del_campeador",
+        "aspecto_descripcion_diferencia": "Aumenta el radio de Torbellino en un [20-40]% y el daño de tus habilidades básicas en un [40-80]%.",
+        "durabilidad": { "actual": 100, "maxima": 100 },
+        "templados": { "usados": 3, "maximos": 4 },
+        "nivel_requerido": 60,
+        "valor_venta": 28000,
+        "tags": ["habilidades_basicas", "torbellino", "daño_critico"]
+      }
+    ]
+  },
+  "palabras_clave": ["build", "equipamiento", "armadura", "arma", "legendario"]
+}
+\`\`\`
+
+**REGLAS GENERALES:**
+
+1. **espacio**: Detectar automáticamente por el tipo de pieza
+   - yelmo, peto, guantes, pantalones, botas, arma, amuleto, anillo1, anillo2, escudo
+2. **categoria**: "ancestral", "excepcional", o "normal" (leer del subtítulo)
+3. **rareza**: "legendario", "raro", "magico", "normal" (detectar por color del borde)
+4. **poder_objeto**: Número visible en "Poder de objeto: X"
+5. **armadura**: Solo para piezas de armadura (yelmo, peto, guantes, pantalones, botas)
+6. **atributos**: Array con TODOS los atributos visibles (texto, valor numérico, tipo normalizado)
+7. **efectos_especiales**: Efectos en color
+   - **nombre**: "Desenfreno", "Hambre", "Ira", "Efecto único", etc.
+   - **descripcion**: Texto completo del efecto
+   - **color**: "rojo", "naranja", "verde", "azul", "morado"
+8. **durabilidad** y **templados**: Leer de la parte inferior de la ficha
+
+**ENGARCES (runas y gemas equipadas):**
+
+Los engarces son ranuras pequeñas en el equipo que pueden contener **Runas** o **Gemas**.
+Si dentro de la ficha del objeto ves texto o iconos relacionados con runas (Invocación/Ritual) o gemas (Cráneo, Topacio, Esmeralda, Rubí, etc.), extráelos como objetos en el array \`engarces\`:
+
+**IMPORTANTE**: Una misma build puede incluir runas y gemas al mismo tiempo (en distintas piezas). El JSON debe conservar ambos tipos cuando estén presentes.
+
+- **tipo**: "runa" o "gema"
+- **nombre**: Nombre completo de la runa o gema
+- **rareza**: "legendario", "raro", "magico", "normal"
+- **subtipo** (solo runas): "invocacion" o "ritual"
+- **calidad** (solo gemas): "marques", "real", "facetada", "impecable", etc.
+
+Si el objeto NO tiene engarces visibles, omite el campo \`engarces\`.
+
+**ASPECTO ÚNICO (armas y joyas legendarios):**
+
+Un objeto legendario puede tener un **aspecto único**. Se identifica porque su texto aparece en el **MISMO COLOR que el nombre del objeto** (dorado/naranja para legendario). Es el texto del efecto especial principal del arma.
+
+- **aspecto_vinculado_id**: Si puedes identificar el nombre del aspecto, conviértelo a snake_case (ej: "Aspecto del Campeador" → "aspecto_del_campeador"). Si no lo reconoces con seguridad, omite este campo.
+- **aspecto_descripcion_diferencia**: Copia el texto COMPLETO del aspecto tal como aparece en la ficha del objeto. Incluye los valores numéricos entre corchetes si aparecen con rangos (ej: "[20-40]%").
+
+Si el objeto NO tiene aspecto visible, omite ambos campos.
+
+**📋 NOTA CONTEXTUAL:**
+Si ya tienes gemas o runas cargadas en el catálogo global del juego, los nombres en el array \`engarces\` deben coincidir exactamente con los nombres del catálogo para que el sistema pueda enlazarlos automáticamente. Si no tienes el catálogo cargado, el sistema lo advertirá y te recomendará cargarlo.
+
+**DETECCIÓN VISUAL:**
+
+- **Categoría por texto**: "ancestral legendario", "excepcional", etc.
+- **Color del borde del nombre**: Naranja=legendario, Amarillo=raro, Azul=mágico
+- **Efectos de color**: Texto en rojo (Desenfreno/Hambre/etc.), naranja (efecto único)
+- **Engarces**: Pequeños iconos circulares/diamante en la ficha del objeto
+- **Aspecto**: Texto en el mismo color dorado/naranja del nombre del objeto legendario
+
+**ESPACIOS VÁLIDOS:**
+- yelmo, peto, guantes, pantalones, botas (armadura)
+- arma, escudo (armas)
+- amuleto, anillo1, anillo2 (joyas)
+
+**IMPORTANTE**: Captura TODO el texto visible de atributos y efectos. Los engarces y el aspecto son críticos para el análisis completo del build.`;
+  }
+
+  // ============================================================================
+  // PROMPTS PARA ANÁLISIS DE BUILD (v0.5.4)
+  // ============================================================================
+
+  static generateBuildAnalysisPrompt(): string {
+    return `Analiza la imagen del build de Diablo 4 y proporciona un análisis táctico detallado.
+
+**OBJETIVO:**
+No se trata de extraer datos, sino de analizar la efectividad y coherencia del build.
+
+**Analiza los siguientes aspectos:**
+
+**1. SINERGIA DE HABILIDADES**
+- ¿Las habilidades activas y pasivas se complementan entre sí?
+- ¿Existe una cadena de combo clara?
+- ¿Los modificadores potencian las habilidades clave?
+
+**2. ASPECTOS Y EQUIPAMIENTO**
+- ¿Los aspectos equipados amplifican las habilidades del build?
+- ¿Hay duplicidad en los efectos (aspecto + equipo haciendo lo mismo)?
+- ¿Los engarces (runas/gemas) están bien orientados al rol del build?
+- Si una pieza trae texto de aspecto propio (el aplicado actualmente), PRIORIZA ese texto sobre cualquier valor genérico de catálogo.
+- Para el análisis final, considera SIEMPRE la suma de: atributos visibles del objeto + efecto real del aspecto en esa pieza.
+
+**3. TABLERO DE PARAGON**
+- ¿Los glifos seleccionados son los óptimos para este build?
+- ¿Los nodos activados tienen coherencia con las habilidades?
+- ¿El nivel de los glifos es adecuado para el contenido?
+
+**4. ESTADÍSTICAS**
+- ¿Hay desequilibrio entre ofensiva y defensiva?
+- ¿Las resistencias están balanceadas?
+- ¿El umbral de vida es adecuado para el contenido objetivo?
+
+**5. PUNTOS DE MEJORA**
+- Lista máximo 5 cambios concretos que mejorarían el build
+- Prioriza por impacto (del más al menos importante)
+- Explica brevemente el motivo de cada cambio
+
+**6. CALIFICACIÓN GENERAL**
+- Puntúa de 1 a 10 cada categoría: Daño, Supervivencia, Utilidad, Coherencia
+- Calificación global con justificación en 1-2 frases
+
+**FORMATO JSON esperado:**
+
+\`\`\`json
+{
+  "analisis": {
+    "sinergia_habilidades": {
+      "puntuacion": 8,
+      "fortalezas": ["Las habilidades básicas reducen el cooldown de Torbellino"],
+      "debilidades": ["Falta modificador que amplíe el área de efecto"]
+    },
+    "aspectos_equipamiento": {
+      "puntuacion": 7,
+      "fortalezas": ["El aspecto del Campeador potencia directamente la habilidad principal"],
+      "debilidades": ["Dos aspectos duplican el efecto de velocidad de ataque"]
+    },
+    "paragon": {
+      "puntuacion": 6,
+      "fortalezas": ["Glifo enfocado en daño básico bien posicionado"],
+      "debilidades": ["Nodos de resistencia al fuego no alineados con el contenido"]
+    },
+    "estadisticas": {
+      "puntuacion": 7,
+      "fortalezas": ["Vida máxima adecuada para T4"],
+      "debilidades": ["Resistencia al Rayo por debajo del umbral recomendado (70%)"]
+    },
+    "puntos_mejora": [
+      { "prioridad": 1, "cambio": "Sustituir Aspecto X por Aspecto Y", "motivo": "Mayor % de daño crítico para el loop de combo" },
+      { "prioridad": 2, "cambio": "Reemplazar gema Topacio por Esmeralda en el arma", "motivo": "+% daño a élites es más útil que bonus de veneno" }
+    ],
+    "calificacion": {
+      "dano": 8,
+      "supervivencia": 6,
+      "utilidad": 7,
+      "coherencia": 8,
+      "global": 7,
+      "resumen": "Build sólido con buen foco en daño físico. Mejorar resistencias y revisar sinergia de aspectos."
+    }
+  }
+}
+\`\`\`
+
+**IMPORTANTE:** Sé específico y constructivo. El objetivo es ayudar al jugador a mejorar su build de manera concreta.`;
+  }
+}

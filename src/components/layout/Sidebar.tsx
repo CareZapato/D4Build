@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Users, Shield, Sparkles, Tag, Camera } from 'lucide-react';
+import { Users, Shield, Sparkles, Tag, Camera, Gem } from 'lucide-react';
 import ChangelogModal from '../ChangelogModal';
 import ImageCaptureModal from '../common/ImageCaptureModal';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems';
 
 interface Props {
   currentView: View;
@@ -17,6 +17,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   const menuItems = [
     { id: 'characters' as View, icon: Users, label: 'Personajes' },
     { id: 'heroes' as View, icon: Shield, label: 'Héroes' },
+    { id: 'runes-gems' as View, icon: Gem, label: 'Gemas/Runas' },
     { id: 'tags' as View, icon: Tag, label: 'Tags' },
     { id: 'prompts' as View, icon: Sparkles, label: 'Prompts' },
   ];
@@ -41,7 +42,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             className="mt-1 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.4.12
+            v0.5.1
           </button>
         </div>
       </div>

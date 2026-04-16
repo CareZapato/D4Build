@@ -68,6 +68,11 @@ const ImportResultsModal: React.FC<ImportResultsModalProps> = ({
       glifos: 'Glifos',
       aspectos: 'Aspectos',
       estadisticas: 'Estadísticas',
+      paragon: 'Paragón',
+      runas: 'Runas',
+      gemas: 'Gemas',
+      build: 'Equipo',
+      todas: 'Todas las categorías',
       otros: 'Otros'
     };
     return labels[category] || category;
@@ -128,7 +133,7 @@ const ImportResultsModal: React.FC<ImportResultsModalProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {(results.jsonInputsProcessed !== undefined || results.totalInputItems !== undefined) && (
                   <div className="bg-black/20 rounded border border-white/10 px-2 py-1.5">
-                    <p className="text-gray-400 text-[11px]">Entrada JSON</p>
+                    <p className="text-gray-400 text-[11px]">JSONs</p>
                     <p className="text-lg font-semibold text-cyan-300">{results.jsonInputsProcessed ?? 1}</p>
                   </div>
                 )}

@@ -12,8 +12,9 @@ import CharacterDetail from './components/characters/CharacterDetail';
 import HeroManager from './components/heroes/HeroManager';
 import PromptGenerator from './components/prompts/PromptGenerator';
 import { TagsManager } from './components/tags/TagsManager';
+import RunesGemsSection from './components/runes/RunesGemsSection';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems';
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('characters');
@@ -96,6 +97,8 @@ function AppContent() {
         return <PromptGenerator personajes={personajes} />;
       case 'tags':
         return <TagsManager />;
+      case 'runes-gems':
+        return <RunesGemsSection />;
       default:
         return <div className="text-d4-text">Vista en construcción</div>;
     }

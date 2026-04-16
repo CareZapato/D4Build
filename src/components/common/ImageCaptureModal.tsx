@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
@@ -38,13 +38,15 @@ const CATEGORIES: {
   { value: 'aspectos', label: 'Aspectos', icon: Gem },
   { value: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
   { value: 'paragon', label: 'Paragon', icon: Grid3x3 },
+  { value: 'runas', label: 'Runas/Gemas', icon: Sparkles },
+  { value: 'build', label: 'Equipo', icon: Shield },
   { value: 'otros', label: 'Otros', icon: FileText },
 ];
-
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { personajes, availableClasses, selectedPersonaje, setSelectedPersonaje, setPersonajes } = useAppContext();
+  const { personajes, availableClasses, selectedPersonaje, setSelectedPersonaje, setPersonajes, refreshPersonajes } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [paragonType, setParagonType] = useState<ParagonType>('tablero');
+  const [runaGemaType, setRunaGemaType] = useState<'runas' | 'gemas'>('runas');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
@@ -75,7 +77,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Estados para modal de resultados de importación
   const [showImportResults, setShowImportResults] = useState(false);
   const [importResults, setImportResults] = useState<ImportResultDetails | null>(null);
-  const [pendingFinalizeAction, setPendingFinalizeAction] = useState<'reload' | null>(null);
   
   // Estados para visualización de imágenes y ejecución masiva
   const [viewerImage, setViewerImage] = useState<{ url: string; name: string } | null>(null);
@@ -114,6 +115,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (newCategory === 'paragon') {
       setParagonType('tablero');
       // Tablero permite ambos destinos, mantener selección actual
+    }
+
+    // Runas/Gemas: seleccionar tipo por defecto
+    if (newCategory === 'runas') {
+      setRunaGemaType('runas');
+      setPromptType('heroe');
+    }
+
+    // Equipo: siempre se importa a personaje
+    if (newCategory === 'build') {
+      setPromptType('personaje');
     }
   };
 
@@ -174,6 +186,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Estadísticas es siempre para personaje
   useEffect(() => {
     if (selectedCategory === 'estadisticas') {
+      setPromptType('personaje');
+    }
+    // Runas/Gemas: siempre global (héroe)
+    if (selectedCategory === 'runas') {
+      setPromptType('heroe');
+    }
+    // Equipo: siempre personaje
+    if (selectedCategory === 'build') {
       setPromptType('personaje');
     }
   }, [selectedCategory]);
@@ -521,6 +541,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  const isGlobalRunesGemsCategory = selectedCategory === 'runas';
+  const effectivePromptTypeUI: 'heroe' | 'personaje' =
+    selectedCategory === 'estadisticas' || selectedCategory === 'build'
+      ? 'personaje'
+      : isGlobalRunesGemsCategory
+        ? 'heroe'
+      : promptType;
+  const effectivePersonajeIdForActions = selectedPersonajeId || selectedPersonaje?.id || personajes[0]?.id || null;
+  const effectiveClaseForActions = selectedClase || selectedPersonaje?.clase || availableClasses[0] || '';
+  const requiresPersonajeSelection = !isGlobalRunesGemsCategory && effectivePromptTypeUI === 'personaje';
+  const requiresClaseSelection = !isGlobalRunesGemsCategory && effectivePromptTypeUI === 'heroe';
+  const hasEffectiveTargetSelection =
+    isGlobalRunesGemsCategory ||
+    (requiresPersonajeSelection ? Boolean(effectivePersonajeIdForActions) : Boolean(effectiveClaseForActions));
+
   const getRecommendedMax = (category: ImageCategory): number => {
     switch (category) {
       case 'skills': return 4;  // Reducido de 6 a 4 (recomendación óptima)
@@ -529,6 +564,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       case 'estadisticas': return 5; // 5 capturas ideales (secciones distintas)
       case 'paragon': return 8;  // 8 capturas (tableros, nodos, configuración)
       case 'otros': return 6;  // Reducido de 8 a 6 (recomendación óptima)
+      case 'runas': return 4;   // 4 capturas para runas (pantalla de inventario)
+      case 'gemas': return 4;   // 4 capturas para gemas
+      case 'build': return 6;   // 6 capturas para el equipamiento completo
     }
   };
 
@@ -581,21 +619,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const response = await fetch(composedImageUrl);
       const blob = await response.blob();
       
-      const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
-      const nombre = await ImageService.saveImage(blob, selectedCategory, categoryLabel.toLowerCase());
+      // Resolver categoría real (runas/gemas necesitan resolución)
+      const resolvedCategory = resolveImportCategory(selectedCategory, runaGemaType);
+      const nombre = await ImageService.saveImage(blob, resolvedCategory, resolvedCategory);
       setLastSavedImageName(nombre); // Trackear para auto-guardado posterior de JSON
       
       // 📄 Guardar JSON asociado si existe
       if (jsonText.trim()) {
         try {
-          await ImageService.saveImageJSON(jsonText, selectedCategory, nombre);
-          showToast(`✅ Imagen y JSON guardados: ${selectedCategory}/${nombre}`, 'success');
+          await ImageService.saveImageJSON(jsonText, resolvedCategory, nombre);
+          showToast(`✅ Imagen y JSON guardados: ${resolvedCategory}/${nombre}`, 'success');
         } catch (jsonError) {
           console.error('Error guardando JSON:', jsonError);
-          showToast(`✅ Imagen guardada (JSON no guardado): ${selectedCategory}/${nombre}`, 'info');
+          showToast(`✅ Imagen guardada (JSON no guardado): ${resolvedCategory}/${nombre}`, 'info');
         }
       } else {
-        showToast(`✅ Imagen guardada: ${selectedCategory}/${nombre}`, 'success');
+        showToast(`✅ Imagen guardada: ${resolvedCategory}/${nombre}`, 'success');
       }
       
       // Limpiar captura y JSON
@@ -644,6 +683,24 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     let basePrompt = '';
     const manualCount = parseInt(promptElementCount, 10);
     const parsedManualCount = Number.isFinite(manualCount) ? manualCount : undefined;
+
+    const buildSummaryForPrompt = (personaje?: any): string => {
+      if (!personaje?.build || typeof personaje.build !== 'object') return '';
+      const build = personaje.build;
+      const piezas = Object.values(build.piezas || {}).filter(Boolean) as any[];
+      if (piezas.length === 0) return '';
+
+      const slots = piezas
+        .map((pieza: any) => pieza?.espacio)
+        .filter((slot: any) => typeof slot === 'string' && slot.trim().length > 0)
+        .join(', ');
+
+      const piezasConEngarces = piezas.filter((pieza: any) => Array.isArray(pieza?.engarces) && pieza.engarces.length > 0).length;
+      const piezasConAspecto = piezas.filter((pieza: any) => Boolean(pieza?.aspecto_id || pieza?.aspecto_vinculado_id || pieza?.aspecto_descripcion_diferencia)).length;
+      const runasEquipadas = Array.isArray(build.runas_equipadas) ? build.runas_equipadas.length : 0;
+
+      return `- Build registrada: ${piezas.length} pieza(s)\n- Slots detectados: ${slots || 'N/D'}\n- Piezas con engarces: ${piezasConEngarces}\n- Piezas con aspecto: ${piezasConAspecto}\n- Runas equipadas en build: ${runasEquipadas}`;
+    };
     
     // Determinar qué prompts usar según el tipo (héroe o personaje)
     switch (selectedCategory) {
@@ -675,6 +732,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           basePrompt = ImageExtractionPromptService.generateParagonCharacterPrompt();
         }
         break;
+      case 'runas':
+        basePrompt = runaGemaType === 'gemas'
+          ? ImageExtractionPromptService.generateGemsPrompt()
+          : ImageExtractionPromptService.generateRunesPrompt();
+        break;
+      case 'build':
+        basePrompt = ImageExtractionPromptService.generateEquipmentPrompt();
+        break;
       default:
         basePrompt = 'Analiza esta imagen y extrae la información relevante en formato JSON.';
     }
@@ -683,7 +748,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (promptType === 'personaje' && selectedPersonajeId) {
       const personaje = personajes.find(p => p.id === selectedPersonajeId);
       if (personaje) {
-        basePrompt = `**CONTEXTO DEL PERSONAJE:**\n- Nombre: ${personaje.nombre}\n- Clase: ${personaje.clase}\n- Nivel: ${personaje.nivel}${personaje.nivel_paragon ? ` (Paragon: ${personaje.nivel_paragon})` : ''}\n\n---\n\n${basePrompt}`;
+        const buildContext = buildSummaryForPrompt(personaje);
+        basePrompt = `**CONTEXTO DEL PERSONAJE:**\n- Nombre: ${personaje.nombre}\n- Clase: ${personaje.clase}\n- Nivel: ${personaje.nivel}${personaje.nivel_paragon ? ` (Paragon: ${personaje.nivel_paragon})` : ''}${buildContext ? `\n${buildContext}` : '\n- Build registrada: no disponible (opcional)'}\n\n---\n\n${basePrompt}`;
       }
     }
     
@@ -708,6 +774,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const personaje = personajes.find(p => p.id === selectedPersonajeId);
       if (personaje) {
         contextLine = `PERSONAJE: ${personaje.nombre} (${personaje.clase} Nv.${personaje.nivel})\\n`;
+        const build = (personaje as any).build;
+        const piezas = Object.values(build?.piezas || {}).filter(Boolean) as any[];
+        if (piezas.length > 0) {
+          const piezasConEngarces = piezas.filter((pieza: any) => Array.isArray(pieza?.engarces) && pieza.engarces.length > 0).length;
+          const piezasConAspecto = piezas.filter((pieza: any) => Boolean(pieza?.aspecto_id || pieza?.aspecto_vinculado_id || pieza?.aspecto_descripcion_diferencia)).length;
+          contextLine += `BUILD: ${piezas.length} piezas, ${piezasConEngarces} con engarces, ${piezasConAspecto} con aspecto\\n`;
+        }
       }
     }
 
@@ -764,6 +837,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           paragonType
         );
         break;
+      case 'runas':
+        prompt = runaGemaType === 'gemas'
+          ? ImageExtractionPromptService.generateGemsPrompt()
+          : ImageExtractionPromptService.generateRunesPrompt();
+        if (contextLine) { prompt = `${contextLine}${prompt}`; }
+        prompt = ImageExtractionPromptService.withElementLimit(
+          prompt,
+          parsedManualCount,
+          runaGemaType === 'gemas' ? 'gemas' : 'runas'
+        );
+        break;
+      case 'build':
+        prompt = ImageExtractionPromptService.generateEquipmentPrompt();
+        if (contextLine) { prompt = `${contextLine}${prompt}`; }
+        prompt = ImageExtractionPromptService.withElementLimit(prompt, parsedManualCount, 'piezas de equipamiento');
+        break;
       default:
         prompt = `${contextLine}EXTRAE ${countPrefix}elementos en formato JSON estructurado`;
     }
@@ -775,31 +864,41 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const autoSaveJSONAfterImport = async (jsonContent: string): Promise<void> => {
     if (!jsonContent.trim()) return;
     try {
-      const categoryLabel = CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory;
+      // Resolver categoría real (runas/gemas necesitan resolución)
+      const resolvedCategory = resolveImportCategory(selectedCategory, runaGemaType);
       if (composedImageUrl) {
         // Imagen en preview no guardada → guardar imagen + JSON
         const response = await fetch(composedImageUrl);
         const blob = await response.blob();
-        const nombre = await ImageService.saveImage(blob, selectedCategory, categoryLabel.toLowerCase());
-        await ImageService.saveImageJSON(jsonContent, selectedCategory, nombre);
+        const nombre = await ImageService.saveImage(blob, resolvedCategory, resolvedCategory);
+        await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre);
         setLastSavedImageName(nombre);
         setCapturedImages([]);
         setComposedImageUrl(null);
         showToast(`💾 Imagen y JSON guardados automáticamente en galería`, 'info');
       } else if (lastSavedImageName) {
         // Imagen ya guardada previamente → solo guardar JSON junto a ella
-        await ImageService.saveImageJSON(jsonContent, selectedCategory, lastSavedImageName);
+        await ImageService.saveImageJSON(jsonContent, resolvedCategory, lastSavedImageName);
         showToast(`💾 JSON guardado junto a la imagen guardada`, 'info');
       } else if (selectedGalleryImage) {
         // Imagen de galería seleccionada → guardar JSON junto a ella
         const galleryEntry = galleryImages.find(img => img.url === selectedGalleryImage);
         if (galleryEntry && !galleryEntry.isJSONOnly) {
-          await ImageService.saveImageJSON(jsonContent, selectedCategory, galleryEntry.nombre);
+          await ImageService.saveImageJSON(jsonContent, resolvedCategory, galleryEntry.nombre);
           showToast(`💾 JSON guardado junto a imagen de galería`, 'info');
+        } else if (selectedGalleryImageBlob) {
+          // Fallback robusto: si no encontramos la entrada por URL, crear una nueva imagen+JSON.
+          const nombre = await ImageService.saveImage(selectedGalleryImageBlob, resolvedCategory, resolvedCategory);
+          await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre);
+          setLastSavedImageName(nombre);
+          showToast(`💾 Imagen y JSON guardados automáticamente en galería`, 'info');
+        } else {
+          await ImageService.saveJSONOnly(jsonContent, resolvedCategory, resolvedCategory);
+          showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
         }
       } else {
         // Sin imagen → guardar JSON independiente
-        await ImageService.saveJSONOnly(jsonContent, selectedCategory, categoryLabel.toLowerCase());
+        await ImageService.saveJSONOnly(jsonContent, resolvedCategory, resolvedCategory);
         showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
       }
       loadCategoryCounts();
@@ -1118,6 +1217,361 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  const normalizeLookupKey = (value: any): string =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+
+  const isEmptyValue = (value: any): boolean => {
+    if (value === undefined || value === null) return true;
+    if (typeof value === 'string') return value.trim() === '';
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') return Object.keys(value).length === 0;
+    return false;
+  };
+
+  const getInfoScore = (value: any): number => {
+    if (isEmptyValue(value)) return 0;
+    if (Array.isArray(value)) {
+      return value.reduce((acc, item) => acc + getInfoScore(item), 0);
+    }
+    if (typeof value === 'object') {
+      return Object.entries(value).reduce((acc, [key, val]) => {
+        if (key === 'id') return acc;
+        return acc + getInfoScore(val);
+      }, 0);
+    }
+    return 1;
+  };
+
+  const mergeComplementaryData = (existing: any, incoming: any): any => {
+    if (isEmptyValue(existing)) return incoming;
+    if (isEmptyValue(incoming)) return existing;
+
+    if (Array.isArray(existing) && Array.isArray(incoming)) {
+      if (incoming.length === 0) return existing;
+      if (existing.length === 0) return incoming;
+
+      const primitiveArray = existing.every(item => typeof item !== 'object') && incoming.every(item => typeof item !== 'object');
+      if (primitiveArray) {
+        return Array.from(new Set([...existing, ...incoming]));
+      }
+
+      return getInfoScore(incoming) > getInfoScore(existing) ? incoming : existing;
+    }
+
+    if (typeof existing === 'object' && typeof incoming === 'object') {
+      const merged: Record<string, any> = { ...existing };
+      const keys = new Set([...Object.keys(existing), ...Object.keys(incoming)]);
+
+      keys.forEach((key) => {
+        if (!(key in incoming)) {
+          merged[key] = existing[key];
+          return;
+        }
+        if (!(key in existing)) {
+          merged[key] = incoming[key];
+          return;
+        }
+        merged[key] = mergeComplementaryData(existing[key], incoming[key]);
+      });
+
+      return merged;
+    }
+
+    // Para conflictos entre valores no vacíos, preservar el valor ya almacenado.
+    return existing;
+  };
+
+  const normalizeRuneType = (value: any): 'invocacion' | 'ritual' => {
+    const normalized = normalizeLookupKey(value);
+    return normalized.includes('invoc') ? 'invocacion' : 'ritual';
+  };
+
+  const inferGemTypeFromName = (name: string): string => {
+    const normalized = normalizeLookupKey(name);
+    if (normalized.includes('craneo')) return 'craneo';
+    if (normalized.includes('topacio')) return 'topacio';
+    if (normalized.includes('esmeralda')) return 'esmeralda';
+    if (normalized.includes('rubi')) return 'rubi';
+    if (normalized.includes('zafiro')) return 'zafiro';
+    if (normalized.includes('amatista')) return 'amatista';
+    if (normalized.includes('diamante')) return 'diamante';
+    return 'gema';
+  };
+
+  // ============================================================================
+  // 🔧 FUNCIONES ESPECIALIZADAS PARA GEMAS/RUNAS - v0.5.5 MEJORADAS
+  // ============================================================================
+
+  /**
+   * normalizeEffectStructure - Convierte efectos antiguos (texto) a nueva estructura (objeto)
+   * Retrocompatibilidad: Si solo existen "efectos" (sintaxis vieja), migra automáticamente
+   */
+  const normalizeEffectStructure = (gema: any): any => {
+    if (!gema) return gema;
+
+    const normalized = { ...gema };
+
+    // Si ya tiene efectos_por_slot, perfecto (nueva estructura)
+    if (normalized.efectos_por_slot && typeof normalized.efectos_por_slot === 'object') {
+      return normalized;
+    }
+
+    // Si solo tiene efectos (antigua), convertir a efectos_por_slot
+    if (normalized.efectos && typeof normalized.efectos === 'object' && !normalized.efectos_por_slot) {
+      normalized.efectos_por_slot = {};
+
+      ['arma', 'armadura', 'joyas'].forEach((slot: string) => {
+        const textoEfecto = normalized.efectos?.[slot as 'arma' | 'armadura' | 'joyas'];
+        if (textoEfecto && typeof textoEfecto === 'string') {
+          // Intentar extraer valor numérico del texto
+          const numerMatch = textoEfecto.match(/[\d.]+/);
+          const valor = numerMatch ? parseFloat(numerMatch[0]) : 0;
+          const unidad = textoEfecto.includes('%') ? 'porcentaje' : 'plano';
+
+          (normalized.efectos_por_slot as any)[slot] = {
+            valor,
+            unidad,
+            atributo: `gema_${slot}_efecto`,
+            descripcion: textoEfecto,
+            tags: [slot, 'gema']
+          };
+        }
+      });
+    }
+
+    return normalized;
+  };
+
+  /**
+   * complementarGemaData - Fusiona dos gemas preservando la más completa en cada campo
+   * Especialmente útil para gemas importadas de builds que traen menos detalles
+   */
+  const complementarGemaData = (existente: any, nueva: any): any => {
+    if (!existente) return normalizeEffectStructure(nueva);
+    if (!nueva) return normalizeEffectStructure(existente);
+
+    const normExistente = normalizeEffectStructure(existente);
+    const normNueva = normalizeEffectStructure(nueva);
+
+    const merged = { ...normExistente };
+
+    // Campos simples: reemplazar si la nueva tiene valor
+    const camposSimples = ['nombre', 'tipo', 'calidad', 'rango_calidad', 'descripcion_lore', 'valor_venta'];
+    camposSimples.forEach(campo => {
+      if (normNueva[campo] && !isEmptyValue(normNueva[campo])) {
+        if (isEmptyValue(normExistente[campo])) {
+          merged[campo] = normNueva[campo];
+        }
+      }
+    });
+
+    // Requerimientos: merge
+    if (normNueva.requerimientos && typeof normNueva.requerimientos === 'object') {
+      merged.requerimientos = merged.requerimientos || {};
+      if (normNueva.requerimientos.nivel !== undefined && isEmptyValue(merged.requerimientos.nivel)) {
+        merged.requerimientos.nivel = normNueva.requerimientos.nivel;
+      }
+    }
+
+    // Efectos por slot: complementar cada slot
+    if (normNueva.efectos_por_slot && typeof normNueva.efectos_por_slot === 'object') {
+      merged.efectos_por_slot = merged.efectos_por_slot || {};
+      (['arma', 'armadura', 'joyas'] as const).forEach(slot => {
+        const efectoNuevo = normNueva.efectos_por_slot[slot];
+        const efectoExist = merged.efectos_por_slot[slot];
+
+        if (efectoNuevo && typeof efectoNuevo === 'object') {
+          if (!efectoExist) {
+            // No existe, copiar el nuevo
+            merged.efectos_por_slot[slot] = efectoNuevo;
+          } else if (getInfoScore(efectoNuevo) > getInfoScore(efectoExist)) {
+            // El nuevo tiene más información, reemplazar
+            merged.efectos_por_slot[slot] = {
+              ...efectoExist,
+              ...efectoNuevo
+            };
+          }
+        }
+      });
+    }
+
+    // Clasificación: merge
+    if (normNueva.clasificacion && typeof normNueva.clasificacion === 'object') {
+      merged.clasificacion = merged.clasificacion || {};
+      if (normNueva.clasificacion.perfil_general && Array.isArray(normNueva.clasificacion.perfil_general)) {
+        merged.clasificacion.perfil_general = [
+          ...new Set([
+            ...(merged.clasificacion.perfil_general || []),
+            ...normNueva.clasificacion.perfil_general
+          ])
+        ];
+      }
+      if (normNueva.clasificacion.afinidades && Array.isArray(normNueva.clasificacion.afinidades)) {
+        merged.clasificacion.afinidades = [
+          ...new Set([
+            ...(merged.clasificacion.afinidades || []),
+            ...normNueva.clasificacion.afinidades
+          ])
+        ];
+      }
+    }
+
+    // Tags: merge
+    if (normNueva.tags && Array.isArray(normNueva.tags)) {
+      merged.tags = [...new Set([...(merged.tags || []), ...normNueva.tags])];
+    }
+
+    return merged;
+  };
+
+  /**
+   * buscarAspectoExistenteEnHéroe - Busca si un aspecto ya existe en el catálogo del héroe
+   * Retorna el aspecto existente y su ID si lo encuentra
+   */
+  const buscarAspectoExistenteEnHéroe = async (
+    clase: string,
+    aspectoIncoming: any
+  ): Promise<{ existe: boolean; id?: string; aspecto?: any }> => {
+    try {
+      const heroAspects = await WorkspaceService.loadHeroAspects(clase) || { aspectos: [] };
+      const incomingName = normalizeLookupKey(aspectoIncoming?.name || aspectoIncoming?.nombre);
+      const incomingId = String(aspectoIncoming?.aspecto_id || aspectoIncoming?.id || '');
+
+      // Búsqueda por ID exacto
+      if (incomingId) {
+        const byId = heroAspects.aspectos.find((a: any) => String(a.id) === incomingId);
+        if (byId) return { existe: true, id: byId.id, aspecto: byId };
+      }
+
+      // Búsqueda por nombre normalizado
+      if (incomingName) {
+        const byName = heroAspects.aspectos.find((a: any) => {
+          const aName = normalizeLookupKey(a.name || a.nombre);
+          return aName === incomingName;
+        });
+        if (byName) return { existe: true, id: byName.id, aspecto: byName };
+      }
+
+      return { existe: false };
+    } catch (error) {
+      console.warn('⚠️ [buscarAspectoExistenteEnHéroe] Error al buscar aspecto:', error);
+      return { existe: false };
+    }
+  };
+
+  /**
+   * procesarAspectoEnObjeto - Procesa un aspecto que viene en un objeto de equipo
+   * Si existe en el héroe, retorna referencia; si no, crea/actualiza en catálogo
+   */
+  const procesarAspectoEnObjeto = async (
+    clase: string,
+    aspecto: any,
+    heroAspectsRef: any
+  ): Promise<{ aspecto_id: string; detalles_from_object?: any }> => {
+    if (!aspecto || !aspecto.nombre) {
+      return { aspecto_id: '' };
+    }
+
+    // Buscar si existe
+    const existencia = await buscarAspectoExistenteEnHéroe(clase, aspecto);
+
+    if (existencia.existe && existencia.id) {
+      // Existe: retornar ID + detalles del objeto (que puede tener info adicional)
+      return {
+        aspecto_id: existencia.id,
+        detalles_from_object: {
+          ...aspecto,
+          aspecto_id: existencia.id
+        }
+      };
+    }
+
+    // No existe: crear en catálogo
+    const aspectoId = aspecto.aspecto_id || aspecto.id || `aspecto_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const aspectoFull = {
+      id: aspectoId,
+      name: aspecto.nombre,
+      shortName: aspecto.shortName || aspecto.nombre.slice(0, 3),
+      effect: aspecto.efecto || aspecto.effect || '',
+      category: aspecto.category || aspecto.categoria || 'ofensivo',
+      level: aspecto.niveau_actual || aspecto.level || '1/21',
+      tags: Array.isArray(aspecto.tags) ? aspecto.tags : [],
+      ...aspecto
+    };
+
+    heroAspectsRef.aspectos.push(aspectoFull);
+
+    return {
+      aspecto_id: aspectoId,
+      detalles_from_object: aspecto
+    };
+  };
+
+  // Mantener referencia para futura reutilización en normalización de aspectos en build.
+  void procesarAspectoEnObjeto;
+
+  const upsertCatalogEntity = (
+    collection: any[],
+    incoming: any,
+    prefix: 'runa' | 'gema'
+  ): { id: string; status: 'added' | 'updated' | 'repeated'; merged: any } => {
+    // Normalizar estructura de gema si es necesario
+    const normalizedIncoming = prefix === 'gema' ? normalizeEffectStructure(incoming) : incoming;
+
+    const incomingName = normalizeLookupKey(normalizedIncoming?.nombre);
+    const incomingId = String(normalizedIncoming?.id || '').trim();
+
+    const idx = collection.findIndex(item => {
+      const byId = incomingId && String(item?.id || '') === incomingId;
+      const byName = incomingName && normalizeLookupKey(item?.nombre) === incomingName;
+      return byId || byName;
+    });
+
+    if (idx < 0) {
+      const id = incomingId || `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const merged = { ...normalizedIncoming, id };
+      collection.push(merged);
+      return { id, status: 'added', merged };
+    }
+
+    const current = collection[idx];
+    
+    // Usar merge especializado para gemas
+    const merged = prefix === 'gema'
+      ? complementarGemaData(current, { ...normalizedIncoming, id: current.id || incomingId })
+      : mergeComplementaryData(current, { ...normalizedIncoming, id: current.id || incomingId });
+
+    if (areEquivalentContent(current, merged)) {
+      return { id: String(current.id), status: 'repeated', merged: current };
+    }
+
+    collection[idx] = merged;
+    return { id: String(merged.id), status: 'updated', merged };
+  };
+
+  const normalizeEquipmentSlot = (value: any): string | null => {
+    const normalized = normalizeLookupKey(value).replace(/[_\-]/g, ' ');
+    if (!normalized) return null;
+    if (normalized.includes('anillo') && normalized.includes('2')) return 'anillo2';
+    if (normalized.includes('anillo') && normalized.includes('1')) return 'anillo1';
+    if (normalized.includes('anillo')) return 'anillo1';
+    if (normalized.includes('arma secundaria') || normalized.includes('offhand') || normalized.includes('escudo')) return 'escudo';
+    if (normalized.includes('arma')) return 'arma';
+    if (normalized.includes('yelmo') || normalized.includes('casco')) return 'yelmo';
+    if (normalized.includes('peto') || normalized.includes('pechera')) return 'peto';
+    if (normalized.includes('guante')) return 'guantes';
+    if (normalized.includes('pantal')) return 'pantalones';
+    if (normalized.includes('bota')) return 'botas';
+    if (normalized.includes('amuleto')) return 'amuleto';
+    const valid = ['yelmo', 'peto', 'guantes', 'pantalones', 'botas', 'arma', 'amuleto', 'anillo1', 'anillo2', 'escudo'];
+    return valid.includes(normalized) ? normalized : null;
+  };
+
   const countInputElements = (category: ImageCategory, data: any): number => {
     switch (category) {
       case 'skills':
@@ -1126,6 +1580,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         return data?.glifos?.length || 0;
       case 'aspectos':
         return (data?.aspectos?.length || 0) + (data?.aspectos_equipados?.length || 0);
+      case 'runas':
+        return data?.runas?.length || 0;
+      case 'gemas':
+        return data?.gemas?.length || 0;
+      case 'build': {
+        const buildObj = data?.build && typeof data.build === 'object' ? data.build : data;
+        return Array.isArray(buildObj?.piezas) ? buildObj.piezas.length : 0;
+      }
+      case 'paragon':
+        return (data?.tableros_equipados?.length || data?.tableros?.length || 0)
+          + (data?.nodos_activados?.length || data?.nodos?.length || 0)
+          + (data?.paragon || data?.atributos_paragon ? 1 : 0);
       case 'estadisticas': {
         const stats = data?.estadisticas && typeof data.estadisticas === 'object' ? data.estadisticas : data;
         if (!stats || typeof stats !== 'object') return 0;
@@ -1280,12 +1746,96 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     ];
   };
 
+  const resolveImportCategory = (category: ImageCategory, runeGemCategory?: 'runas' | 'gemas'): ImageCategory => {
+    if (category === 'runas' && runeGemCategory) {
+      return runeGemCategory;
+    }
+    return category;
+  };
+
+  const getImportTargetName = (
+    category: ImageCategory,
+    promptTypeValue: 'heroe' | 'personaje',
+    clase: string,
+    personajeName: string,
+    runeGemCategory?: 'runas' | 'gemas'
+  ): string => {
+    if (category === 'runas') {
+      return runeGemCategory === 'gemas' ? 'Catálogo global de Gemas' : 'Catálogo global de Runas';
+    }
+    return promptTypeValue === 'heroe' ? clase : personajeName;
+  };
+
+  const getImportCategoryLabel = (category: ImageCategory): string => {
+    const labels: Record<ImageCategory, string> = {
+      skills: 'Habilidades',
+      glifos: 'Glifos',
+      aspectos: 'Aspectos',
+      estadisticas: 'Estadísticas',
+      paragon: 'Paragón',
+      otros: 'Otros',
+      runas: 'Runas',
+      gemas: 'Gemas',
+      build: 'Equipo'
+    };
+    return labels[category] || category;
+  };
+
+  const showImportResultsModal = (result: ImportResultDetails) => {
+    setImportResults(result);
+    setShowImportResults(true);
+  };
+
+  const finalizeImportReport = async () => {
+    setShowImportResults(false);
+
+    try {
+      await refreshPersonajes();
+    } catch (error) {
+      console.error('Error refrescando personajes tras importación:', error);
+    }
+
+    await loadCategoryCounts();
+    await loadLastSavedImage();
+    if (showGallery) {
+      await loadGallery();
+    }
+
+    if (importResults?.success) {
+      capturedImages.forEach(img => URL.revokeObjectURL(img.url));
+      if (composedImageUrl) {
+        URL.revokeObjectURL(composedImageUrl);
+      }
+
+      setCapturedImages([]);
+      setComposedImageUrl(null);
+      setSelectedGalleryImage(null);
+      setSelectedGalleryImageBlob(null);
+      setJsonText('');
+      setAiExtractedJSON('');
+    }
+  };
+
+  const executeManualImportJSON = async () => {
+    const result = await handleImportJSON();
+    showImportResultsModal(result);
+  };
+
   // Importar JSON resultante
   const handleImportJSON = async (options?: { jsonOverride?: string; skipAutoSave?: boolean }): Promise<ImportResultDetails> => {
     const jsonPayload = (options?.jsonOverride ?? jsonText ?? '').trim();
     const skipAutoSave = options?.skipAutoSave ?? false;
     const effectiveCategory = selectedCategory;
-    const effectivePromptType: 'heroe' | 'personaje' = effectiveCategory === 'estadisticas' ? 'personaje' : promptType;
+    const runaGemaEffectiveCategory: 'runas' | 'gemas' = runaGemaType;
+    const validationCategory = effectiveCategory === 'runas' ? runaGemaEffectiveCategory : effectiveCategory;
+    const effectivePromptType: 'heroe' | 'personaje' =
+      effectiveCategory === 'estadisticas'
+        ? 'personaje'
+        : effectiveCategory === 'build'
+          ? 'personaje'
+          : effectiveCategory === 'runas'
+            ? 'heroe'
+          : promptType;
     const effectivePersonajeId = selectedPersonajeId || selectedPersonaje?.id || personajes[0]?.id || null;
     const effectiveClase = selectedClase || selectedPersonaje?.clase || availableClasses[0] || '';
     console.log('🔵 [handleImportJSON] Iniciando importación...');
@@ -1328,20 +1878,29 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       
       // 2. VALIDAR ESTRUCTURA
       console.log('🔍 [handleImportJSON] Validando estructura del JSON...');
-      const validation = validateJSONByCategory(effectiveCategory, parsedData);
+      const validation = validateJSONByCategory(validationCategory, parsedData);
       console.log('📊 [handleImportJSON] Resultado de validación:', validation);
       console.log('   - Válido:', validation.isValid);
       console.log('   - Errores:', validation.errors.length);
       console.log('   - Advertencias:', validation.warnings.length);
       console.log('   - Campos detectados:', validation.detectedFields);
+      const resultCategory = resolveImportCategory(effectiveCategory, runaGemaEffectiveCategory);
+      const targetPersonajeName = personajes.find(p => p.id === effectivePersonajeId)?.nombre || '';
+      const resultTargetName = getImportTargetName(
+        effectiveCategory,
+        effectivePromptType,
+        effectiveClase,
+        targetPersonajeName,
+        runaGemaEffectiveCategory
+      );
       
       // Si hay errores críticos, retornar sin importar
       if (!validation.isValid) {
         const errorResult: ImportResultDetails = {
           success: false,
-          category: effectiveCategory,
+          category: resultCategory,
           promptType: effectivePromptType,
-          targetName: effectivePromptType === 'heroe' ? effectiveClase : (personajes.find(p => p.id === effectivePersonajeId)?.nombre || ''),
+          targetName: resultTargetName,
           validationErrors: [...validation.errors, ...validation.warnings],
           rawJSON: options?.jsonOverride ?? jsonText,
           parsedJSON: parsedData,
@@ -1352,7 +1911,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
       
       const data = parsedData;
-      const totalInputItems = countInputElements(effectiveCategory, data);
+      const totalInputItems = countInputElements(validationCategory as ImageCategory, data);
       let itemsImported = 0;
       let itemsUpdated = 0;
       let itemsRepeated = 0;
@@ -1368,7 +1927,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (!effectiveClase) {
           const errorResult: ImportResultDetails = {
             success: false,
-            category: effectiveCategory,
+            category: resultCategory,
             promptType: effectivePromptType,
             targetName: '',
             validationErrors: validation.warnings,
@@ -1523,6 +2082,106 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               showToast(`✅ ${itemsImported + itemsUpdated} aspectos procesados en ${clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
               shouldReload = true;
             }
+            break;
+
+          case 'runas':
+            if (runaGemaEffectiveCategory === 'gemas') {
+              console.log('💠 [handleImportJSON] Importando gemas globales...');
+              if (Array.isArray(data.gemas) && data.gemas.length > 0) {
+                const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
+                (data.gemas as any[]).forEach((gema: any) => {
+                  const gemName = String(gema?.nombre || gema?.id || '').trim();
+                  if (!gemName) return;
+
+                  const gemCandidate = {
+                    id: gema?.id,
+                    tipo_objeto: 'gema',
+                    nombre: gemName,
+                    tipo: gema?.tipo || inferGemTypeFromName(gemName),
+                    calidad: gema?.calidad,
+                    rango_calidad: gema?.rango_calidad,
+                    requerimientos: gema?.requerimientos && typeof gema.requerimientos === 'object'
+                      ? gema.requerimientos
+                      : (gema?.nivel_requerido !== undefined ? { nivel: gema.nivel_requerido } : undefined),
+                    efectos: gema?.efectos && typeof gema.efectos === 'object' ? gema.efectos : {},
+                    efectos_por_slot: gema?.efectos_por_slot && typeof gema.efectos_por_slot === 'object'
+                      ? gema.efectos_por_slot
+                      : undefined,
+                    descripcion_lore: gema?.descripcion_lore,
+                    descripcion: gema?.descripcion,
+                    nivel_requerido: gema?.nivel_requerido,
+                    valor_venta: gema?.valor_venta,
+                    clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
+                      ? gema.clasificacion
+                      : undefined,
+                    tags: Array.isArray(gema?.tags) ? gema.tags : undefined
+                  };
+
+                  const result = upsertCatalogEntity(globalGems.gemas as any[], gemCandidate, 'gema');
+                  if (result.status === 'added') {
+                    itemsImported++;
+                    addedItems.push(gemName);
+                  } else if (result.status === 'updated') {
+                    itemsUpdated++;
+                    updatedItemsList.push(gemName);
+                  } else {
+                    itemsRepeated++;
+                    repeatedItems.push(gemName);
+                  }
+                  fieldsAdded.push(gemName);
+                });
+
+                await WorkspaceService.saveHeroGems('global', globalGems);
+                showToast(`✅ ${itemsImported + itemsUpdated} gemas procesadas (catálogo global)`, 'success');
+                shouldReload = true;
+              }
+            } else {
+              console.log('ᚱ [handleImportJSON] Importando runas globales...');
+              if (Array.isArray(data.runas) && data.runas.length > 0) {
+                const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
+                (data.runas as any[]).forEach((runa: any) => {
+                  const runeName = String(runa?.nombre || runa?.id || '').trim();
+                  if (!runeName) return;
+
+                  const runeCandidate = {
+                    id: runa?.id,
+                    nombre: runeName,
+                    rareza: runa?.rareza || 'magico',
+                    tipo: normalizeRuneType(runa?.tipo || runa?.subtipo || runa?.calidad_runa),
+                    efecto: runa?.efecto || runa?.descripcion || '',
+                    descripcion: runa?.descripcion,
+                    requerimiento: runa?.requerimiento,
+                    puede_desguazar: runa?.puede_desguazar,
+                    objeto_origen: runa?.objeto_origen,
+                    valor_venta: runa?.valor_venta,
+                    en_bolsas: runa?.en_bolsas,
+                    tags: Array.isArray(runa?.tags) ? runa.tags : undefined
+                  };
+
+                  const result = upsertCatalogEntity(globalRunes.runas as any[], runeCandidate, 'runa');
+                  if (result.status === 'added') {
+                    itemsImported++;
+                    addedItems.push(runeName);
+                  } else if (result.status === 'updated') {
+                    itemsUpdated++;
+                    updatedItemsList.push(runeName);
+                  } else {
+                    itemsRepeated++;
+                    repeatedItems.push(runeName);
+                  }
+                  fieldsAdded.push(runeName);
+                });
+
+                await WorkspaceService.saveHeroRunes('global', globalRunes);
+                showToast(`✅ ${itemsImported + itemsUpdated} runas procesadas (catálogo global)`, 'success');
+                shouldReload = true;
+              }
+            }
+            break;
+
+          case 'build':
+            console.log('🛡️ [handleImportJSON] Build en modo héroe no aplica (usa modo personaje).');
+            showToast('ℹ️ El equipamiento/build se importa en modo Personaje.', 'info');
             break;
           
           case 'estadisticas':
@@ -1750,7 +2409,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         const heroResult: ImportResultDetails = {
           success: true,
-          category: effectiveCategory,
+          category: resultCategory,
           promptType: 'heroe',
           targetName: clase,
           jsonInputsProcessed: 1,
@@ -1760,7 +2419,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           addedItems,
           updatedItemsList,
           repeatedItems,
-          itemDetails: buildItemDetails(effectiveCategory, addedItems, updatedItemsList, repeatedItems),
+          itemDetails: buildItemDetails(resultCategory, addedItems, updatedItemsList, repeatedItems),
           fieldsAdded,
           validationErrors: validation.warnings,
           rawJSON: options?.jsonOverride ?? jsonText,
@@ -1776,8 +2435,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           if (composedImageUrl) {
             const response = await fetch(composedImageUrl);
             const blob = await response.blob();
-            const categoryLabel = CATEGORIES.find(c => c.value === effectiveCategory)?.label || effectiveCategory;
-            const nombre = `${categoryLabel.toLowerCase()}_${Date.now()}.png`;
+            const resolvedCategory = resolveImportCategory(effectiveCategory, runaGemaEffectiveCategory);
+            const nombre = `${resolvedCategory}_${Date.now()}.png`;
             
             setPendingSaveData({ image: blob, json: jsonPayload, imageName: nombre });
             setShowEmptyWarning(true);
@@ -1795,8 +2454,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         setJsonText('');
         if (shouldReload) {
-          console.log('⏸️ [handleImportJSON] Recarga diferida: esperando confirmación del usuario en el modal');
-          setPendingFinalizeAction('reload');
+          await refreshPersonajes();
         }
         setImporting(false);
         return heroResult;
@@ -1808,7 +2466,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (!effectivePersonajeId) {
           const errorResult: ImportResultDetails = {
             success: false,
-            category: effectiveCategory,
+            category: resultCategory,
             promptType: effectivePromptType,
             targetName: '',
             validationErrors: validation.warnings,
@@ -1825,7 +2483,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (!personaje) {
           const errorResult: ImportResultDetails = {
             success: false,
-            category: effectiveCategory,
+            category: resultCategory,
             promptType: effectivePromptType,
             targetName: '',
             validationErrors: validation.warnings,
@@ -2157,6 +2815,420 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               syncUpdatedPersonajeInContext(updatedPersonaje);
               console.log('✅ [handleImportJSON] Aspectos guardados en personaje');
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
+              shouldReload = true;
+            }
+            break;
+          }
+          case 'runas': {
+            if (runaGemaEffectiveCategory === 'gemas') {
+              console.log('💠 [handleImportJSON] Importando gemas (catálogo global)...');
+              const gemasData: any[] = data.gemas || [];
+              if (gemasData.length > 0) {
+                const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
+
+                gemasData.forEach((gema: any) => {
+                  const gemName = String(gema?.nombre || gema?.id || '').trim();
+                  if (!gemName) return;
+
+                  const gemCandidate = {
+                    id: gema?.id,
+                    tipo_objeto: 'gema',
+                    nombre: gemName,
+                    tipo: gema?.tipo || inferGemTypeFromName(gemName),
+                    calidad: gema?.calidad,
+                    rango_calidad: gema?.rango_calidad,
+                    requerimientos: gema?.requerimientos && typeof gema.requerimientos === 'object'
+                      ? gema.requerimientos
+                      : (gema?.nivel_requerido !== undefined ? { nivel: gema.nivel_requerido } : undefined),
+                    efectos: gema?.efectos && typeof gema.efectos === 'object' ? gema.efectos : {},
+                    efectos_por_slot: gema?.efectos_por_slot && typeof gema.efectos_por_slot === 'object'
+                      ? gema.efectos_por_slot
+                      : undefined,
+                    descripcion_lore: gema?.descripcion_lore,
+                    descripcion: gema?.descripcion,
+                    nivel_requerido: gema?.nivel_requerido,
+                    valor_venta: gema?.valor_venta,
+                    clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
+                      ? gema.clasificacion
+                      : undefined,
+                    tags: Array.isArray(gema?.tags) ? gema.tags : undefined
+                  };
+
+                  const result = upsertCatalogEntity(globalGems.gemas as any[], gemCandidate, 'gema');
+                  if (result.status === 'added') {
+                    itemsImported++;
+                    addedItems.push(gemName);
+                  } else if (result.status === 'updated') {
+                    itemsUpdated++;
+                    updatedItemsList.push(gemName);
+                  } else {
+                    itemsRepeated++;
+                    repeatedItems.push(gemName);
+                  }
+                  fieldsAdded.push(gemName);
+                });
+
+                await WorkspaceService.saveHeroGems('global', globalGems);
+                showToast(`✅ ${itemsImported + itemsUpdated} gemas procesadas`, 'success');
+                shouldReload = true;
+              }
+            } else {
+              console.log('ᚱ [handleImportJSON] Importando runas a personaje (catálogo + refs)...');
+              const runasData: any[] = data.runas || [];
+              if (runasData.length > 0) {
+                const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
+
+                runasData.forEach((runa: any) => {
+                  const runeName = String(runa?.nombre || runa?.id || '').trim();
+                  if (!runeName) return;
+
+                  const runeCandidate = {
+                    id: runa?.id,
+                    nombre: runeName,
+                    rareza: runa?.rareza || 'magico',
+                    tipo: normalizeRuneType(runa?.tipo || runa?.subtipo || runa?.calidad_runa),
+                    efecto: runa?.efecto || runa?.descripcion || '',
+                    descripcion: runa?.descripcion,
+                    requerimiento: runa?.requerimiento,
+                    puede_desguazar: runa?.puede_desguazar,
+                    objeto_origen: runa?.objeto_origen,
+                    valor_venta: runa?.valor_venta,
+                    en_bolsas: runa?.en_bolsas,
+                    tags: Array.isArray(runa?.tags) ? runa.tags : undefined
+                  };
+
+                  const result = upsertCatalogEntity(globalRunes.runas as any[], runeCandidate, 'runa');
+                  if (result.status === 'added') {
+                    itemsImported++;
+                    addedItems.push(runeName);
+                  } else if (result.status === 'updated') {
+                    itemsUpdated++;
+                    updatedItemsList.push(runeName);
+                  } else {
+                    itemsRepeated++;
+                    repeatedItems.push(runeName);
+                  }
+                  fieldsAdded.push(runeName);
+                });
+
+                await WorkspaceService.saveHeroRunes('global', globalRunes);
+
+                const refs: Array<{ runa_id: string; vinculada_a?: 'arma' | 'escudo' }> = [];
+                runasData.forEach((runa: any) => {
+                  const heroRune = globalRunes.runas.find((r: any) => r.nombre === runa.nombre || r.id === runa.id);
+                  if (!heroRune?.id) return;
+                  refs.push({
+                    runa_id: heroRune.id,
+                    vinculada_a: runa.vinculada_a === 'escudo' ? 'escudo' : 'arma'
+                  });
+                });
+
+                const refsLimited = refs.slice(0, 4);
+
+                const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+                const updatedPersonaje = {
+                  ...(personajeFromDisk || personaje),
+                  runas_refs: refsLimited,
+                  fecha_actualizacion: new Date().toISOString()
+                };
+
+                await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+                syncUpdatedPersonajeInContext(updatedPersonaje);
+                showToast(`✅ ${refsLimited.length} runas vinculadas en ${personaje.nombre}`, 'success');
+                shouldReload = true;
+              }
+            }
+            break;
+          }
+          case 'build': {
+            console.log('🛡️ [handleImportJSON] Importando build/equipamiento a personaje...');
+            const buildData = (data.build && typeof data.build === 'object') ? data.build : data;
+            const rawPieces = Array.isArray(buildData.piezas)
+              ? buildData.piezas
+              : (buildData.piezas && typeof buildData.piezas === 'object'
+                ? Object.values(buildData.piezas)
+                : []);
+
+            const globalRunesCatalog = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
+            const globalGemsCatalog = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
+            let globalCatalogChanged = false;
+
+            const piezasBySlot: Record<string, any> = {};
+
+            rawPieces.forEach((piece: any) => {
+              const slot = normalizeEquipmentSlot(piece?.espacio || piece?.slot || piece?.tipo || piece?.nombre);
+              if (!slot) return;
+
+              const engarcesInput = Array.isArray(piece?.engarces) ? piece.engarces : [];
+              const engarcesNormalized = engarcesInput
+                .map((engarce: any) => {
+                  const rawType = normalizeLookupKey(engarce?.tipo || engarce?.tipo_engarce || '');
+                  const type: 'runa' | 'gema' | 'vacio' =
+                    rawType.includes('runa')
+                      ? 'runa'
+                      : rawType.includes('gema')
+                        ? 'gema'
+                        : 'vacio';
+
+                  if (type === 'runa') {
+                    if (engarce?.runa_id) {
+                      return {
+                        tipo: 'runa',
+                        runa_id: String(engarce.runa_id),
+                        calidad_runa: normalizeRuneType(engarce?.calidad_runa || engarce?.subtipo)
+                      };
+                    }
+
+                    const runeName = String(engarce?.nombre || engarce?.runa_nombre || '').trim();
+                    if (!runeName) return null;
+                    const runeCandidate = {
+                      id: engarce?.id,
+                      nombre: runeName,
+                      rareza: engarce?.rareza || 'magico',
+                      tipo: normalizeRuneType(engarce?.subtipo || engarce?.tipo || engarce?.calidad_runa),
+                      efecto: engarce?.efecto || engarce?.descripcion || '',
+                      descripcion: engarce?.descripcion,
+                      tags: Array.isArray(engarce?.tags) ? engarce.tags : undefined
+                    };
+
+                    const result = upsertCatalogEntity(globalRunesCatalog.runas as any[], runeCandidate, 'runa');
+                    if (result.status === 'added') {
+                      itemsImported++;
+                      addedItems.push(`Runa (build): ${runeName}`);
+                    } else if (result.status === 'updated') {
+                      itemsUpdated++;
+                      updatedItemsList.push(`Runa (build): ${runeName}`);
+                    } else {
+                      itemsRepeated++;
+                      repeatedItems.push(`Runa (build): ${runeName}`);
+                    }
+                    globalCatalogChanged = globalCatalogChanged || result.status !== 'repeated';
+                    fieldsAdded.push(`catalogo.runas.${runeName}`);
+                    return {
+                      tipo: 'runa',
+                      runa_id: result.id,
+                      calidad_runa: normalizeRuneType(engarce?.subtipo || engarce?.calidad_runa || result.merged?.tipo)
+                    };
+                  }
+
+                  if (type === 'gema') {
+                    if (engarce?.gema_id) {
+                      return {
+                        tipo: 'gema',
+                        gema_id: String(engarce.gema_id)
+                      };
+                    }
+
+                    const gemName = String(engarce?.nombre || engarce?.gema_nombre || '').trim();
+                    if (!gemName) return null;
+                    const gemCandidate = {
+                      id: engarce?.id,
+                      tipo_objeto: 'gema',
+                      nombre: gemName,
+                      tipo: engarce?.tipo_gema || engarce?.tipo || inferGemTypeFromName(gemName),
+                      calidad: engarce?.calidad,
+                      rango_calidad: engarce?.rango_calidad,
+                      requerimientos: engarce?.requerimientos && typeof engarce.requerimientos === 'object'
+                        ? engarce.requerimientos
+                        : undefined,
+                      efectos: engarce?.efectos && typeof engarce.efectos === 'object' ? engarce.efectos : {},
+                      efectos_por_slot: engarce?.efectos_por_slot && typeof engarce.efectos_por_slot === 'object'
+                        ? engarce.efectos_por_slot
+                        : undefined,
+                      descripcion_lore: engarce?.descripcion_lore,
+                      descripcion: engarce?.descripcion,
+                      nivel_requerido: engarce?.nivel_requerido,
+                      valor_venta: engarce?.valor_venta,
+                      clasificacion: engarce?.clasificacion && typeof engarce.clasificacion === 'object'
+                        ? engarce.clasificacion
+                        : undefined,
+                      tags: Array.isArray(engarce?.tags) ? engarce.tags : undefined
+                    };
+
+                    const result = upsertCatalogEntity(globalGemsCatalog.gemas as any[], gemCandidate, 'gema');
+                    if (result.status === 'added') {
+                      itemsImported++;
+                      addedItems.push(`Gema (build): ${gemName}`);
+                    } else if (result.status === 'updated') {
+                      itemsUpdated++;
+                      updatedItemsList.push(`Gema (build): ${gemName}`);
+                    } else {
+                      itemsRepeated++;
+                      repeatedItems.push(`Gema (build): ${gemName}`);
+                    }
+                    globalCatalogChanged = globalCatalogChanged || result.status !== 'repeated';
+                    fieldsAdded.push(`catalogo.gemas.${gemName}`);
+                    return {
+                      tipo: 'gema',
+                      gema_id: result.id
+                    };
+                  }
+
+                  return { tipo: 'vacio' as const };
+                })
+                .filter(Boolean);
+
+              piezasBySlot[slot] = {
+                ...piece,
+                espacio: slot,
+                engarces: engarcesNormalized
+              };
+            });
+
+            const piezas = Object.values(piezasBySlot);
+
+            if (piezas.length > 0) {
+              const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+              const basePersonaje = personajeFromDisk || personaje;
+              const previousBuild = (basePersonaje as any).build || {};
+
+              if (globalCatalogChanged) {
+                await WorkspaceService.saveHeroRunes('global', globalRunesCatalog);
+                await WorkspaceService.saveHeroGems('global', globalGemsCatalog);
+              }
+
+              // ============================================================================
+              // PROCESAMIENTO DE ASPECTOS EN OBJETOS DE EQUIPO - v0.5.5
+              // ============================================================================
+              const heroAspectsCatalog = await WorkspaceService.loadHeroAspects(personaje.clase) || { aspectos: [] };
+              const aspectosEnPiezasInfo: Array<{ id: string; slot: string; aspect_id: string }> = [];
+
+              // Procesar cada pieza para reconocer y enlazar aspectos
+              Object.entries(piezasBySlot).forEach(([slot, piece]: [string, any]) => {
+                if (piece.aspecto_id || piece.aspecto_vinculado_id || piece.aspecto || piece.aspecto_descripcion_diferencia) {
+                  const aspectoData = piece.aspecto || {
+                    id: piece.aspecto_id || piece.aspecto_vinculado_id,
+                    nombre: piece.aspecto_nombre || piece.aspecto_name,
+                    effect: piece.aspecto_descripcion_diferencia,
+                    descripcion: piece.aspecto_descripcion_diferencia
+                  };
+                  
+                  // Buscar si el aspecto existe en el catálogo del héroe
+                  const existingIdx = heroAspectsCatalog.aspectos.findIndex((a: any) => 
+                    a.id === (piece.aspecto_id || piece.aspecto_vinculado_id || aspectoData.id) ||
+                    a.nombre === aspectoData.nombre ||
+                    a.name === aspectoData.nombre
+                  );
+
+                  if (existingIdx >= 0) {
+                    // Existe: usar ID del catálogo
+                    const existingAspecto = heroAspectsCatalog.aspectos[existingIdx];
+                    piece.aspecto_id = existingAspecto.id;
+                    piece.aspecto_vinculado_id = existingAspecto.id;
+                    
+                    // Complementar detalles si el objeto trae más info
+                    if (piece.aspecto && typeof piece.aspecto === 'object') {
+                      heroAspectsCatalog.aspectos[existingIdx] = {
+                        ...heroAspectsCatalog.aspectos[existingIdx],
+                        ...mergeComplementaryData(heroAspectsCatalog.aspectos[existingIdx], piece.aspecto)
+                      };
+                      globalCatalogChanged = true;
+                    }
+
+                    aspectosEnPiezasInfo.push({
+                      id: existingAspecto.id,
+                      slot,
+                      aspect_id: existingAspecto.id
+                    });
+                  } else if (piece.aspecto_id || (aspectoData && aspectoData.nombre)) {
+                    // No existe pero tiene datos: crear en catálogo
+                    const nuevoAspectoId = piece.aspecto_id || piece.aspecto_vinculado_id || aspectoData.id || `aspecto_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+                    const nuevoAspecto = {
+                      id: nuevoAspectoId,
+                      nombre: aspectoData.nombre,
+                      name: aspectoData.nombre,
+                      shortName: aspectoData.shortName || (aspectoData.nombre || '').slice(0, 3),
+                      effect: aspectoData.efecto || aspectoData.effect || '',
+                      category: aspectoData.category || aspectoData.categoria || 'ofensivo',
+                      level: aspectoData.level || aspectoData.nivel || '1/21',
+                      tags: Array.isArray(aspectoData.tags) ? aspectoData.tags : [],
+                      ...aspectoData
+                    };
+
+                    heroAspectsCatalog.aspectos.push(nuevoAspecto);
+                    piece.aspecto_id = nuevoAspectoId;
+                    piece.aspecto_vinculado_id = nuevoAspectoId;
+                    globalCatalogChanged = true;
+
+                    aspectosEnPiezasInfo.push({
+                      id: nuevoAspectoId,
+                      slot,
+                      aspect_id: nuevoAspectoId
+                    });
+                  }
+                }
+              });
+
+              // Guardar catálogo de aspectos si cambió
+              if (globalCatalogChanged) {
+                await WorkspaceService.saveHeroAspects(personaje.clase, heroAspectsCatalog);
+              }
+
+              // ============================================================================
+
+              const previousBuildPieces = (previousBuild.piezas && typeof previousBuild.piezas === 'object') ? previousBuild.piezas : {};
+              const runasEquipadas = Object.entries(piezasBySlot)
+                .flatMap(([slot, piece]: [string, any]) => {
+                  if (slot !== 'arma' && slot !== 'escudo') return [];
+                  const engarces = Array.isArray(piece?.engarces) ? piece.engarces : [];
+                  return engarces
+                    .filter((engarce: any) => engarce?.tipo === 'runa' && engarce?.runa_id)
+                    .map((engarce: any) => ({
+                      runa_id: String(engarce.runa_id),
+                      vinculada_a: slot === 'escudo' ? 'escudo' : 'arma'
+                    }));
+                });
+
+              // Agregar aspectos de las piezas a los aspectos_refs del personaje
+              const aspectRefsFromBuild = aspectosEnPiezasInfo.map(info => ({
+                aspecto_id: info.aspect_id,
+                nivel_actual: '1/21',
+                slot_equipado: info.slot,
+                valores_actuales: {}
+              }));
+
+              const updatedBuild = {
+                ...previousBuild,
+                ...buildData,
+                piezas: {
+                  ...previousBuildPieces,
+                  ...piezasBySlot
+                },
+                runas_equipadas: runasEquipadas.length > 0
+                  ? runasEquipadas
+                  : previousBuild.runas_equipadas,
+                id: previousBuild.id || buildData.id || `build_${Date.now()}`,
+                fecha_creacion: previousBuild.fecha_creacion || buildData.fecha_creacion || new Date().toISOString(),
+                fecha_actualizacion: new Date().toISOString()
+              };
+
+              const updatedPersonaje = {
+                ...basePersonaje,
+                build: updatedBuild,
+                // Agregar aspectos_refs del build si no están presentes
+                aspectos_refs: aspectRefsFromBuild.length > 0
+                  ? [
+                      ...((basePersonaje?.aspectos_refs || []) as any[]).filter(ref => {
+                        // Mantener referencias existentes que no estén en el build
+                        return !aspectRefsFromBuild.some(br => br.aspecto_id === (ref.aspecto_id || ref));
+                      }),
+                      ...aspectRefsFromBuild
+                    ]
+                  : basePersonaje?.aspectos_refs || [],
+                fecha_actualizacion: new Date().toISOString()
+              };
+
+              await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+              syncUpdatedPersonajeInContext(updatedPersonaje);
+
+              piezas.forEach((pieza: any) => {
+                const piezaName = pieza.nombre || pieza.id || pieza.espacio || 'pieza';
+                itemsImported++;
+                addedItems.push(piezaName);
+                fieldsAdded.push(`build.piezas.${pieza.espacio || pieza.id || piezaName}`);
+              });
+
+              showToast(`✅ Build importada: ${piezas.length} pieza(s) en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
             break;
@@ -2524,7 +3596,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         const personajeResult: ImportResultDetails = {
           success: true,
-          category: effectiveCategory,
+          category: resultCategory,
           promptType: 'personaje',
           targetName: personaje.nombre,
           jsonInputsProcessed: 1,
@@ -2534,7 +3606,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           addedItems,
           updatedItemsList,
           repeatedItems,
-          itemDetails: buildItemDetails(effectiveCategory, addedItems, updatedItemsList, repeatedItems),
+          itemDetails: buildItemDetails(resultCategory, addedItems, updatedItemsList, repeatedItems),
           fieldsAdded,
           validationErrors: validation.warnings,
           rawJSON: options?.jsonOverride ?? jsonText,
@@ -2550,8 +3622,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           if (composedImageUrl) {
             const response = await fetch(composedImageUrl);
             const blob = await response.blob();
-            const categoryLabel = CATEGORIES.find(c => c.value === effectiveCategory)?.label || effectiveCategory;
-            const nombre = `${categoryLabel.toLowerCase()}_${Date.now()}.png`;
+            const resolvedCategory = resolveImportCategory(effectiveCategory, runaGemaEffectiveCategory);
+            const nombre = `${resolvedCategory}_${Date.now()}.png`;
             
             setPendingSaveData({ image: blob, json: jsonPayload, imageName: nombre });
             setShowEmptyWarning(true);
@@ -2569,8 +3641,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
         setJsonText('');
         if (shouldReload) {
-          console.log('⏸️ [handleImportJSON] Recarga diferida: esperando confirmación del usuario en el modal');
-          setPendingFinalizeAction('reload');
+          await refreshPersonajes();
         }
         setImporting(false);
         return personajeResult;
@@ -2580,9 +3651,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       console.error('❌ [handleImportJSON] Error importando JSON:', error);
       const errorResult: ImportResultDetails = {
         success: false,
-        category: effectiveCategory,
+        category: resolveImportCategory(effectiveCategory, runaGemaEffectiveCategory),
         promptType: effectivePromptType,
-        targetName: effectivePromptType === 'heroe' ? effectiveClase : (personajes.find(p => p.id === effectivePersonajeId)?.nombre || ''),
+        targetName: getImportTargetName(
+          effectiveCategory,
+          effectivePromptType,
+          effectiveClase,
+          personajes.find(p => p.id === effectivePersonajeId)?.nombre || '',
+          runaGemaEffectiveCategory
+        ),
         validationErrors: [],
         rawJSON: options?.jsonOverride ?? jsonText,
         parsedJSON: parsedData,
@@ -2603,13 +3680,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       const { image, json, imageName } = pendingSaveData;
       
+      // Resolver categoría real (runas/gemas necesitan resolución)
+      const resolvedCategory = resolveImportCategory(selectedCategory, runaGemaType);
+      
       // Guardar imagen
-      const nombre = await ImageService.saveImage(image, selectedCategory, imageName.replace(/\.png$/, ''));
+      const nombre = await ImageService.saveImage(image, resolvedCategory, imageName.replace(/\.png$/, ''));
       
       // Guardar JSON asociado
-      await ImageService.saveImageJSON(json, selectedCategory, nombre);
+      await ImageService.saveImageJSON(json, resolvedCategory, nombre);
       
-      showToast(`✅ Imagen y JSON guardados para revisión: ${selectedCategory}/${nombre}`, 'success');
+      showToast(`✅ Imagen y JSON guardados para revisión: ${resolvedCategory}/${nombre}`, 'success');
       
       // Limpiar estados
       setShowEmptyWarning(false);
@@ -2624,9 +3704,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (showGallery) {
         loadGallery();
       }
-      
-      // Recarga diferida para permitir revisar reporte
-      setPendingFinalizeAction('reload');
     } catch (error) {
       console.error('Error guardando datos:', error);
       showToast('❌ Error al guardar la imagen y JSON', 'error');
@@ -2686,9 +3763,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
       
       // Mostrar resultados
-      setImportResults(result);
-      setShowImportResults(true);
-      setPendingFinalizeAction('reload');
+      showImportResultsModal(result);
       
       // Restaurar JSON original si la importación falló
       if (!result.success) {
@@ -2715,7 +3790,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const executionResults: Array<{ cat: ImageCategory; entryName: string; result: ImportResultDetails }> = [];
       const categories: ImageCategory[] = scope === 'category'
         ? [selectedCategory]
-        : ['skills', 'glifos', 'aspectos', 'estadisticas', 'otros'];
+        : ['skills', 'glifos', 'aspectos', 'estadisticas', 'runas', 'build', 'otros'];
       const originalCategory = selectedCategory;
 
       const allEntries: Array<{ entry: { nombre: string }; cat: ImageCategory }> = [];
@@ -2830,7 +3905,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         const imported = rows.reduce((acc, r) => acc + (r.result.itemsImported || 0), 0);
         const updated = rows.reduce((acc, r) => acc + (r.result.itemsUpdated || 0), 0);
         const repeated = rows.reduce((acc, r) => acc + (r.result.itemsSkipped || 0), 0);
-        return `${cat}: ${ok}/${rows.length} JSONs, nuevos ${imported}, actualizados ${updated}, repetidos ${repeated}${fail > 0 ? `, ${fail} errores` : ''}`;
+        return `${getImportCategoryLabel(cat)}: ${ok}/${rows.length} JSONs, nuevos ${imported}, actualizados ${updated}, repetidos ${repeated}${fail > 0 ? `, ${fail} errores` : ''}`;
       });
 
       const validationErrors = executionResults
@@ -2857,7 +3932,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         success: totalFail === 0,
         category: scope === 'all' ? 'todas' : selectedCategory,
         promptType,
-        targetName: scope === 'all' ? 'Todas las categorías' : `Categoría ${selectedCategory}`,
+        targetName: scope === 'all' ? 'Todas las categorías' : `Categoría ${getImportCategoryLabel(selectedCategory)}`,
         jsonInputsProcessed: allEntries.length,
         totalInputItems,
         itemsImported: totalImported,
@@ -2901,9 +3976,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         errorMessage: totalFail > 0 ? `Se detectaron ${totalFail} errores durante la importación masiva` : undefined
       };
 
-      setImportResults(batchSummary);
-      setShowImportResults(true);
-      setPendingFinalizeAction('reload');
+      showImportResultsModal(batchSummary);
       showToast(
         totalFail > 0
           ? `⚠️ Batch completado con errores (${totalSuccess}/${allEntries.length} exitosos)`
@@ -2936,12 +4009,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       url: imageToProcess.substring(0, 50) + '...'
     });
 
-    // Validar que haya seleccionado personaje o clase según el tipo
-    if (promptType === 'personaje' && !selectedPersonajeId) {
+    // Validar destino únicamente cuando la categoría no es global
+    if (requiresPersonajeSelection && !effectivePersonajeIdForActions) {
       showToast('❌ Selecciona un personaje primero', 'error');
       return;
     }
-    if (promptType === 'heroe' && !selectedClase) {
+    if (requiresClaseSelection && !effectiveClaseForActions) {
       showToast('❌ Selecciona una clase primero', 'error');
       return;
     }
@@ -3041,9 +4114,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       console.log('📊 [processWithAI] Resultado de importación:', importResult);
 
       // 5. Mostrar modal con resultados
-      setImportResults(importResult);
-      setShowImportResults(true);
-      setPendingFinalizeAction('reload');
+      showImportResultsModal(importResult);
 
       // 6. Proceso completado
       setAiProgress('done');
@@ -3066,16 +4137,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // Mostrar modal de error incluso si no hay resultado de importación
       const errorResult: ImportResultDetails = {
         success: false,
-        category: selectedCategory,
+        category: resolveImportCategory(selectedCategory, runaGemaType),
         promptType,
-        targetName: promptType === 'heroe' ? selectedClase : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || ''),
+        targetName: getImportTargetName(
+          selectedCategory,
+          promptType,
+          selectedClase,
+          personajes.find(p => p.id === selectedPersonajeId)?.nombre || '',
+          runaGemaType
+        ),
         validationErrors: [],
         rawJSON: aiExtractedJSON || '',
         errorMessage: error instanceof Error ? error.message : 'Error desconocido al procesar con IA'
       };
       
-      setImportResults(errorResult);
-      setShowImportResults(true);
+      showImportResultsModal(errorResult);
       
       showToast(`❌ ${error instanceof Error ? error.message : 'Error desconocido'}`, 'error');
       setAiProgress('idle');
@@ -3489,18 +4565,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     {/* Botón Procesar con IA */}
                     <button 
                       onClick={processWithAI}
-                      disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                      disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing || !showPromptPanel || !hasEffectiveTargetSelection}
                       className={`p-2.5 rounded-lg font-semibold transition-all ${
-                        (composedImageUrl || selectedGalleryImage) && !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                        (composedImageUrl || selectedGalleryImage) && !aiProcessing && showPromptPanel && hasEffectiveTargetSelection
                           ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title={
                         !showPromptPanel 
                           ? 'Abre el panel de Prompt primero' 
-                          : (promptType === 'personaje' && !selectedPersonajeId)
+                          : (requiresPersonajeSelection && !effectivePersonajeIdForActions)
                             ? 'Selecciona un personaje en el panel de Prompt'
-                            : (promptType === 'heroe' && !selectedClase)
+                            : (requiresClaseSelection && !effectiveClaseForActions)
                               ? 'Selecciona una clase en el panel de Prompt'
                               : 'Procesar con IA y Guardar'
                       }
@@ -3578,13 +4654,34 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
 
+                  {/* Selector interno de tipo para Runas/Gemas */}
+                  {selectedCategory === 'runas' && (
+                    <div className="mb-1.5 lg:mb-2">
+                      <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
+                        Tipo de Datos:
+                      </label>
+                      <select
+                        value={runaGemaType}
+                        onChange={(e) => setRunaGemaType(e.target.value as 'runas' | 'gemas')}
+                        className="w-full p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] lg:text-sm"
+                      >
+                        <option value="runas">ᚱ Runas</option>
+                        <option value="gemas">💠 Gemas</option>
+                      </select>
+                      <p className="text-[9px] lg:text-[10px] text-d4-text-dim mt-0.5">
+                        Se importa en catálogo global unificado (archivo gemas_runas.json)
+                      </p>
+                    </div>
+                  )}
+
                   {/* Selector de destino (SEGUNDO - condicionado) */}
+                  {selectedCategory !== 'runas' && selectedCategory !== 'build' && (
                   <div className="mb-1.5 lg:mb-2">
                     <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                       Destino:
                     </label>
                     <div className="flex gap-1.5 lg:gap-2">
-                      {/* Mostrar Héroe solo si NO es paragon-atributos */}
+                      {/* Mostrar Héroe solo si no está restringido por categoría */}
                       {(selectedCategory !== 'estadisticas' && selectedCategory !== 'paragon') || 
                        (selectedCategory === 'paragon' && paragonType !== 'atributos') ? (
                         <button
@@ -3606,9 +4703,24 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       </button>
                     </div>
                   </div>
+                  )}
 
-                  {/* Selector de clase (solo si tipo = heroe) */}
-                  {promptType === 'heroe' && (
+                  {/* Runas/Gemas siempre global */}
+                  {selectedCategory === 'runas' && (
+                    <p className="text-[9px] lg:text-[10px] text-d4-text-dim -mt-1 mb-1.5">
+                      ✅ Se importará al catálogo global de runas/gemas
+                    </p>
+                  )}
+
+                  {/* Equipo siempre personaje */}
+                  {selectedCategory === 'build' && (
+                    <p className="text-[9px] lg:text-[10px] text-d4-text-dim -mt-1 mb-1.5">
+                      ✅ La categoría Equipo siempre se importa a Personaje
+                    </p>
+                  )}
+
+                  {/* Selector de clase (solo si tipo = heroe y no es categoría global) */}
+                  {promptType === 'heroe' && selectedCategory !== 'runas' && (
                     <div className="mb-1.5 lg:mb-2">
                       <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                         Clase:
@@ -3704,10 +4816,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       className="w-full h-16 lg:h-20 p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text font-mono text-[9px] lg:text-xs resize-none"
                     />
                     <button
-                      onClick={() => { void handleImportJSON(); }}
-                      disabled={!jsonText.trim() || importing || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                      onClick={() => { void executeManualImportJSON(); }}
+                      disabled={!jsonText.trim() || importing || !hasEffectiveTargetSelection}
                       className={`mt-1.5 lg:mt-3 w-full px-2 lg:px-4 py-1 lg:py-2 rounded text-[10px] lg:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 lg:gap-2 ${
-                        jsonText.trim() && !importing && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                        jsonText.trim() && !importing && hasEffectiveTargetSelection
                           ? 'bg-green-600 hover:bg-green-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
@@ -3721,24 +4833,26 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         <>
                           <Save className="w-3 h-3 lg:w-4 lg:h-4" />
                           <span className="hidden md:inline">
-                            {promptType === 'heroe' 
-                              ? selectedClase 
-                                ? `Guardar en Héroe (${selectedClase})`
-                                : 'Guardar en Héroe (Selecciona clase)'
-                              : selectedPersonajeId 
-                                ? `Guardar en ${personajes.find(p => p.id === selectedPersonajeId)?.nombre || 'Personaje'}`
-                                : 'Selecciona un personaje primero'}
+                            {selectedCategory === 'runas'
+                              ? 'Guardar en catálogo global (Runas/Gemas)'
+                              : promptType === 'heroe'
+                                ? effectiveClaseForActions
+                                  ? `Guardar en Héroe (${effectiveClaseForActions})`
+                                  : 'Guardar en Héroe (Selecciona clase)'
+                                : effectivePersonajeIdForActions
+                                  ? `Guardar en ${personajes.find(p => p.id === effectivePersonajeIdForActions)?.nombre || 'Personaje'}`
+                                  : 'Selecciona un personaje primero'}
                           </span>
                           <span className="md:hidden">Guardar</span>
                         </>
                       )}
                     </button>
-                    {promptType === 'personaje' && !selectedPersonajeId && (
+                    {requiresPersonajeSelection && !effectivePersonajeIdForActions && (
                       <p className="text-[9px] lg:text-xs text-yellow-400 mt-1 lg:mt-2">
                         ⚠️ Selecciona un personaje arriba para poder guardar
                       </p>
                     )}
-                    {promptType === 'heroe' && !selectedClase && (
+                    {requiresClaseSelection && !effectiveClaseForActions && (
                       <p className="text-[9px] lg:text-xs text-yellow-400 mt-1 lg:mt-2">
                         ⚠️ Selecciona una clase arriba para poder guardar
                       </p>
@@ -3845,34 +4959,42 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
                       </h3>
                       
-                      <div className="mb-2">
-                        <label className="block text-xs font-semibold text-d4-text mb-1">
-                          Tipo:
-                        </label>
-                        <div className="flex gap-2">
-                          {selectedCategory !== 'estadisticas' && (
+                      {selectedCategory !== 'runas' && selectedCategory !== 'build' ? (
+                        <div className="mb-2">
+                          <label className="block text-xs font-semibold text-d4-text mb-1">
+                            Tipo:
+                          </label>
+                          <div className="flex gap-2">
+                            {selectedCategory !== 'estadisticas' && (
+                              <button
+                                onClick={() => setPromptType('heroe')}
+                                className={`px-3 py-1.5 rounded text-sm font-semibold ${
+                                  promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                                }`}
+                              >
+                                Héroe
+                              </button>
+                            )}
                             <button
-                              onClick={() => setPromptType('heroe')}
+                              onClick={() => setPromptType('personaje')}
                               className={`px-3 py-1.5 rounded text-sm font-semibold ${
-                                promptType === 'heroe' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
+                                promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
                               }`}
                             >
-                              Héroe
+                              Personaje
                             </button>
-                          )}
-                          <button
-                            onClick={() => setPromptType('personaje')}
-                            className={`px-3 py-1.5 rounded text-sm font-semibold ${
-                              promptType === 'personaje' ? 'bg-d4-accent text-black' : 'bg-d4-surface text-d4-text'
-                            }`}
-                          >
-                            Personaje
-                          </button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <p className="text-xs text-d4-text-dim mb-2">
+                          {selectedCategory === 'runas'
+                            ? '✅ Runas/Gemas siempre se procesa como catálogo global'
+                            : '✅ Equipo siempre se procesa en modo Personaje'}
+                        </p>
+                      )}
 
-                      {/* Selector de clase (solo si tipo = heroe) */}
-                      {promptType === 'heroe' && (
+                      {/* Selector de clase (solo si tipo = heroe y no es categoría global) */}
+                      {promptType === 'heroe' && selectedCategory !== 'runas' && (
                         <div className="mb-2">
                           <label className="block text-xs font-semibold text-d4-text mb-1">
                             Clase:
@@ -3963,9 +5085,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   <button
                     onClick={processWithAI}
-                    disabled={aiProcessing || !showPromptPanel || (promptType === 'personaje' && !selectedPersonajeId) || (promptType === 'heroe' && !selectedClase)}
+                    disabled={aiProcessing || !showPromptPanel || !hasEffectiveTargetSelection}
                     className={`p-2.5 rounded-lg font-semibold transition-all ${
-                      !aiProcessing && showPromptPanel && ((promptType === 'heroe' && selectedClase) || (promptType === 'personaje' && selectedPersonajeId))
+                      !aiProcessing && showPromptPanel && hasEffectiveTargetSelection
                         ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
                         : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     }`}
@@ -3974,9 +5096,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         ? `Procesando (${aiProgress})`
                         : (!showPromptPanel
                           ? 'Abre el panel de Prompt primero'
-                          : (promptType === 'personaje' && !selectedPersonajeId)
+                          : (requiresPersonajeSelection && !effectivePersonajeIdForActions)
                             ? 'Selecciona un personaje en el panel de Prompt'
-                            : (promptType === 'heroe' && !selectedClase)
+                            : (requiresClaseSelection && !effectiveClaseForActions)
                               ? 'Selecciona una clase en el panel de Prompt'
                               : 'Procesar con IA y Guardar')
                     }
@@ -4017,12 +5139,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       ⚠️ Abre el panel de Prompt primero para configurar tipo y personaje/clase
                     </p>
                   )}
-                  {showPromptPanel && promptType === 'personaje' && !selectedPersonajeId && (
+                  {showPromptPanel && requiresPersonajeSelection && !effectivePersonajeIdForActions && (
                     <p className="text-xs text-yellow-400 mt-2 text-center">
                       ⚠️ Selecciona un personaje en el panel de Prompt
                     </p>
                   )}
-                  {showPromptPanel && promptType === 'heroe' && !selectedClase && (
+                  {showPromptPanel && requiresClaseSelection && !effectiveClaseForActions && (
                     <p className="text-xs text-yellow-400 mt-2 text-center">
                       ⚠️ Selecciona una clase en el panel de Prompt
                     </p>
@@ -4201,19 +5323,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       <ImportResultsModal
         isOpen={showImportResults}
         onClose={() => {
-          setShowImportResults(false);
-          setPendingFinalizeAction(null);
+          void finalizeImportReport();
         }}
         results={importResults}
         onContinue={() => {
-          if (pendingFinalizeAction === 'reload') {
-            window.location.reload();
-            return;
-          }
-          setShowImportResults(false);
-          setPendingFinalizeAction(null);
+          void finalizeImportReport();
         }}
-        continueLabel={pendingFinalizeAction === 'reload' ? 'Finalizar proceso' : 'Continuar'}
+        continueLabel="Continuar"
       />
       
       <ImageViewerModal

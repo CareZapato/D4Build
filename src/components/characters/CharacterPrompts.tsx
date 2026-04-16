@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Copy, Check, Sparkles, Shield, Target, TrendingUp, Calculator, BarChart3, GitCompare, AlertCircle, Lock } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Copy, Check, Sparkles, Shield, Target, TrendingUp, Calculator, BarChart3, GitCompare, AlertCircle, Lock, Search, Filter } from 'lucide-react';
 import { Personaje, HabilidadActiva, HabilidadPasiva, Glifo, Aspecto, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 
@@ -18,6 +18,9 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
   const [allHeroSkills, setAllHeroSkills] = useState<HabilidadesPersonaje | null>(null);
   const [allHeroGlyphs, setAllHeroGlyphs] = useState<GlifosHeroe | null>(null);
   const [allHeroAspects, setAllHeroAspects] = useState<AspectosHeroe | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPromptCategory, setSelectedPromptCategory] = useState<string>('all');
+  const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
 
   useEffect(() => {
     loadCharacterData();
@@ -89,10 +92,25 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     }
   };
 
+  const enrichPromptForOptimization = (basePrompt: string): string => {
+    const optimizationDirective = `
+
+## Marco Matemático de Optimización (Aplicar SIEMPRE)
+- Objetivo principal: maximizar rendimiento real del build (DPS efectivo, supervivencia efectiva y consistencia de rotación).
+- Usa análisis marginal por stat: estima el impacto incremental de +1% o +X puntos en cada atributo relevante.
+- Explica la diferencia entre bonificaciones aditivas y multiplicativas, y cómo afectan el resultado final.
+- Cuando falten datos exactos, usa supuestos explícitos y compara escenarios (conservador, medio, agresivo).
+- Entrega prioridades ordenadas por ROI: Alto / Medio / Bajo, con justificación numérica.
+- Señala breakpoints o umbrales críticos cuando existan (crit chance, resource sustain, CDR, etc.).
+- Cierra con un plan de optimización accionable en pasos (inmediato, corto plazo, mediano plazo).`;
+
+    return `${basePrompt}${optimizationDirective}`;
+  };
+
   const copyToClipboard = async (textOrPromise: string | Promise<string>, id: string) => {
     try {
       const text = typeof textOrPromise === 'string' ? textOrPromise : await textOrPromise;
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(enrichPromptForOptimization(text));
       setCopied(id);
       setTimeout(() => setCopied(null), 2000);
     } catch (error) {
@@ -517,6 +535,64 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     return context;
   };
 
+  const getBuildContext = () => {
+    const build = personaje.build;
+    if (!build || !build.piezas) return 'No hay build equipada cargada';
+
+    const piezas = Object.values(build.piezas).filter(Boolean) as Array<any>;
+    if (piezas.length === 0) return 'No hay build equipada cargada';
+
+    let context = `**Build equipada (${piezas.length} piezas):**\n`;
+
+    piezas.forEach((pieza) => {
+      context += `\n- **${pieza.nombre || pieza.id}** [${pieza.espacio || 'slot_desconocido'}]`;
+      if (pieza.rareza) context += ` | Rareza: ${pieza.rareza}`;
+      if (pieza.poder_objeto) context += ` | Poder: ${pieza.poder_objeto}`;
+      context += `\n`;
+
+      if (pieza.aspecto_vinculado_id || pieza.aspecto_id) {
+        context += `  • Aspecto: ${pieza.aspecto_vinculado_id || pieza.aspecto_id}\n`;
+      }
+
+      if (pieza.aspecto_descripcion_diferencia) {
+        context += `  • Texto aspecto en pieza: ${pieza.aspecto_descripcion_diferencia}\n`;
+      }
+
+      if (Array.isArray(pieza.engarces) && pieza.engarces.length > 0) {
+        const engarces = pieza.engarces
+          .map((e: any) => {
+            if (e.tipo === 'runa' && e.runa_id) return `runa:${e.runa_id}`;
+            if (e.tipo === 'gema' && e.gema_id) return `gema:${e.gema_id}`;
+            return 'vacío';
+          })
+          .join(', ');
+        context += `  • Engarces: ${engarces}\n`;
+      }
+
+      if (Array.isArray(pieza.atributos) && pieza.atributos.length > 0) {
+        context += `  • Atributos:\n`;
+        pieza.atributos.slice(0, 8).forEach((attr: any) => {
+          context += `    - ${attr.texto || attr.tipo || 'atributo'}\n`;
+        });
+      }
+    });
+
+    if (Array.isArray(build.runas_equipadas) && build.runas_equipadas.length > 0) {
+      context += `\n**Runas equipadas globales (${build.runas_equipadas.length}):**\n`;
+      build.runas_equipadas.forEach((r: any) => {
+        context += `- ${r.runa_id} (${r.vinculada_a})\n`;
+      });
+    }
+
+    return context;
+  };
+
+  const hasBuildData = (): boolean => {
+    const build = personaje.build;
+    if (!build || !build.piezas) return false;
+    return Object.values(build.piezas).some(Boolean);
+  };
+
   // ============================================
   // DEFINICIÓN DE PROMPTS
   // ============================================
@@ -524,6 +600,8 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
   interface PromptConfig {
     id: string;
     title: string;
+    category?: string;
+    keywords?: string[];
     icon: any;
     color: string;
     bg: string;
@@ -535,6 +613,7 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
       glyphs?: boolean;
       aspects?: boolean;
       stats?: boolean;
+      build?: boolean;
     };
     generate: () => string | Promise<string>;
   }
@@ -544,6 +623,8 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     {
       id: 'build-diagnosis',
       title: '🩺 Diagnóstico Completo de Build',
+      category: 'Build y Optimización',
+      keywords: ['build', 'diagnóstico', 'sinergia', 'optimización'],
       icon: Target,
       color: 'text-purple-400',
       bg: 'bg-purple-900/20',
@@ -610,6 +691,8 @@ Esto será útil para análisis futuros más profundos.`
     {
       id: 'math-damage-analysis',
       title: '🧮 Análisis Matemático: Daño',
+      category: 'Matemático',
+      keywords: ['matemático', 'dps', 'multiplicadores', 'maximización'],
       icon: Calculator,
       color: 'text-red-400',
       bg: 'bg-red-900/20',
@@ -674,6 +757,8 @@ Guarda en memoria:
     {
       id: 'math-defense-analysis',
       title: '🛡️ Análisis Matemático: Supervivencia',
+      category: 'Matemático',
+      keywords: ['matemático', 'ehp', 'defensa', 'supervivencia'],
       icon: Shield,
       color: 'text-blue-400',
       bg: 'bg-blue-900/20',
@@ -737,6 +822,8 @@ Guarda en memoria:
     {
       id: 'skills-comparison-stage1',
       title: '🔄 Comparativo Habilidades (Stage 1)',
+      category: 'Comparativos Multi-Stage',
+      keywords: ['comparativo', 'skills', 'stage', 'alternativas'],
       icon: GitCompare,
       color: 'text-green-400',
       bg: 'bg-green-900/20',
@@ -780,6 +867,8 @@ Lo usaremos en el siguiente análisis (Stage 2) para recomendaciones profundas.`
     {
       id: 'skills-comparison-stage2',
       title: '🔍 Comparativo Habilidades (Stage 2)',
+      category: 'Comparativos Multi-Stage',
+      keywords: ['comparativo', 'skills', 'stage', 'profundo'],
       icon: BarChart3,
       color: 'text-green-400',
       bg: 'bg-green-900/20',
@@ -832,6 +921,8 @@ Actualiza la memoria de conversación con:
     {
       id: 'glyphs-comparison-stage1',
       title: '🔄 Comparativo Glifos (Stage 1)',
+      category: 'Comparativos Multi-Stage',
+      keywords: ['comparativo', 'glifos', 'stage', 'escalado'],
       icon: GitCompare,
       color: 'text-cyan-400',
       bg: 'bg-cyan-900/20',
@@ -880,6 +971,8 @@ Lo usaremos en Stage 2 para recomendaciones de reemplazo.`
     {
       id: 'glyphs-comparison-stage2',
       title: '🔍 Comparativo Glifos (Stage 2)',
+      category: 'Comparativos Multi-Stage',
+      keywords: ['comparativo', 'glifos', 'stage', 'optimización'],
       icon: BarChart3,
       color: 'text-cyan-400',
       bg: 'bg-cyan-900/20',
@@ -931,6 +1024,8 @@ ${getSkillsContext()}
     {
       id: 'aspects-comparison-stage1',
       title: '🔄 Comparativo Aspectos (Stage 1)',
+      category: 'Comparativos Multi-Stage',
+      keywords: ['comparativo', 'aspectos', 'stage', 'meta'],
       icon: GitCompare,
       color: 'text-amber-400',
       bg: 'bg-amber-900/20',
@@ -977,6 +1072,8 @@ ${getAllAspectsContext()}
     {
       id: 'aspects-comparison-stage2',
       title: '🔍 Comparativo Aspectos (Stage 2)',
+      category: 'Comparativos Multi-Stage',
+      keywords: ['comparativo', 'aspectos', 'stage', 'farmeo'],
       icon: BarChart3,
       color: 'text-amber-400',
       bg: 'bg-amber-900/20',
@@ -1035,6 +1132,8 @@ ${getAllAspectsContext()}
     {
       id: 'rotation-advanced',
       title: '🎯 Rotación de Combate Avanzada',
+      category: 'Combate y Endgame',
+      keywords: ['rotación', 'combate', 'cd', 'recursos'],
       icon: TrendingUp,
       color: 'text-orange-400',
       bg: 'bg-orange-900/20',
@@ -1089,6 +1188,8 @@ Proporciona la rotación en formato tabla:
     {
       id: 'endgame-report',
       title: '🏆 Reporte Endgame Completo',
+      category: 'Combate y Endgame',
+      keywords: ['endgame', 'pit', 'bosses', 'viabilidad'],
       icon: Target,
       color: 'text-red-400',
       bg: 'bg-red-900/20',
@@ -1153,6 +1254,8 @@ ${getStatsContext()}
     {
       id: 'paragon-analysis',
       title: '⭐ Análisis Completo de Paragon',
+      category: 'Paragón',
+      keywords: ['paragon', 'tableros', 'nodos', 'optimización'],
       icon: Sparkles,
       color: 'text-purple-400',
       bg: 'bg-purple-900/20',
@@ -1169,6 +1272,8 @@ ${getStatsContext()}
     {
       id: 'paragon-optimization',
       title: '🎯 Optimización de Nodos Paragon',
+      category: 'Paragón',
+      keywords: ['paragon', 'nodos', 'eficiencia', 'maximización'],
       icon: Target,
       color: 'text-orange-400',
       bg: 'bg-orange-900/20',
@@ -1186,6 +1291,8 @@ ${getStatsContext()}
     {
       id: 'paragon-node-comparison',
       title: '🔍 Comparación Estratégica de Nodos',
+      category: 'Paragón',
+      keywords: ['paragon', 'comparación', 'nodos', 'estrategia'],
       icon: GitCompare,
       color: 'text-cyan-400',
       bg: 'bg-cyan-900/20',
@@ -1197,8 +1304,134 @@ ${getStatsContext()}
         const { PromptService } = await import('../../services/PromptService');
         return await PromptService.generateParagonNodeComparisonPrompt(personaje);
       }
+    },
+
+    // ========== BUILDS: ANÁLISIS Y OPTIMIZACIÓN ==========
+    {
+      id: 'build-current-optimization',
+      title: '⚙️ Build Actual: Optimización Integral',
+      category: 'Build y Optimización',
+      keywords: ['build', 'actual', 'optimizar', 'coherencia', 'mejoras'],
+      icon: TrendingUp,
+      color: 'text-lime-400',
+      bg: 'bg-lime-900/20',
+      border: 'border-lime-600',
+      description: 'Analiza la build equipada y propone mejoras concretas priorizadas por impacto',
+      requiredData: { build: true, skills: true, stats: true },
+      generate: () => `Actúa como experto en optimización de builds de ${personaje.clase}. Analiza y optimiza mi build actual.
+
+${getBuildContext()}
+
+${getSkillsContext()}
+
+${getGlyphsContext()}
+
+${getAspectsContext()}
+
+${getStatsContext()}
+
+Solicito:
+1. Diagnóstico de coherencia global (build + skills + glifos + aspectos)
+2. Top 7 mejoras ordenadas por impacto (alto/medio/bajo)
+3. Qué piezas/engarces mantener y cuáles reemplazar primero
+4. Riesgos de la build en contenido endgame
+5. Plan por fases: inmediato, corto plazo y mediano plazo`
+    },
+    {
+      id: 'build-aspect-alternatives',
+      title: '🧩 Build vs Pool de Aspectos del Héroe',
+      category: 'Build y Optimización',
+      keywords: ['build', 'aspectos', 'alternativas', 'pool', 'héroe'],
+      icon: GitCompare,
+      color: 'text-yellow-300',
+      bg: 'bg-yellow-900/20',
+      border: 'border-yellow-600',
+      description: 'Compara los aspectos de la build con todo el catálogo del héroe para sugerir alternativas',
+      requiresHeroData: true,
+      requiredData: { build: true, aspects: true },
+      generate: () => `Compara la build equipada con el pool completo de aspectos del héroe y recomienda la mejor configuración.
+
+${getBuildContext()}
+
+Aspectos equipados actuales:
+${getAspectsContext()}
+
+Pool completo de aspectos del héroe:
+${getAllAspectsContext()}
+
+Entrega:
+1. Tabla slot por slot: aspecto actual vs mejor alternativa
+2. Justificación de sinergia con habilidades y glifos
+3. Top 5 cambios de aspecto con mayor ROI
+4. Configuración alternativa A (máx daño) y B (balance/survival)`
+    },
+    {
+      id: 'build-skill-glyph-coherence',
+      title: '🧠 Coherencia Build con Skills y Glifos',
+      category: 'Build y Optimización',
+      keywords: ['build', 'skills', 'glifos', 'coherencia', 'sinergia'],
+      icon: Target,
+      color: 'text-teal-300',
+      bg: 'bg-teal-900/20',
+      border: 'border-teal-600',
+      description: 'Valida si la build realmente potencia las habilidades y glifos equipados',
+      requiredData: { build: true, skills: true, glyphs: true },
+      generate: () => `Evalúa la coherencia de mi build con habilidades y glifos equipados.
+
+${getBuildContext()}
+
+${getSkillsContext()}
+
+${getGlyphsContext()}
+
+Necesito:
+1. Mapa de sinergias reales (qué potencia a qué)
+2. Inconsistencias o contradicciones de diseño
+3. Qué glifos sobran y cuáles faltan
+4. Qué habilidades están infra-potenciadas por la build
+5. Recomendaciones concretas para alinear todo el sistema`
+    },
+    {
+      id: 'build-attributes-and-damage-composition',
+      title: '📐 Build: Atributos y Composición de Daño',
+      category: 'Matemático',
+      keywords: ['atributos', 'daño', 'composición', 'matemático', 'optimizar'],
+      icon: Calculator,
+      color: 'text-fuchsia-300',
+      bg: 'bg-fuchsia-900/20',
+      border: 'border-fuchsia-600',
+      description: 'Determina qué atributos potenciar y cómo se compone el daño total de la build',
+      requiredData: { build: true, stats: true, skills: true },
+      generate: () => `Haz un análisis matemático de composición de daño y prioridades de atributos para optimización.
+
+${getBuildContext()}
+
+${getSkillsContext()}
+
+${getStatsContext()}
+
+Entregar:
+1. Composición estimada del daño por fuentes (base, crit, vulnerable, condicionales, aspectos, glifos)
+2. Sensibilidad marginal por atributo (impacto estimado por +X)
+3. Prioridad de stats para maximización de DPS efectivo
+4. Trade-off ofensivo vs defensivo (qué perdería/ganaría)
+5. Tabla de acciones concretas de optimización matemática`
     }
   ];
+
+  const getPromptCategory = (prompt: PromptConfig): string => {
+    if (prompt.category) return prompt.category;
+    if (prompt.id.includes('math')) return 'Matemático';
+    if (prompt.id.includes('paragon')) return 'Paragón';
+    if (prompt.id.includes('comparison') || prompt.id.includes('stage')) return 'Comparativos Multi-Stage';
+    if (prompt.id.includes('build')) return 'Build y Optimización';
+    return 'General';
+  };
+
+  const allPromptCategories = useMemo(() => {
+    const categories = Array.from(new Set(prompts.map(getPromptCategory)));
+    return ['all', ...categories];
+  }, [prompts]);
 
   // ============================================
   // LÓGICA DE ACTIVACIÓN CONDICIONAL
@@ -1218,6 +1451,9 @@ ${getStatsContext()}
     if (prompt.requiredData.stats && !personaje.estadisticas) {
       return { available: false, reason: '⚠️ No hay estadísticas cargadas' };
     }
+    if (prompt.requiredData.build && !hasBuildData()) {
+      return { available: false, reason: '⚠️ No hay build equipada cargada' };
+    }
 
     // Verificar datos del  héroe si se requieren para comparación
     if (prompt.requiresHeroData) {
@@ -1234,6 +1470,42 @@ ${getStatsContext()}
 
     return { available: true };
   };
+
+  const filteredPrompts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return prompts.filter((prompt) => {
+      if (selectedPromptCategory !== 'all' && getPromptCategory(prompt) !== selectedPromptCategory) {
+        return false;
+      }
+
+      const availability = isPromptAvailable(prompt);
+      if (showOnlyAvailable && !availability.available) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      const corpus = [
+        prompt.title,
+        prompt.description,
+        getPromptCategory(prompt),
+        ...(prompt.keywords || [])
+      ].join(' ').toLowerCase();
+
+      return corpus.includes(query);
+    });
+  }, [prompts, searchQuery, selectedPromptCategory, showOnlyAvailable, activeSkills, passiveSkills, glyphs, aspects, personaje.estadisticas, allHeroSkills, allHeroGlyphs, allHeroAspects, personaje.build]);
+
+  const groupedPrompts = useMemo(() => {
+    const groups: Record<string, PromptConfig[]> = {};
+    filteredPrompts.forEach((prompt) => {
+      const category = getPromptCategory(prompt);
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(prompt);
+    });
+    return groups;
+  }, [filteredPrompts]);
 
   return (
     <div className="space-y-6">
@@ -1303,8 +1575,56 @@ ${getStatsContext()}
       </div>
 
       {/* Prompt Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {prompts.map(prompt => {
+      <div className="card bg-d4-bg/60 border-d4-border">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-d4-accent" />
+          <h4 className="font-semibold text-d4-text">Filtros de Prompts</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:col-span-2 relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-d4-text-dim" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por título, descripción o palabras clave..."
+              className="input w-full pl-10"
+            />
+          </div>
+          <div>
+            <select
+              value={selectedPromptCategory}
+              onChange={(e) => setSelectedPromptCategory(e.target.value)}
+              className="input w-full"
+            >
+              {allPromptCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category === 'all' ? 'Todas las categorías' : category}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <label className="mt-3 inline-flex items-center gap-2 text-sm text-d4-text-dim cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showOnlyAvailable}
+            onChange={(e) => setShowOnlyAvailable(e.target.checked)}
+          />
+          Mostrar solo prompts disponibles con los datos actuales
+        </label>
+      </div>
+
+      {Object.keys(groupedPrompts).length === 0 ? (
+        <div className="card text-center py-8 text-d4-text-dim">
+          No se encontraron prompts con el filtro actual.
+        </div>
+      ) : (
+        Object.entries(groupedPrompts).map(([categoryName, categoryPrompts]) => (
+          <div key={categoryName} className="space-y-3">
+            <h3 className="text-lg font-bold text-d4-accent">{categoryName}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {categoryPrompts.map(prompt => {
           const Icon = prompt.icon;
           const availability = isPromptAvailable(prompt);
           const isDisabled = !availability.available;
@@ -1348,10 +1668,13 @@ ${getStatsContext()}
                   <p className="text-xs text-amber-300">{availability.reason}</p>
                 </div>
               )}
+                </div>
+              );
+            })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        ))
+      )}
 
       {/* Instructions */}
       <div className="card bg-d4-bg/50">

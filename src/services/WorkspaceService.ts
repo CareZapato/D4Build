@@ -1,4 +1,4 @@
-import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, EstadisticasHeroe } from '../types';
+import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, EstadisticasHeroe, RunasHeroe, GemasHeroe, GemasRunasCatalogo } from '../types';
 import { TagService } from './TagService';
 import { ImageService } from './ImageService';
 
@@ -145,6 +145,8 @@ export class WorkspaceService {
       await imagesDir.getDirectoryHandle('aspectos', { create: true });
       await imagesDir.getDirectoryHandle('estadisticas', { create: true });
       await imagesDir.getDirectoryHandle('paragon', { create: true });
+      await imagesDir.getDirectoryHandle('runas', { create: true });
+      await imagesDir.getDirectoryHandle('build', { create: true });
       await imagesDir.getDirectoryHandle('otros', { create: true });
     } catch (error) {
       console.error('Error creando estructura:', error);
@@ -455,6 +457,127 @@ export class WorkspaceService {
         console.error('Error cargando estadísticas de héroe:', error);
       }
       return null;
+    }
+  }
+
+  // Guardar runas (global, todas las clases)
+  static async saveHeroRunes(_clase: string, runas: RunasHeroe): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const catalogo = await this.loadRunesGemsCatalog();
+      const fileHandle = await this.fileSystemHandle.getFileHandle('gemas_runas.json', { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify({
+        runas: runas.runas || [],
+        gemas: catalogo.gemas || []
+      }, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando runas:', error);
+      throw error;
+    }
+  }
+
+  // Cargar runas (global, todas las clases)
+  static async loadHeroRunes(_clase: string): Promise<RunasHeroe> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const fileHandle = await this.fileSystemHandle.getFileHandle('gemas_runas.json');
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      const parsed = JSON.parse(content) as GemasRunasCatalogo;
+      return { runas: parsed.runas || [] };
+    } catch (error) {
+      if ((error as DOMException)?.name === 'NotFoundError') {
+        // Fallback de migración: runas.json antiguo
+        try {
+          const legacyFileHandle = await this.fileSystemHandle.getFileHandle('runas.json');
+          const legacyFile = await legacyFileHandle.getFile();
+          const legacyContent = await legacyFile.text();
+          const legacyParsed = JSON.parse(legacyContent) as RunasHeroe;
+          return { runas: legacyParsed.runas || [] };
+        } catch {
+          return { runas: [] };
+        }
+      }
+      console.error('Error cargando runas:', error);
+      throw error;
+    }
+  }
+
+  // Guardar gemas (global, todas las clases)
+  static async saveHeroGems(_clase: string, gemas: GemasHeroe): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const catalogo = await this.loadRunesGemsCatalog();
+      const fileHandle = await this.fileSystemHandle.getFileHandle('gemas_runas.json', { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify({
+        runas: catalogo.runas || [],
+        gemas: gemas.gemas || []
+      }, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando gemas:', error);
+      throw error;
+    }
+  }
+
+  // Cargar gemas (global, todas las clases)
+  static async loadHeroGems(_clase: string): Promise<GemasHeroe> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const fileHandle = await this.fileSystemHandle.getFileHandle('gemas_runas.json');
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      const parsed = JSON.parse(content) as GemasRunasCatalogo;
+      return { gemas: parsed.gemas || [] };
+    } catch (error) {
+      if ((error as DOMException)?.name === 'NotFoundError') {
+        // Fallback de migración: gemas.json antiguo
+        try {
+          const legacyFileHandle = await this.fileSystemHandle.getFileHandle('gemas.json');
+          const legacyFile = await legacyFileHandle.getFile();
+          const legacyContent = await legacyFile.text();
+          const legacyParsed = JSON.parse(legacyContent) as GemasHeroe;
+          return { gemas: legacyParsed.gemas || [] };
+        } catch {
+          return { gemas: [] };
+        }
+      }
+      console.error('Error cargando gemas:', error);
+      throw error;
+    }
+  }
+
+  // Cargar catálogo global unificado de runas y gemas
+  static async loadRunesGemsCatalog(): Promise<GemasRunasCatalogo> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const fileHandle = await this.fileSystemHandle.getFileHandle('gemas_runas.json');
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      const parsed = JSON.parse(content) as GemasRunasCatalogo;
+      return {
+        runas: parsed.runas || [],
+        gemas: parsed.gemas || []
+      };
+    } catch (error) {
+      if ((error as DOMException)?.name === 'NotFoundError') {
+        const runas = await this.loadHeroRunes('global');
+        const gemas = await this.loadHeroGems('global');
+        return {
+          runas: runas.runas || [],
+          gemas: gemas.gemas || []
+        };
+      }
+      console.error('Error cargando catálogo gemas/runas:', error);
+      throw error;
     }
   }
 

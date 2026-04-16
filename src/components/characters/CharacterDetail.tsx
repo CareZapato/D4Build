@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, ChevronDown, ChevronUp } from 'lucide-react';
-import { Personaje, Estadisticas, ParagonPersonaje } from '../../types';
+import { Personaje, Estadisticas, ParagonPersonaje, Build } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
 import CharacterGlyphs from './CharacterGlyphs';
@@ -8,6 +8,8 @@ import CharacterSkills from './CharacterSkills';
 import CharacterAspects from './CharacterAspects';
 import CharacterPrompts from './CharacterPrompts';
 import CharacterParagon from './CharacterParagon';
+import CharacterRunes from './CharacterRunes';
+import CharacterBuild from './CharacterBuild';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 
@@ -43,6 +45,8 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [skillsCollapsed, setSkillsCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [glyphsCollapsed, setGlyphsCollapsed] = useState(false);
+  const [runesCollapsed, setRunesCollapsed] = useState(false);
+  const [buildCollapsed, setBuildCollapsed] = useState(false);
   const [paragonCollapsed, setParagonCollapsed] = useState(false);
   const [aspectsCollapsed, setAspectsCollapsed] = useState(false);
   const [promptsCollapsed, setPromptsCollapsed] = useState(false);
@@ -219,6 +223,48 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     } catch (error) {
       console.error('Error guardando Paragon:', error);
       modal.showError('Error al guardar la configuración Paragon');
+    }
+  };
+
+  const handleRunesChange = async (runasRefs: Array<{ runa_id: string; vinculada_a?: 'arma' | 'escudo' }>) => {
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      runas_refs: runasRefs,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente con merge seguro
+    try {
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando runas:', error);
+      modal.showError('Error al guardar las runas');
+    }
+  };
+
+  const handleBuildChange = async (build: Build) => {
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      build: build,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente con merge seguro
+    try {
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando build:', error);
+      modal.showError('Error al guardar el build');
     }
   };
 
@@ -586,6 +632,60 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             {!glyphsCollapsed && (
               <div className="px-4 pb-4">
                 <CharacterGlyphs personaje={editedPersonaje} onChange={handleGlyphsChange} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Runas */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setRunesCollapsed(!runesCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Runas del Personaje</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
+              {runesCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!runesCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterRunes personaje={editedPersonaje} onChange={handleRunesChange} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Build (Equipo) */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setBuildCollapsed(!buildCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Build / Equipo</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
+              {buildCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!buildCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterBuild personaje={editedPersonaje} onChange={handleBuildChange} />
               </div>
             )}
           </div>
