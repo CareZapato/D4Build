@@ -11,7 +11,8 @@ export default function ImageViewerModal({ isOpen, onClose, imageUrl, imageName 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100000]">
+      <div className="absolute inset-0" onClick={onClose}></div>
       <div className="relative max-w-[95vw] max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onClose}

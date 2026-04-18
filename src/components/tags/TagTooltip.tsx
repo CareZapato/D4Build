@@ -130,7 +130,7 @@ export const TagTooltip = memo(function TagTooltip({ tagId, className = '', icon
       {isVisible && (
         <div
           ref={tooltipRef}
-          className={`absolute z-50 ${
+          className={`absolute z-[5] ${
             position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
           } left-1/2 -translate-x-1/2 pointer-events-none animate-fade-in`}
           style={{ minWidth: '250px', maxWidth: '350px' }}

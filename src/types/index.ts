@@ -467,6 +467,7 @@ export interface Personaje {
       skill_id: string;           // ID de la habilidad activa del héroe
       modificadores_ids: string[]; // IDs de modificadores equipados para esta skill
       nivel_actual?: number;       // Nivel específico del personaje (1-5)
+      en_batalla?: boolean;        // (v0.6.2) true si está en la barra de habilidades activas
     }>;
     pasivas: Array<{
       skill_id: string;            // ID de la habilidad pasiva del héroe
@@ -847,6 +848,7 @@ export interface Gema {
   descripcion?: string;                  // Texto descriptivo adicional (DEPRECATED)
   nivel_requerido?: number;              // (DEPRECATED - usar requerimientos.nivel)
   valor_venta?: number;
+  en_bolsas?: number;                    // Cantidad en inventario (acumulable)
   
   clasificacion?: {
     perfil_general?: string[];           // Ej: ["ofensivo", "defensivo", "hibrido"]

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid3x3, Copy, Check, Search, ChevronLeft, ChevronRight, AlertCircle, Layers } from 'lucide-react';
+import { Grid3x3, Copy, Check, Search, ChevronLeft, ChevronRight, AlertCircle, Layers, Trash2, Plus, X } from 'lucide-react';
 import { Personaje, ParagonPersonaje } from '../../types';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { WorkspaceService } from '../../services/WorkspaceService';
@@ -70,10 +70,17 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [cargandoNodos, setCargandoNodos] = useState(false);
   const nodosPorPagina = 12;
+  
+  // Estados para modal de selección desde héroe
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [nodosDisponibles, setNodosDisponibles] = useState<NodoCompleto[]>([]);
+  const [busquedaModal, setBusquedaModal] = useState('');
+  const [filtroRarezaModal, setFiltroRarezaModal] = useState<string>('todos');
 
   useEffect(() => {
     setParagonData(personaje.paragon || null);
     cargarNodosCompletos();
+    cargarNodosDisponibles();
   }, [personaje.id, personaje.paragon, personaje.paragon_refs]);
 
   const cargarNodosCompletos = async () => {
@@ -151,6 +158,111 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const cargarNodosDisponibles = async () => {
+    try {
+      const catalogoNodos = await WorkspaceService.loadParagonNodes(personaje.clase);
+      if (!catalogoNodos) {
+        setNodosDisponibles([]);
+        return;
+      }
+
+      const todosNodosCatalogo: NodoCompleto[] = [
+        ...(catalogoNodos.nodos_normales || []),
+        ...(catalogoNodos.nodos_magicos || []),
+        ...(catalogoNodos.nodos_raros || []),
+        ...(catalogoNodos.nodos_legendarios || [])
+      ];
+
+      setNodosDisponibles(todosNodosCatalogo);
+    } catch (error) {
+      console.error('Error cargando catálogo de nodos:', error);
+      setNodosDisponibles([]);
+    }
+  };
+
+  const handleAddNodoFromHero = async (nodo: NodoCompleto) => {
+    try {
+      const paragonRefs = personaje.paragon_refs || { tableros_equipados: [], nodos_huerfanos: [] };
+      
+      // Verificar si el nodo ya está agregado
+      const yaExisteHuerfano = paragonRefs.nodos_huerfanos?.some(n => n.nodo_id === nodo.id);
+      const yaExisteEnTablero = paragonRefs.tableros_equipados?.some(t => 
+        t.nodos_activados_ids?.includes(nodo.id)
+      );
+      
+      if (yaExisteHuerfano || yaExisteEnTablero) {
+        return; // Ya existe, no agregar duplicado
+      }
+
+      // Agregar como nodo huérfano
+      const nuevosHuerfanos = [
+        ...(paragonRefs.nodos_huerfanos || []),
+        {
+          nodo_id: nodo.id,
+          rareza: nodo.rareza,
+          fecha_agregado: new Date().toISOString()
+        }
+      ];
+
+      const updatedParagonRefs = {
+        ...paragonRefs,
+        nodos_huerfanos: nuevosHuerfanos
+      };
+
+      const updatedPersonaje = {
+        ...personaje,
+        paragon_refs: updatedParagonRefs
+      };
+
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+      await cargarNodosCompletos();
+    } catch (error) {
+      console.error('Error agregando nodo:', error);
+    }
+  };
+
+  const handleRemoveNodo = async (nodoId: string, esHuerfano: boolean) => {
+    try {
+      const paragonRefs = personaje.paragon_refs || { tableros_equipados: [], nodos_huerfanos: [] };
+
+      if (esHuerfano) {
+        // Eliminar de nodos huérfanos
+        const nuevosHuerfanos = paragonRefs.nodos_huerfanos?.filter(n => n.nodo_id !== nodoId) || [];
+        const updatedParagonRefs = {
+          ...paragonRefs,
+          nodos_huerfanos: nuevosHuerfanos
+        };
+        
+        const updatedPersonaje = {
+          ...personaje,
+          paragon_refs: updatedParagonRefs
+        };
+        await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+        await cargarNodosCompletos();
+      } else {
+        // Eliminar de nodos en tableros
+        const nuevosTableros = paragonRefs.tableros_equipados?.map(tablero => ({
+          ...tablero,
+          nodos_activados_ids: tablero.nodos_activados_ids?.filter(id => id !== nodoId) || []
+        })) || [];
+        
+        const updatedParagonRefs = {
+          ...paragonRefs,
+          tableros_equipados: nuevosTableros
+        };
+        
+        const updatedPersonaje = {
+          ...personaje,
+          paragon_refs: updatedParagonRefs
+        };
+        await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+        await cargarNodosCompletos();
+      }
+    } catch (error) {
+      console.error('Error eliminando nodo:', error);
+    }
+  };
+
   // Filtrado y paginación de nodos
   const nodosFiltrados = todosNodos.filter(nodo => {
     const matchBusqueda = nodo.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -177,6 +289,13 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
     <>
       {/* Botones de acción */}
       <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="btn btn-primary flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Desde Héroe
+        </button>
         <button
           onClick={handleCopyPrompt}
           className="btn btn-secondary flex-1"
@@ -300,9 +419,18 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
                           </span>
                         )}
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${RAREZA_COLORES[nodo.rareza]} border flex-shrink-0`}>
-                        {RAREZA_LABELS[nodo.rareza]}
-                      </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${RAREZA_COLORES[nodo.rareza]} border`}>
+                          {RAREZA_LABELS[nodo.rareza]}
+                        </span>
+                        <button
+                          onClick={() => handleRemoveNodo(nodo.id, nodo.huerfano || false)}
+                          className="p-1 hover:bg-red-900/30 rounded transition-colors"
+                          title="Eliminar nodo"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Badge de huérfano */}
@@ -446,6 +574,144 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
           <Grid3x3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
           <p>No hay nodos de Paragon configurados para este personaje</p>
           <p className="text-sm mt-2">Importa datos de Paragon usando la herramienta de captura de imágenes</p>
+        </div>
+      )}
+
+      {/* Modal para agregar nodos desde el héroe */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[99999] p-4">
+          <div className="bg-d4-surface rounded-lg border-2 border-d4-accent max-w-6xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-d4-border">
+              <h3 className="text-xl font-bold text-d4-accent flex items-center gap-2">
+                <Layers className="w-6 h-6" />
+                Agregar Nodos desde Catálogo del Héroe
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setBusquedaModal('');
+                  setFiltroRarezaModal('todos');
+                }}
+                className="text-d4-text-dim hover:text-d4-text transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Filtros */}
+            <div className="p-6 border-b border-d4-border">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-d4-text-dim" />
+                  <input
+                    type="text"
+                    placeholder="Buscar nodos..."
+                    value={busquedaModal}
+                    onChange={(e) => setBusquedaModal(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-d4-bg border border-d4-border rounded-lg text-d4-text focus:outline-none focus:ring-2 focus:ring-d4-accent"
+                  />
+                </div>
+                <select
+                  value={filtroRarezaModal}
+                  onChange={(e) => setFiltroRarezaModal(e.target.value)}
+                  className="px-4 py-2 bg-d4-bg border border-d4-border rounded-lg text-d4-text focus:outline-none focus:ring-2 focus:ring-d4-accent"
+                >
+                  <option value="todos">Todas las rarezas</option>
+                  <option value="normal">Normal</option>
+                  <option value="magico">Mágico</option>
+                  <option value="raro">Raro</option>
+                  <option value="legendario">Legendario</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Lista de nodos disponibles */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {(() => {
+                const nodosFiltradosModal = nodosDisponibles.filter(nodo => {
+                  const matchBusqueda = nodo.nombre.toLowerCase().includes(busquedaModal.toLowerCase());
+                  const matchRareza = filtroRarezaModal === 'todos' || nodo.rareza === filtroRarezaModal;
+                  
+                  // Verificar si ya está agregado
+                  const yaAgregado = todosNodos.some(n => n.id === nodo.id);
+                  
+                  return matchBusqueda && matchRareza && !yaAgregado;
+                });
+
+                if (nodosFiltradosModal.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-d4-text-dim">
+                      <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No hay nodos disponibles con estos filtros</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {nodosFiltradosModal.map((nodo) => (
+                      <div
+                        key={nodo.id}
+                        className={`bg-d4-bg p-4 rounded-lg border-2 ${RAREZA_COLORES[nodo.rareza]} transition-all hover:shadow-lg cursor-pointer`}
+                        onClick={() => handleAddNodoFromHero(nodo)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-sm mb-1">{nodo.nombre}</h5>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${RAREZA_COLORES[nodo.rareza]} border inline-block`}>
+                              {RAREZA_LABELS[nodo.rareza]}
+                            </span>
+                          </div>
+                          <Plus className="w-5 h-5 text-green-400 flex-shrink-0 ml-2" />
+                        </div>
+
+                        {/* Atributos */}
+                        {nodo.atributos && nodo.atributos.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {nodo.atributos.slice(0, 2).map((attr, idx) => (
+                              <div key={idx} className="text-xs flex justify-between">
+                                <span className="text-d4-text-dim">{attr.tipo.replace(/_/g, ' ')}</span>
+                                <span className="text-green-400">+{attr.valor}%</span>
+                              </div>
+                            ))}
+                            {nodo.atributos.length > 2 && (
+                              <div className="text-xs text-d4-text-dim">+{nodo.atributos.length - 2} más...</div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Efecto principal */}
+                        {nodo.efecto_principal && (
+                          <div className="text-xs text-orange-300 mt-2 truncate">
+                            {nodo.efecto_principal}
+                          </div>
+                        )}
+
+                        {/* Tags */}
+                        {nodo.tags && nodo.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {nodo.tags.slice(0, 2).map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-d4-surface/50 rounded text-xs text-d4-text-dim">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-d4-border">
+              <p className="text-sm text-d4-text-dim text-center">
+                Haz clic en un nodo para agregarlo como <span className="text-orange-400 font-semibold">nodo huérfano</span>
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </>

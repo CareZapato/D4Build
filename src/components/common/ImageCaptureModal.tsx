@@ -6,6 +6,7 @@ import { TagLinkingService } from '../../services/TagLinkingService';
 import { useAppContext } from '../../context/AppContext';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { GeminiService } from '../../services/GeminiService';
+import { OpenAIService } from '../../services/OpenAIService';
 import ImportResultsModal, { ImportResultDetails } from './ImportResultsModal';
 import ImageViewerModal from './ImageViewerModal';
 import EmptyImportWarningModal from './EmptyImportWarningModal';
@@ -53,6 +54,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [showGallery, setShowGallery] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('heroe');
+  
+  // Estados para modal de configuración AI
+  const [showAIConfigModal, setShowAIConfigModal] = useState(false);
+  const [aiServiceToUse, setAiServiceToUse] = useState<'gemini' | 'openai' | null>(null);
+  const [aiConfigPromptType, setAiConfigPromptType] = useState<'personaje' | 'heroe'>('heroe');
+  const [aiConfigClase, setAiConfigClase] = useState('');
+  const [aiConfigPersonajeId, setAiConfigPersonajeId] = useState<string | null>(null);
+  const [aiConfigParagonType, setAiConfigParagonType] = useState<ParagonType>('tablero');
+  const [aiConfigRunaGemaType, setAiConfigRunaGemaType] = useState<'runas' | 'gemas'>('runas');
   const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [embedPromptInImage, setEmbedPromptInImage] = useState(false);
@@ -73,6 +83,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [showJSONViewer, setShowJSONViewer] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null); // URL de imagen seleccionada de galería
   const [selectedGalleryImageBlob, setSelectedGalleryImageBlob] = useState<Blob | null>(null); // Blob de imagen seleccionada
+  
+  // Estados para procesamiento con OpenAI (separado de Gemini)
+  const [openAiProcessing, setOpenAiProcessing] = useState(false);
+  const [openAiProgress, setOpenAiProgress] = useState<'idle' | 'sending' | 'processing' | 'received' | 'saving' | 'done'>('idle');
+  const [openAiExtractedJSON, setOpenAiExtractedJSON] = useState<string>('');
   
   // Estados para modal de resultados de importación
   const [showImportResults, setShowImportResults] = useState(false);
@@ -95,7 +110,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [promptTextExpanded, setPromptTextExpanded] = useState(false); // Toggle texto del prompt en móvil
   const [lastSavedImageName, setLastSavedImageName] = useState<string | null>(null); // Nombre del último PNG guardado
   
-  const GEMINI_API_KEY = 'AIzaSyCUU5YJqZfaXPkOvmvVfizpAfWRLSEb4Lk'; // Idealmente esto debería estar en un .env
+  // 🔑 API Keys desde variables de entorno (.env)
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+  const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -679,10 +696,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     a.click();
   };
 
-  const getPromptForCategory = (): string => {
+  // Obtener prompt con parámetros opcionales para override
+  const getPromptForCategory = (overrideParagonType?: ParagonType, overrideRunaGemaType?: 'runas' | 'gemas'): string => {
     let basePrompt = '';
     const manualCount = parseInt(promptElementCount, 10);
     const parsedManualCount = Number.isFinite(manualCount) ? manualCount : undefined;
+    
+    // Usar valores override o valores del estado
+    const effectiveParagonType = overrideParagonType ?? paragonType;
+    const effectiveRunaGemaType = overrideRunaGemaType ?? runaGemaType;
 
     const buildSummaryForPrompt = (personaje?: any): string => {
       if (!personaje?.build || typeof personaje.build !== 'object') return '';
@@ -723,17 +745,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         break;
       case 'paragon':
         // Usar prompts específicos según tipo (SIN rareza)
-        if (paragonType === 'tablero') {
+        if (effectiveParagonType === 'tablero') {
           basePrompt = ImageExtractionPromptService.generateParagonBoardsPrompt();
-        } else if (paragonType === 'nodo') {
+        } else if (effectiveParagonType === 'nodo') {
           // Prompt genérico que detecta rareza automáticamente
           basePrompt = ImageExtractionPromptService.generateParagonNodesPrompt();
-        } else if (paragonType === 'atributos') {
+        } else if (effectiveParagonType === 'atributos') {
           basePrompt = ImageExtractionPromptService.generateParagonCharacterPrompt();
         }
         break;
       case 'runas':
-        basePrompt = runaGemaType === 'gemas'
+        basePrompt = effectiveRunaGemaType === 'gemas'
           ? ImageExtractionPromptService.generateGemsPrompt()
           : ImageExtractionPromptService.generateRunesPrompt();
         break;
@@ -1084,7 +1106,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     // CASO 1: Target enriquecido + Source primitivo
     // Preservar estructura enriquecida, solo actualizar el valor
     if (isTargetEnriched && isSourcePrimitive) {
-      console.log(`  🔄 Caso 1: Preservando estructura enriquecida, actualizando valor de ${JSON.stringify(target.valor)} a ${source}`);
       return {
         ...target,
         valor: source
@@ -1094,7 +1115,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     // CASO 2: Target primitivo + Source enriquecido
     // Usar la estructura enriquecida completa
     if (isTargetPrimitive && isSourceEnriched) {
-      console.log(`  🔄 Caso 2: Reemplazando valor simple ${target} con estructura enriquecida`);
       return source;
     }
 
@@ -1165,7 +1185,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         incorrect.forEach(wrongName => {
           if (wrongName in section) {
-            console.log(`  🔧 Normalizando campo ${sectionKey}.${wrongName} → ${correct}`);
             
             // Si el campo correcto no existe, usar el valor del incorrecto
             if (correctValue === undefined || correctValue === null) {
@@ -1187,7 +1206,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
     // Mover reduccionDanioJcJ de utilidad a jcj
     if (normalized.utilidad && 'reduccionDanioJcJ' in normalized.utilidad) {
-      console.log('  🔧 Moviendo utilidad.reduccionDanioJcJ → jcj.reduccionDanio');
       if (!normalized.jcj) normalized.jcj = {};
       normalized.jcj.reduccionDanio = normalized.utilidad.reduccionDanioJcJ;
       delete normalized.utilidad.reduccionDanioJcJ;
@@ -1515,6 +1533,33 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Mantener referencia para futura reutilización en normalización de aspectos en build.
   void procesarAspectoEnObjeto;
 
+  /**
+   * Merge especializado para runas/gemas que maneja acumulación de cantidades
+   */
+  const mergeAccumulableItem = (
+    current: any,
+    incoming: any,
+    prefix: 'runa' | 'gema'
+  ): { merged: any; wasAccumulated: boolean } => {
+    // Merge base (información descriptiva)
+    const baseMerged = prefix === 'gema'
+      ? complementarGemaData(current, { ...incoming, id: current.id })
+      : mergeComplementaryData(current, { ...incoming, id: current.id });
+    
+    // Acumular cantidades si existe el campo en_bolsas
+    const currentQuantity = typeof current.en_bolsas === 'number' ? current.en_bolsas : 0;
+    const incomingQuantity = typeof incoming.en_bolsas === 'number' ? incoming.en_bolsas : 1; // Si no especifica, asume 1
+    const wasAccumulated = incomingQuantity > 0;
+    
+    return {
+      merged: {
+        ...baseMerged,
+        en_bolsas: currentQuantity + incomingQuantity
+      },
+      wasAccumulated
+    };
+  };
+
   const upsertCatalogEntity = (
     collection: any[],
     incoming: any,
@@ -1533,25 +1578,33 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     });
 
     if (idx < 0) {
+      // No existe: agregar con cantidad inicial
       const id = incomingId || `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      const merged = { ...normalizedIncoming, id };
+      const quantity = typeof normalizedIncoming.en_bolsas === 'number' 
+        ? normalizedIncoming.en_bolsas 
+        : 1; // Si no especifica cantidad, asume 1
+      const merged = { ...normalizedIncoming, id, en_bolsas: quantity };
       collection.push(merged);
       return { id, status: 'added', merged };
     }
 
     const current = collection[idx];
     
-    // Usar merge especializado para gemas
-    const merged = prefix === 'gema'
-      ? complementarGemaData(current, { ...normalizedIncoming, id: current.id || incomingId })
-      : mergeComplementaryData(current, { ...normalizedIncoming, id: current.id || incomingId });
+    // Merge con acumulación de cantidades
+    const { merged, wasAccumulated } = mergeAccumulableItem(
+      current, 
+      { ...normalizedIncoming, id: current.id || incomingId },
+      prefix
+    );
 
-    if (areEquivalentContent(current, merged)) {
-      return { id: String(current.id), status: 'repeated', merged: current };
+    // Si hubo acumulación o cambios en datos, es 'updated'
+    if (wasAccumulated || !areEquivalentContent(current, merged)) {
+      collection[idx] = merged;
+      return { id: String(merged.id), status: 'updated', merged };
     }
 
-    collection[idx] = merged;
-    return { id: String(merged.id), status: 'updated', merged };
+    // Si no hubo cambios ni acumulación, es 'repeated'
+    return { id: String(current.id), status: 'repeated', merged: current };
   };
 
   const normalizeEquipmentSlot = (value: any): string | null => {
@@ -1838,10 +1891,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           : promptType;
     const effectivePersonajeId = selectedPersonajeId || selectedPersonaje?.id || personajes[0]?.id || null;
     const effectiveClase = selectedClase || selectedPersonaje?.clase || availableClasses[0] || '';
-    console.log('🔵 [handleImportJSON] Iniciando importación...');
-    console.log('📝 [handleImportJSON] Categoría:', effectiveCategory);
-    console.log('👤 [handleImportJSON] Tipo de prompt:', effectivePromptType);
-    console.log('📏 [handleImportJSON] Longitud JSON payload:', jsonPayload.length);
     console.log('🎯 [handleImportJSON] Contexto efectivo:', {
       personajeId: effectivePersonajeId,
       clase: effectiveClase,
@@ -1872,18 +1921,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     
     try {
       // 1. PARSEAR JSON
-      console.log('📦 [handleImportJSON] Parseando JSON...');
       parsedData = JSON.parse(jsonPayload);
-      console.log('✅ [handleImportJSON] JSON parseado correctamente:', parsedData);
       
       // 2. VALIDAR ESTRUCTURA
-      console.log('🔍 [handleImportJSON] Validando estructura del JSON...');
       const validation = validateJSONByCategory(validationCategory, parsedData);
-      console.log('📊 [handleImportJSON] Resultado de validación:', validation);
-      console.log('   - Válido:', validation.isValid);
-      console.log('   - Errores:', validation.errors.length);
-      console.log('   - Advertencias:', validation.warnings.length);
-      console.log('   - Campos detectados:', validation.detectedFields);
       const resultCategory = resolveImportCategory(effectiveCategory, runaGemaEffectiveCategory);
       const targetPersonajeName = personajes.find(p => p.id === effectivePersonajeId)?.nombre || '';
       const resultTargetName = getImportTargetName(
@@ -1922,7 +1963,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       
       if (effectivePromptType === 'heroe') {
         // =============== GUARDAR EN HÉROE ===============
-        console.log('🦸 [handleImportJSON] Modo: Guardar en héroe');
         
         if (!effectiveClase) {
           const errorResult: ImportResultDetails = {
@@ -1941,11 +1981,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
 
         const clase = effectiveClase;
-        console.log('📄 [handleImportJSON] Clase seleccionada:', clase);
         
         switch (effectiveCategory) {
           case 'skills':
-            console.log('⚔️ [handleImportJSON] Importando habilidades...');
             if (data.habilidades_activas || data.habilidades_pasivas) {
               // 🔄 CARGAR habilidades existentes del héroe
               const heroSkills = await WorkspaceService.loadHeroSkills(clase) || { 
@@ -2001,14 +2039,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               });
               
               await WorkspaceService.saveHeroSkills(clase, heroSkills);
-              console.log(`✅ [handleImportJSON] Habilidades guardadas (${itemsImported} nuevas, ${itemsUpdated} actualizadas)`);
               showToast(`✅ ${itemsImported + itemsUpdated} habilidades procesadas en ${clase} (${itemsImported} nuevas, ${itemsUpdated} actualizadas)`, 'success');
               shouldReload = true;
             }
             break;
           
           case 'glifos':
-            console.log('🔮 [handleImportJSON] Importando glifos...');
             if (data.glifos) {
               // 🔄 CARGAR glifos existentes del héroe
               const heroGlyphs = await WorkspaceService.loadHeroGlyphs(clase) || { glifos: [] };
@@ -2036,14 +2072,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               });
               
               await WorkspaceService.saveHeroGlyphs(clase, heroGlyphs);
-              console.log(`✅ [handleImportJSON] Glifos guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
               showToast(`✅ ${itemsImported + itemsUpdated} glifos procesados en ${clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
               shouldReload = true;
             }
             break;
           
           case 'aspectos':
-            console.log('💎 [handleImportJSON] Importando aspectos...');
             if (data.aspectos || data.aspectos_equipados) {
               const aspectsNuevos = data.aspectos || data.aspectos_equipados || [];
               
@@ -2078,7 +2112,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               });
               
               await WorkspaceService.saveHeroAspects(clase, heroAspects);
-              console.log(`✅ [handleImportJSON] Aspectos guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
               showToast(`✅ ${itemsImported + itemsUpdated} aspectos procesados en ${clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
               shouldReload = true;
             }
@@ -2086,7 +2119,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
           case 'runas':
             if (runaGemaEffectiveCategory === 'gemas') {
-              console.log('💠 [handleImportJSON] Importando gemas globales...');
               if (Array.isArray(data.gemas) && data.gemas.length > 0) {
                 const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
                 (data.gemas as any[]).forEach((gema: any) => {
@@ -2111,6 +2143,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     descripcion: gema?.descripcion,
                     nivel_requerido: gema?.nivel_requerido,
                     valor_venta: gema?.valor_venta,
+                    en_bolsas: gema?.en_bolsas,
                     clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
                       ? gema.clasificacion
                       : undefined,
@@ -2132,11 +2165,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
 
                 await WorkspaceService.saveHeroGems('global', globalGems);
-                showToast(`✅ ${itemsImported + itemsUpdated} gemas procesadas (catálogo global)`, 'success');
+                const totalGems = itemsImported + itemsUpdated;
+                const accumulatedMsg = itemsUpdated > 0 ? ` (${itemsUpdated} acumuladas)` : '';
+                showToast(`✅ ${totalGems} gemas procesadas${accumulatedMsg}`, 'success');
                 shouldReload = true;
               }
             } else {
-              console.log('ᚱ [handleImportJSON] Importando runas globales...');
               if (Array.isArray(data.runas) && data.runas.length > 0) {
                 const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
                 (data.runas as any[]).forEach((runa: any) => {
@@ -2173,19 +2207,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
 
                 await WorkspaceService.saveHeroRunes('global', globalRunes);
-                showToast(`✅ ${itemsImported + itemsUpdated} runas procesadas (catálogo global)`, 'success');
+                const totalRunes = itemsImported + itemsUpdated;
+                const accumulatedMsg = itemsUpdated > 0 ? ` (${itemsUpdated} acumuladas)` : '';
+                showToast(`✅ ${totalRunes} runas procesadas${accumulatedMsg}`, 'success');
                 shouldReload = true;
               }
             }
             break;
 
           case 'build':
-            console.log('🛡️ [handleImportJSON] Build en modo héroe no aplica (usa modo personaje).');
             showToast('ℹ️ El equipamiento/build se importa en modo Personaje.', 'info');
             break;
           
           case 'estadisticas':
-            console.log('📊 [handleImportJSON] Importando estadísticas de héroe...');
             const currentHeroStats = await WorkspaceService.loadHeroStats(clase);
             const incomingHeroStats = data?.estadisticas && typeof data.estadisticas === 'object' ? data.estadisticas : data;
             const normalizedIncomingHeroStats = normalizeStatsFieldNames(incomingHeroStats || {});
@@ -2200,14 +2234,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             fieldsAdded.push(...heroStatsEntries.map(entry => `${entry.section}.${entry.name}`));
             
             await WorkspaceService.saveHeroStats(clase, normalizedIncomingHeroStats);
-            console.log('✅ [handleImportJSON] Estadísticas guardadas');
             showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
             shouldReload = true;
             break;
           
           case 'paragon':
-            console.log('⬡ [handleImportJSON] Importando datos de Paragon a héroe...');
-            console.log('   - Tipo:', paragonType);
             
             // Determinar qué tipo de dato importar según paragonType
             if (paragonType === 'tablero') {
@@ -2237,7 +2268,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
                 
                 await WorkspaceService.saveParagonBoards(clase, heroBoards);
-                console.log(`✅ [handleImportJSON] Tableros guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
                 showToast(`✅ ${itemsImported + itemsUpdated} tableros procesados en ${clase}`, 'success');
                 shouldReload = true;
               }
@@ -2288,7 +2318,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   // ⚡ NUEVA LÓGICA v0.5.4: Detectar y procesar zócalos de glifo
                   // Si el nodo es un zócalo de glifo con data completa del glifo, enlazar con glifo existente
                   if (node.glifo_info && typeof node.glifo_info === 'object') {
-                    console.log(`🔮 [handleImportJSON][Glyph Socket] Zócalo de glifo detectado: ${node.nombre}`);
                     
                     try {
                       // Cargar catálogo de glifos del héroe
@@ -2302,7 +2331,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       
                       if (existingGlyphIndex >= 0) {
                         // Glifo existe: Actualizar solo detalles[] con estado activo actual
-                        console.log(`   ✓ Glifo "${glyphName}" ya existe en catálogo. Actualizando detalles...`);
                         glyphId = heroGlyphs.glifos[existingGlyphIndex].id || `glifo_${glyphName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
                         
                         // Actualizar detalles del glifo con el estado activo actual
@@ -2311,11 +2339,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                             ...heroGlyphs.glifos[existingGlyphIndex],
                             detalles: node.glifo_info.detalles // Actualizar con estado activo actual
                           };
-                          console.log(`   ✓ Detalles actualizados con ${node.glifo_info.detalles.length} efectos`);
                         }
                       } else {
                         // Glifo NO existe: Crear en catálogo
-                        console.log(`   + Glifo "${glyphName}" no existe. Creando en catálogo...`);
                         glyphId = node.glifo_info.id || `glifo_${glyphName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
                         
                         const newGlyph = {
@@ -2324,17 +2350,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         };
                         
                         heroGlyphs.glifos.push(newGlyph);
-                        console.log(`   ✓ Glifo creado con ID: ${glyphId}`);
                       }
                       
                       // Guardar catálogo de glifos actualizado
                       await WorkspaceService.saveHeroGlyphs(clase, heroGlyphs);
-                      console.log(`   ✅ Catálogo de glifos guardado`);
                       
                       // Reemplazar data completa del glifo en el zócalo por solo la referencia
                       node.glifo_equipado_id = glyphId;
                       delete node.glifo_info; // Eliminar data completa, solo mantener referencia
-                      console.log(`   ✓ Zócalo ahora enlaza con glifo: ${glyphId}`);
                       
                     } catch (error) {
                       console.error(`   ❌ Error procesando glifo en zócalo:`, error);
@@ -2399,7 +2422,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 }
                 
                 await WorkspaceService.saveParagonNodes(clase, heroNodes);
-                console.log(`✅ [handleImportJSON] Nodos Paragon guardados (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
                 showToast(`✅ ${itemsImported + itemsUpdated} nodos procesados en ${clase}`, 'success');
                 shouldReload = true;
               }
@@ -2461,7 +2483,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         
       } else {
         // =============== GUARDAR EN PERSONAJE ===============
-        console.log('🎮 [handleImportJSON] Modo: Guardar en personaje');
         
         if (!effectivePersonajeId) {
           const errorResult: ImportResultDetails = {
@@ -2495,12 +2516,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           setImporting(false);
           return errorResult;
         }
-        
-        console.log('👤 [handleImportJSON] Personaje seleccionado:', personaje.nombre);
 
         switch (effectiveCategory) {
           case 'skills': {
-            console.log('⚔️ [handleImportJSON] Importando habilidades a personaje...');
             if (data.habilidades_activas || data.habilidades_pasivas) {
               const newActivas: any[] = data.habilidades_activas || [];
               const newPasivas: any[] = data.habilidades_pasivas || [];
@@ -2612,14 +2630,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
-              console.log('✅ [handleImportJSON] Habilidades guardadas en personaje');
               showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades guardadas en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
             break;
           }
           case 'glifos': {
-            console.log('🔮 [handleImportJSON] Importando glifos a personaje...');
             if (data.glifos) {
               // 1. Guardar en héroe
               const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase) || { glifos: [] };
@@ -2677,14 +2693,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
-              console.log('✅ [handleImportJSON] Glifos guardados en personaje');
               showToast(`✅ ${nuevosRefs.length} glifos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
             break;
           }
           case 'aspectos': {
-            console.log('💎 [handleImportJSON] Importando aspectos a personaje...');
             const aspectosData: any[] = data.aspectos_equipados || data.aspectos || [];
             if (aspectosData.length > 0) {
               const { tagMap } = await TagLinkingService.processAndLinkAllTags(
@@ -2813,7 +2827,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
               syncUpdatedPersonajeInContext(updatedPersonaje);
-              console.log('✅ [handleImportJSON] Aspectos guardados en personaje');
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
@@ -2821,7 +2834,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           }
           case 'runas': {
             if (runaGemaEffectiveCategory === 'gemas') {
-              console.log('💠 [handleImportJSON] Importando gemas (catálogo global)...');
               const gemasData: any[] = data.gemas || [];
               if (gemasData.length > 0) {
                 const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
@@ -2848,6 +2860,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     descripcion: gema?.descripcion,
                     nivel_requerido: gema?.nivel_requerido,
                     valor_venta: gema?.valor_venta,
+                    en_bolsas: gema?.en_bolsas,
                     clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
                       ? gema.clasificacion
                       : undefined,
@@ -2873,7 +2886,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 shouldReload = true;
               }
             } else {
-              console.log('ᚱ [handleImportJSON] Importando runas a personaje (catálogo + refs)...');
               const runasData: any[] = data.runas || [];
               if (runasData.length > 0) {
                 const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
@@ -2941,7 +2953,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             break;
           }
           case 'build': {
-            console.log('🛡️ [handleImportJSON] Importando build/equipamiento a personaje...');
             const buildData = (data.build && typeof data.build === 'object') ? data.build : data;
             const rawPieces = Array.isArray(buildData.piezas)
               ? buildData.piezas
@@ -3039,6 +3050,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       descripcion: engarce?.descripcion,
                       nivel_requerido: engarce?.nivel_requerido,
                       valor_venta: engarce?.valor_venta,
+                      en_bolsas: engarce?.en_bolsas,
                       clasificacion: engarce?.clasificacion && typeof engarce.clasificacion === 'object'
                         ? engarce.clasificacion
                         : undefined,
@@ -3234,7 +3246,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             break;
           }
           case 'estadisticas': {
-            console.log('📊 [handleImportJSON] Importando estadísticas a personaje...');
             // Normalizar: soporta formato V1 (flat con nivel_paragon en raíz) y
             // V2 (objeto con clave "estadisticas" que envuelve las secciones).
             // nivel_paragon pertenece a Personaje, no a Estadisticas.
@@ -3296,20 +3307,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             if (parsedNivel !== undefined) fieldsAdded.push('nivel');
             if (parsedNivelParagon !== undefined) fieldsAdded.push('nivel_paragon');
 
-            console.log('📦 [handleImportJSON] Secciones de estadísticas a guardar:', Object.keys(statsToSave));
-            console.log('🎯 [handleImportJSON] Nivel:', parsedNivel, '| Nivel Paragon:', parsedNivelParagon);
-
             // CRÍTICO: Leer personaje del disco y hacer DEEP MERGE de estadísticas
             const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
             const basePersonaje = personajeFromDisk || personaje;
             
             // 🔧 NORMALIZAR ambos objetos antes del merge (base y nuevos)
-            console.log('🔧 [handleImportJSON] Normalizando nombres de campos...');
             const normalizedBase = normalizeStatsFieldNames(basePersonaje.estadisticas || {});
             const normalizedNew = normalizeStatsFieldNames(statsToSave);
-            
-            console.log('📊 [handleImportJSON] Estadísticas BASE (normalizadas) antes del merge:', JSON.stringify(normalizedBase, null, 2));
-            console.log('📦 [handleImportJSON] Estadísticas NUEVAS (normalizadas) a mergear:', JSON.stringify(normalizedNew, null, 2));
             
             // ✅ DEEP MERGE: Preserva TODOS los campos existentes en cada sección
             // Antes: { ...basePersonaje.estadisticas, ...statsToSave } → SHALLOW MERGE (perdía datos)
@@ -3326,8 +3330,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               updatedItemsList.push(...statEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
             }
             
-            console.log('✅ [handleImportJSON] Estadísticas MERGEADAS (resultado final):', JSON.stringify(mergedEstadisticas, null, 2));
-            
             const updatedPersonaje = {
               ...basePersonaje,
               estadisticas: mergedEstadisticas,
@@ -3338,15 +3340,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             
             await WorkspaceService.savePersonajeMerge(updatedPersonaje);
             syncUpdatedPersonajeInContext(updatedPersonaje);
-            console.log('✅ [handleImportJSON] Estadísticas guardadas en personaje');
-            console.log('📊 [handleImportJSON] Estadísticas finales:', updatedPersonaje.estadisticas);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
             shouldReload = true;
             break;
           }
           case 'paragon': {
-            console.log('⬡ [handleImportJSON] Importando datos de Paragon a personaje...');
-            console.log('   - Tipo:', paragonType);
             
             // Cargar personaje del disco para preservar otros datos
             const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
@@ -3386,7 +3384,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
                 
                 await WorkspaceService.saveParagonBoards(personaje.clase, heroBoards);
-                console.log(`✅ [handleImportJSON] Tableros guardados en héroe ${personaje.clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
                 
                 // 2️⃣ CREAR REFERENCIAS EN PERSONAJE
                 const newRefs = tablerosEquipados.map((tablero: any, index: number) => {
@@ -3404,7 +3401,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 
                 // Auto-enlazar nodos huérfanos a tableros recién agregados
                 if (updatedParagonRefs.nodos_huerfanos && updatedParagonRefs.nodos_huerfanos.length > 0) {
-                  console.log(`🔗 Intentando enlazar ${updatedParagonRefs.nodos_huerfanos.length} nodos huérfanos...`);
                   const nodosEnlazados: string[] = [];
                   
                   updatedParagonRefs.nodos_huerfanos = updatedParagonRefs.nodos_huerfanos.filter((huerfano: any) => {
@@ -3414,7 +3410,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     
                     if (tableroContenedor) {
                       nodosEnlazados.push(huerfano.nodo_id);
-                      console.log(`✅ Enlazado: ${huerfano.nodo_id} → ${tableroContenedor.tablero_id}`);
                       return false; // Remover de huérfanos
                     }
                     return true; // Mantener como huérfano
@@ -3502,13 +3497,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
                 
                 await WorkspaceService.saveParagonNodes(personaje.clase, heroNodes);
-                console.log(`✅ [handleImportJSON] Nodos guardados en héroe ${personaje.clase} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`);
                 
                 // 2️⃣ CREAR REFERENCIAS EN PERSONAJE (con nodos huérfanos si no hay tableros)
                 // Verificar si hay tableros para asignar estos nodos
                 if (!updatedParagonRefs.tableros_equipados || updatedParagonRefs.tableros_equipados.length === 0) {
                   // No hay tableros → Guardar como nodos huérfanos
-                  console.log('⚠️ No hay tableros equipados. Guardando nodos como huérfanos.');
                   
                   updatedParagonRefs.nodos_huerfanos = updatedParagonRefs.nodos_huerfanos || [];
                   
@@ -3587,7 +3580,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             
             await WorkspaceService.savePersonajeMerge(updatedPersonaje);
             syncUpdatedPersonajeInContext(updatedPersonaje);
-            console.log('✅ [handleImportJSON] Datos de Paragon guardados en personaje (modelo de referencias v0.5.1)');
             showToast(`✅ Datos de Paragon guardados en ${personaje.nombre} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
             shouldReload = true;
             break;
@@ -3713,7 +3705,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Ejecutar un JSON individual desde la galería
   const executeImageJSON = async (imageName: string) => {
     try {
-      console.log(`▶️ Ejecutando JSON de imagen: ${imageName}`);
       console.log('🧭 [executeImageJSON] Estado previo:', {
         selectedCategory,
         promptType,
@@ -3746,7 +3737,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         showToast(`❌ No se encontró o no se pudo leer el JSON asociado a ${imageName}`, 'error');
         return;
       }
-      console.log('📄 [executeImageJSON] JSON cargado, longitud:', jsonTextFromFile.length);
       
       // Temporal: establecer el JSON y ejecutar importación
       const originalJson = jsonText;
@@ -3797,7 +3787,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       for (const cat of categories) {
         const entries = (await ImageService.listGalleryEntries(cat)).filter(entry => entry.hasJSON);
         allEntries.push(...entries.map(entry => ({ entry, cat })));
-        console.log(`📦 [executeBatchJSON] ${cat}: ${entries.length} JSON(s) encontrados`);
       }
 
       if (allEntries.length === 0) {
@@ -3866,7 +3855,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
 
         setJsonText(jsonTextFromFile);
-        console.log('▶️ [executeBatchJSON] Importando:', { categoria: cat, archivo: entry.nombre, size: jsonTextFromFile.length });
         const result = await handleImportJSON({ jsonOverride: jsonTextFromFile, skipAutoSave: true });
         executionResults.push({ cat, entryName: entry.nombre, result });
 
@@ -3992,9 +3980,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  // Procesar con IA (Gemini)
-  const processWithAI = async () => {
-    console.log('🚀 [processWithAI] Iniciando procesamiento con IA...');
+  // Procesar con IA (Gemini) - ahora acepta configuración opcional
+  const processWithAI = async (config?: {
+    paragonType?: ParagonType;
+    runaGemaType?: 'runas' | 'gemas';
+  }) => {
     
     // Determinar qué imagen usar (galería seleccionada o compuesta)
     const imageToProcess = selectedGalleryImage || composedImageUrl;
@@ -4008,15 +3998,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       tipo: selectedGalleryImage ? 'galería' : 'compuesta',
       url: imageToProcess.substring(0, 50) + '...'
     });
-
-    // Validar destino únicamente cuando la categoría no es global
-    if (requiresPersonajeSelection && !effectivePersonajeIdForActions) {
-      showToast('❌ Selecciona un personaje primero', 'error');
-      return;
-    }
-    if (requiresClaseSelection && !effectiveClaseForActions) {
-      showToast('❌ Selecciona una clase primero', 'error');
-      return;
+    
+    if (config) {
     }
 
     setAiProcessing(true);
@@ -4031,18 +4014,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       let imageBlob: Blob;
       if (selectedGalleryImageBlob) {
         imageBlob = selectedGalleryImageBlob;
-        console.log('📦 [processWithAI] Usando blob de galería:', imageBlob.size, 'bytes');
       } else {
         const response = await fetch(imageToProcess);
         imageBlob = await response.blob();
-        console.log('📦 [processWithAI] Blob descargado:', imageBlob.size, 'bytes');
       }
 
       // Obtener el prompt
-      const prompt = getPromptForCategory();
-      console.log('📝 [processWithAI] Prompt generado para categoría:', selectedCategory);
-      console.log('📄 [processWithAI] Longitud del prompt:', prompt.length, 'caracteres');
-      console.log('📋 [processWithAI] Prompt completo:\n', prompt);
+      const prompt = getPromptForCategory(config?.paragonType, config?.runaGemaType);
 
       // 2. Procesando con IA
       setAiProgress('processing');
@@ -4050,7 +4028,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
       // ✨ NUEVA INTEGRACIÓN CON FALLBACK AUTOMÁTICO
       // El servicio intentará múltiples modelos hasta que uno funcione
-      console.log('🤖 [processWithAI] Llamando a GeminiService.processAndExtractJSON...');
       const result = await GeminiService.processAndExtractJSON(
         {
           image: imageBlob,
@@ -4080,19 +4057,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
 
       // Mostrar qué modelo funcionó
-      console.log('✅ [processWithAI] Análisis exitoso con modelo:', result.modelUsed);
       showToast(`✅ Procesado con ${result.modelUsed}`, 'success');
 
       // 3. JSON obtenido
       setAiProgress('received');
       setAiExtractedJSON(result.json);
-      console.log('📦 [processWithAI] JSON recibido de Gemini:\n', result.json);
 
       // Validar que sea JSON válido
-      let parsedJSON: any;
       try {
-        parsedJSON = JSON.parse(result.json);
-        console.log('✅ [processWithAI] JSON parseado correctamente:', parsedJSON);
+        JSON.parse(result.json);
       } catch (parseError) {
         console.error('❌ [processWithAI] Error parseando JSON:', parseError);
         throw new Error('La respuesta de Gemini no contiene JSON válido');
@@ -4109,9 +4082,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Ejecutar la importación automáticamente y capturar el resultado
-      console.log('💾 [processWithAI] Ejecutando handleImportJSON...');
       const importResult = await handleImportJSON();
-      console.log('📊 [processWithAI] Resultado de importación:', importResult);
 
       // 5. Mostrar modal con resultados
       showImportResultsModal(importResult);
@@ -4159,14 +4130,185 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  // ============================================================================
+  // 🚀 PROCESAR CON OPENAI (PARALELO A GEMINI)
+  // ============================================================================
+  // Procesar con OpenAI - ahora acepta configuración opcional
+  const processWithOpenAI = async (config?: {
+    paragonType?: ParagonType;
+    runaGemaType?: 'runas' | 'gemas';
+  }) => {
+    
+    // Determinar qué imagen usar (galería seleccionada o compuesta)
+    const imageToProcess = selectedGalleryImage || composedImageUrl;
+    
+    if (!imageToProcess) {
+      showToast('❌ No hay imagen para procesar', 'error');
+      return;
+    }
+    
+    console.log('🖼️ [processWithOpenAI] Imagen a procesar:', {
+      tipo: selectedGalleryImage ? 'galería' : 'compuesta',
+      url: imageToProcess.substring(0, 50) + '...'
+    });
+    
+    if (config) {
+    }
+
+    setOpenAiProcessing(true);
+    setOpenAiProgress('sending');
+    setOpenAiExtractedJSON('');
+
+    try {
+      // 1. Input entregado, procesando con IA
+      showToast('🤖 Enviando imagen y prompt a OpenAI...', 'info');
+
+      // Obtener el blob de la imagen (galería o compuesta)
+      let imageBlob: Blob;
+      if (selectedGalleryImageBlob) {
+        imageBlob = selectedGalleryImageBlob;
+      } else {
+        const response = await fetch(imageToProcess);
+        imageBlob = await response.blob();
+      }
+
+      // Obtener el prompt (usando versión simplificada para OpenAI si es nodos de Paragon)
+      let prompt: string;
+      const effectiveParagonType = config?.paragonType ?? paragonType;
+      
+      if (selectedCategory === 'paragon' && effectiveParagonType === 'nodo') {
+        // Usar prompt simplificado para OpenAI (evita filtros de contenido)
+        prompt = ImageExtractionPromptService.generateParagonNodesPromptForOpenAI();
+      } else {
+        // Usar prompt normal
+        prompt = getPromptForCategory(config?.paragonType, config?.runaGemaType);
+      }
+
+      // 2. Procesando con IA
+      setOpenAiProgress('processing');
+      showToast('⚡ OpenAI GPT-4o está analizando la imagen...', 'info');
+
+      // ✨ LLAMADA A OPENAI SERVICE
+      const result = await OpenAIService.processAndExtractJSON(
+        {
+          image: imageBlob,
+          prompt: prompt,
+          temperature: 0.1, // Máxima precisión para extracción de datos
+          maxTokens: 4096,
+          billingMetadata: {
+            category: selectedCategory,
+            tipo: selectedCategory === 'paragon' ? effectiveParagonType : (selectedCategory === 'runas' ? runaGemaType : undefined),
+            destination: promptType,
+            clase: effectiveClaseForActions,
+            personaje: effectivePersonajeIdForActions ? personajes.find(p => p.id === effectivePersonajeIdForActions)?.nombre : undefined
+          }
+        },
+        {
+          apiKey: OPENAI_API_KEY,
+          model: 'gpt-4o', // Modelo específico
+          maxTokens: 4096
+        }
+      );
+
+      console.log('📊 [processWithOpenAI] Resultado de OpenAI:', {
+        success: result.success,
+        modelUsed: result.modelUsed,
+        hasJson: !!result.json,
+        jsonLength: result.json?.length || 0,
+        tokensUsed: result.tokensUsed,
+        error: result.error
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al procesar con OpenAI');
+      }
+
+      // Mostrar qué modelo funcionó
+      showToast(`✅ Procesado con ${result.modelUsed}`, 'success');
+
+      // 3. JSON obtenido
+      setOpenAiProgress('received');
+      setOpenAiExtractedJSON(result.json);
+
+      // Validar que sea JSON válido
+      try {
+        JSON.parse(result.json);
+      } catch (parseError) {
+        console.error('❌ [processWithOpenAI] Error parseando JSON:', parseError);
+        throw new Error('La respuesta de OpenAI no contiene JSON válido');
+      }
+
+      // 4. Guardar automáticamente
+      setOpenAiProgress('saving');
+      showToast('💾 Validando y guardando datos automáticamente...', 'info');
+
+      // Usar la función existente handleImportJSON pero con el JSON de la IA
+      setJsonText(result.json);
+      
+      // Esperar un momento para que se actualice el estado
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Ejecutar la importación automáticamente y capturar el resultado
+      const importResult = await handleImportJSON();
+
+      // 5. Mostrar modal con resultados
+      showImportResultsModal(importResult);
+
+      // 6. Proceso completado
+      setOpenAiProgress('done');
+      
+      // Si fue exitoso, mostrar toast de éxito, sino el modal ya muestra el error
+      if (importResult.success) {
+        showToast('🎉 ¡Proceso completado exitosamente con OpenAI!', 'success');
+      }
+
+      // Resetear después de 3 segundos
+      setTimeout(() => {
+        setOpenAiProgress('idle');
+        setOpenAiProcessing(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error('❌ [processWithOpenAI] Error:', error);
+      console.error('❌ [processWithOpenAI] Stack:', error instanceof Error ? error.stack : 'N/A');
+      
+      // Mostrar modal de error incluso si no hay resultado de importación
+      const errorResult: ImportResultDetails = {
+        success: false,
+        category: resolveImportCategory(selectedCategory, runaGemaType),
+        promptType,
+        targetName: getImportTargetName(
+          selectedCategory,
+          promptType,
+          selectedClase,
+          personajes.find(p => p.id === selectedPersonajeId)?.nombre || '',
+          runaGemaType
+        ),
+        validationErrors: [],
+        rawJSON: openAiExtractedJSON || '',
+        errorMessage: error instanceof Error ? error.message : 'Error desconocido al procesar con OpenAI'
+      };
+      
+      showImportResultsModal(errorResult);
+      
+      showToast(`❌ ${error instanceof Error ? error.message : 'Error desconocido'}`, 'error');
+      setOpenAiProgress('idle');
+      setOpenAiProcessing(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="card max-w-7xl w-full max-h-[90vh] overflow-y-auto relative">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/90" onClick={onClose}></div>
+      
+      {/* Modal Content */}
+      <div className="card max-w-7xl w-full max-h-[90vh] overflow-y-auto relative z-[1]">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className={`absolute top-2 right-2 sm:top-4 sm:right-4 z-50 p-2 sm:p-4 rounded-lg shadow-lg flex items-center gap-2 sm:gap-3 animate-slide-in-right ${
+          <div className={`absolute top-2 right-2 sm:top-4 sm:right-4 z-[100] p-2 sm:p-4 rounded-lg shadow-lg flex items-center gap-2 sm:gap-3 animate-slide-in-right ${
             toastType === 'success' ? 'bg-green-600 text-white' :
             toastType === 'error' ? 'bg-red-600 text-white' :
             'bg-blue-600 text-white'
@@ -4182,7 +4324,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         )}
 
         {/* Header compacto: Categorías + Botones Captura/Galería + Cerrar */}
-        <div className="flex flex-wrap items-center justify-between mb-3 gap-2 sticky top-0 bg-d4-surface pb-2 border-b border-d4-border z-10">
+        <div className="flex flex-wrap items-center justify-between mb-3 gap-2 sticky top-0 bg-d4-surface pb-2 border-b border-d4-border z-[50]">
           {/* Categorías con iconos */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <label className="text-xs font-semibold text-d4-text whitespace-nowrap">Categoría:</label>
@@ -4262,7 +4404,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 {showPromptPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
               {/* Tooltip de instrucciones */}
-              <div className="absolute right-0 top-full mt-2 w-80 bg-d4-surface border-2 border-d4-accent rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              <div className="absolute right-0 top-full mt-2 w-80 bg-d4-surface border-2 border-d4-accent rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60]">
                 <p className="text-xs font-bold text-d4-accent mb-1.5">
                   📸 Instrucciones de Captura:
                 </p>
@@ -4294,7 +4436,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 />
               </div>
               {/* Tooltip con recomendación completa */}
-              <div className="absolute right-0 top-full mt-2 w-64 bg-d4-surface border-2 border-cyan-500 rounded-lg p-2.5 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-d4-surface border-2 border-cyan-500 rounded-lg p-2.5 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60]">
                 <p className="text-xs font-bold text-cyan-300 mb-1.5">
                   💡 Recomendación para {CATEGORIES.find(c => c.value === selectedCategory)?.label}:
                 </p>
@@ -4378,48 +4520,48 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     <div className="absolute top-2 left-2 flex gap-2 z-10">
                       <button
                         onClick={() => setCaptureMode('new')}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'new'
                             ? 'bg-gradient-to-r from-green-600 to-green-700 text-white scale-105'
                             : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
                         }`}
                         title="Nuevo Elemento - Agrega a la derecha (horizontal)"
                       >
-                        <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => setCaptureMode('continue')}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'continue'
                             ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
                             : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
                         }`}
                         title="Completar - Agrega abajo (vertical)"
                       >
-                        <ArrowDown className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={copyLastSavedImage}
                         disabled={!lastSavedImageUrl}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           lastSavedImageUrl
                             ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
                             : 'bg-gray-600/90 text-gray-400 cursor-not-allowed backdrop-blur-sm'
                         }`}
                         title={lastSavedImageUrl ? 'Copiar última imagen guardada para pegarla' : 'No hay imagen guardada en esta categoría'}
                       >
-                        <Copy className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => setEmbedPromptInImage(!embedPromptInImage)}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           embedPromptInImage
                             ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white scale-105'
                             : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
                         }`}
                         title={embedPromptInImage ? 'Prompt embebido en imagen (activo)' : 'Embeber prompt en imagen (inactivo)'}
                       >
-                        <FileText className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     </div>
                     
@@ -4431,49 +4573,48 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     <div className="absolute top-2 left-2 flex gap-2 z-10">
                       <button
                         onClick={() => setCaptureMode('new')}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'new'
                             ? 'bg-gradient-to-r from-green-600 to-green-700 text-white scale-105'
                             : 'bg-d4-surface text-d4-text hover:bg-d4-border'
                         }`}
                         title="Nuevo Elemento - Agrega a la derecha (horizontal)"
                       >
-                        <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => setCaptureMode('continue')}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'continue'
                             ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
                             : 'bg-d4-surface text-d4-text hover:bg-d4-border'
                         }`}
                         title="Completar - Agrega abajo (vertical)"
                       >
-                        <ArrowDown className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={copyLastSavedImage}
                         disabled={!lastSavedImageUrl}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           lastSavedImageUrl
                             ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
                             : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                         }`}
                         title={lastSavedImageUrl ? 'Copiar última imagen guardada para pegarla' : 'No hay imagen guardada en esta categoría'}
                       >
-                        <Copy className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => setEmbedPromptInImage(!embedPromptInImage)}
-                        className={`group/btn p-1 sm:p-2 rounded-lg font-bold transition-all shadow-lg ${
+                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           embedPromptInImage
                             ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white scale-105'
                             : 'bg-d4-surface text-d4-text hover:bg-d4-border'
                         }`}
                         title={embedPromptInImage ? 'Prompt embebido en imagen (activo)' : 'Embeber prompt en imagen (inactivo)'}
                       >
-                        <FileText className="w-5 h-5" />
-                        <span className="hidden lg:inline ml-2 text-xs">Prompt</span>
+                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     </div>
                     
@@ -4491,33 +4632,37 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                 {/* Opciones de guardado */}
                 <div className="mt-4 space-y-3">
-                  {/* Botones de acción */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* Botones de acción - Diseño compacto y distribuido */}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {/* Guardar */}
                     <button 
                       onClick={saveComposedImage} 
                       disabled={!composedImageUrl}
-                      className={`p-2.5 rounded-lg font-semibold transition-all ${
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title="Guardar imagen en la galería"
                     >
-                      <Save className="w-4 h-4" />
-                      <span className="hidden md:inline ml-1.5 text-xs">Guardar</span>
+                      <Save className="w-5 h-5" />
                     </button>
+                    
+                    {/* Descargar */}
                     <button 
                       onClick={downloadComposedImage} 
                       disabled={!composedImageUrl}
-                      className={`p-2.5 rounded-lg font-semibold transition-all ${
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title="Descargar imagen a tu PC"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="w-5 h-5" />
                     </button>
+                    
+                    {/* Copiar */}
                     <button 
                       onClick={async () => {
                         if (!composedImageUrl) return;
@@ -4534,15 +4679,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!composedImageUrl}
-                      className={`p-2.5 rounded-lg font-semibold transition-all ${
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-purple-600 hover:bg-purple-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
-                      title="Copiar imagen al portapapeles para pegarla en el chat de IA"
+                      title="Copiar imagen al portapapeles"
                     >
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-5 h-5" />
                     </button>
+                    
+                    {/* Eliminar */}
                     <button 
                       onClick={() => {
                         if (composedImageUrl) {
@@ -4552,48 +4699,109 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!composedImageUrl}
-                      className={`p-2.5 rounded-lg font-semibold transition-all ${
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-red-600 hover:bg-red-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
-                      title="Eliminar la imagen compuesta"
+                      title="Eliminar imagen compuesta"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-5 h-5" />
                     </button>
                     
-                    {/* Botón Procesar con IA */}
+                    {/* Gemini AI */}
                     <button 
-                      onClick={processWithAI}
-                      disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing || !showPromptPanel || !hasEffectiveTargetSelection}
-                      className={`p-2.5 rounded-lg font-semibold transition-all ${
-                        (composedImageUrl || selectedGalleryImage) && !aiProcessing && showPromptPanel && hasEffectiveTargetSelection
+                      onClick={() => {
+                        if (composedImageUrl || selectedGalleryImage) {
+                          // Inicializar valores del modal con estados actuales
+                          setAiConfigPromptType(promptType);
+                          setAiConfigClase(selectedClase);
+                          setAiConfigPersonajeId(selectedPersonajeId);
+                          setAiConfigParagonType(paragonType);
+                          setAiConfigRunaGemaType(runaGemaType);
+                          setAiServiceToUse('gemini');
+                          setShowAIConfigModal(true);
+                        }
+                      }}
+                      disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing}
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                        (composedImageUrl || selectedGalleryImage) && !aiProcessing
                           ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
-                      title={
-                        !showPromptPanel 
-                          ? 'Abre el panel de Prompt primero' 
-                          : (requiresPersonajeSelection && !effectivePersonajeIdForActions)
-                            ? 'Selecciona un personaje en el panel de Prompt'
-                            : (requiresClaseSelection && !effectiveClaseForActions)
-                              ? 'Selecciona una clase en el panel de Prompt'
-                              : 'Procesar con IA y Guardar'
-                      }
+                      title="Configurar y procesar con Gemini AI"
                     >
                       {aiProcessing ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                       ) : (
-                        <Zap className="w-4 h-4" />
+                        <Zap className="w-5 h-5" />
+                      )}
+                    </button>
+                    
+                    {/* OpenAI GPT-4o */}
+                    <button 
+                      onClick={() => {
+                        if (composedImageUrl || selectedGalleryImage) {
+                          // Inicializar valores del modal con estados actuales
+                          setAiConfigPromptType(promptType);
+                          setAiConfigClase(selectedClase);
+                          setAiConfigPersonajeId(selectedPersonajeId);
+                          setAiConfigParagonType(paragonType);
+                          setAiConfigRunaGemaType(runaGemaType);
+                          setAiServiceToUse('openai');
+                          setShowAIConfigModal(true);
+                        }
+                      }}
+                      disabled={!(composedImageUrl || selectedGalleryImage) || openAiProcessing}
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center relative ${
+                        (composedImageUrl || selectedGalleryImage) && !openAiProcessing
+                          ? 'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-600 hover:from-teal-500 hover:via-teal-600 hover:to-emerald-700 text-white shadow-lg'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                      title="Configurar y procesar con OpenAI GPT-4o"
+                    >
+                      {openAiProcessing ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        <Sparkles className="w-5 h-5" />
                       )}
                     </button>
                   </div>
+                  
+                  {/* Alerta de API Key no configurada */}
+                  {OPENAI_API_KEY.startsWith('TU_API_KEY') && (
+                    <div className="mt-2 bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-yellow-300 mb-1">
+                            ⚠️ OpenAI API Key no configurada
+                          </p>
+                          <p className="text-xs text-yellow-200/80 mb-2">
+                            El botón de OpenAI no funcionará hasta que configures tu API key.
+                          </p>
+                          <div className="text-xs text-yellow-100/70 space-y-1">
+                            <p><strong>Cómo obtenerla:</strong></p>
+                            <ol className="list-decimal list-inside ml-2 space-y-0.5">
+                              <li>Ve a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-yellow-300 underline hover:text-yellow-200">platform.openai.com/api-keys</a></li>
+                              <li>Haz clic en "Create new secret key"</li>
+                              <li>Copia la key (solo se muestra una vez)</li>
+                              <li>Pégala en <code className="bg-black/30 px-1 rounded">ImageCaptureModal.tsx</code> línea ~105</li>
+                            </ol>
+                            <p className="mt-1.5 text-yellow-300 text-[10px]">
+                              📄 Ver guía completa: <code className="bg-black/30 px-1 rounded">API-KEYS-SETUP.md</code>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Viewer del JSON (debajo de los botones si existe) */}
                   {showJSONViewer && aiExtractedJSON && (
                     <div className="mt-2 bg-d4-surface rounded-lg p-3 border border-blue-500">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-blue-300">JSON Obtenido:</span>
+                        <span className="text-xs font-semibold text-blue-300">JSON Obtenido (Gemini):</span>
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
@@ -4617,6 +4825,108 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           {aiExtractedJSON}
                         </pre>
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Barra de Progreso de OpenAI */}
+                  {openAiProcessing && openAiProgress !== 'idle' && (
+                    <div className="mt-2 bg-gradient-to-r from-teal-900/40 to-emerald-900/40 rounded-lg p-3 border border-teal-500/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-4 h-4 text-teal-400 animate-pulse" />
+                        <span className="text-xs font-semibold text-teal-300">Procesando con OpenAI GPT-4o</span>
+                      </div>
+                      
+                      {/* Barra de progreso visual */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex-1 h-2 bg-black/50 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-500 ${
+                              openAiProgress === 'done' ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                              'bg-gradient-to-r from-teal-500 to-emerald-500'
+                            }`}
+                            style={{
+                              width: 
+                                openAiProgress === 'sending' ? '20%' :
+                                openAiProgress === 'processing' ? '50%' :
+                                openAiProgress === 'received' ? '70%' :
+                                openAiProgress === 'saving' ? '90%' :
+                                openAiProgress === 'done' ? '100%' :
+                                '0%'
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-teal-400 font-mono whitespace-nowrap">
+                          {
+                            openAiProgress === 'sending' ? '20%' :
+                            openAiProgress === 'processing' ? '50%' :
+                            openAiProgress === 'received' ? '70%' :
+                            openAiProgress === 'saving' ? '90%' :
+                            openAiProgress === 'done' ? '100%' :
+                            '0%'
+                          }
+                        </span>
+                      </div>
+                      
+                      {/* Estados del progreso */}
+                      <div className="grid grid-cols-5 gap-1 text-[10px]">
+                        <div className={`text-center py-1 px-1 rounded ${
+                          openAiProgress === 'sending' ? 'bg-teal-500/30 text-teal-300 font-bold' :
+                          ['processing', 'received', 'saving', 'done'].includes(openAiProgress) ? 'text-teal-600' :
+                          'text-gray-600'
+                        }`}>
+                          📤 Envío
+                        </div>
+                        <div className={`text-center py-1 px-1 rounded ${
+                          openAiProgress === 'processing' ? 'bg-teal-500/30 text-teal-300 font-bold' :
+                          ['received', 'saving', 'done'].includes(openAiProgress) ? 'text-teal-600' :
+                          'text-gray-600'
+                        }`}>
+                          🤖 Análisis
+                        </div>
+                        <div className={`text-center py-1 px-1 rounded ${
+                          openAiProgress === 'received' ? 'bg-teal-500/30 text-teal-300 font-bold' :
+                          ['saving', 'done'].includes(openAiProgress) ? 'text-teal-600' :
+                          'text-gray-600'
+                        }`}>
+                          📦 Recibido
+                        </div>
+                        <div className={`text-center py-1 px-1 rounded ${
+                          openAiProgress === 'saving' ? 'bg-teal-500/30 text-teal-300 font-bold' :
+                          openAiProgress === 'done' ? 'text-teal-600' :
+                          'text-gray-600'
+                        }`}>
+                          💾 Guardando
+                        </div>
+                        <div className={`text-center py-1 px-1 rounded ${
+                          openAiProgress === 'done' ? 'bg-green-500/30 text-green-300 font-bold' :
+                          'text-gray-600'
+                        }`}>
+                          ✅ Listo
+                        </div>
+                      </div>
+                      
+                      {/* Mostrar JSON extraído si existe */}
+                      {openAiExtractedJSON && (
+                        <div className="mt-2 pt-2 border-t border-teal-700/50">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-teal-400 font-semibold">JSON Extraído:</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(openAiExtractedJSON);
+                                showToast('📋 JSON copiado', 'success');
+                              }}
+                              className="text-[10px] text-teal-400 hover:text-teal-300 underline"
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                          <div className="bg-black/50 rounded p-2 max-h-24 overflow-y-auto">
+                            <pre className="text-[10px] text-emerald-300 font-mono whitespace-pre-wrap break-all">
+                              {openAiExtractedJSON}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   
@@ -5084,7 +5394,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   )}
 
                   <button
-                    onClick={processWithAI}
+                    onClick={() => processWithAI()}
                     disabled={aiProcessing || !showPromptPanel || !hasEffectiveTargetSelection}
                     className={`p-2.5 rounded-lg font-semibold transition-all ${
                       !aiProcessing && showPromptPanel && hasEffectiveTargetSelection
@@ -5349,6 +5659,359 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         category={CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory}
         hasImage={!!composedImageUrl}
       />
+      
+      {/* Modal de Configuración AI */}
+      {showAIConfigModal && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowAIConfigModal(false)}></div>
+          
+          {/* Modal Content */}
+          <div className="card max-w-2xl w-full max-h-[85vh] overflow-y-auto relative z-[1] animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 sticky top-0 bg-d4-surface pb-4 border-b border-d4-border z-[50]">
+              <div>
+                <h2 className="text-2xl font-bold text-d4-accent flex items-center gap-2">
+                  {aiServiceToUse === 'gemini' ? (
+                    <>
+                      <Zap className="w-6 h-6" />
+                      Configurar Gemini AI
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-6 h-6" />
+                      Configurar OpenAI GPT-4o
+                    </>
+                  )}
+                </h2>
+                <p className="text-sm text-d4-text-dim">
+                  Configure el destino y parámetros antes de procesar
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowAIConfigModal(false)}
+                className="p-2 hover:bg-d4-border rounded transition-colors"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5 text-d4-text" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="space-y-4">
+              {/* Categoría actual (solo lectura) */}
+              <div>
+                <label className="block text-sm font-semibold text-d4-text mb-2">
+                  📂 Categoría de datos:
+                </label>
+                <div className="p-3 bg-d4-bg border border-d4-accent/30 rounded-lg">
+                  <p className="text-d4-accent font-bold">
+                    {CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory}
+                  </p>
+                </div>
+              </div>
+
+              {/* Selector de tipo Paragon (si aplica) */}
+              {selectedCategory === 'paragon' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    📊 Tipo de Dato Paragon: <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={aiConfigParagonType}
+                    onChange={(e) => {
+                      const newType = e.target.value as ParagonType;
+                      setAiConfigParagonType(newType);
+                      // Si selecciona atributos, forzar a personaje
+                      if (newType === 'atributos' && aiConfigPromptType === 'heroe') {
+                        setAiConfigPromptType('personaje');
+                      }
+                    }}
+                    className="w-full p-3 bg-d4-surface border border-d4-border rounded-lg text-d4-text"
+                  >
+                    <option value="tablero">📊 Tableros de Paragon</option>
+                    <option value="nodo">⬢ Nodos de Paragon</option>
+                    <option value="atributos">📈 Atributos de Paragon</option>
+                  </select>
+                  <p className="text-xs text-d4-text-dim mt-1">
+                    {aiConfigParagonType === 'tablero' && '✓ Disponible para Héroe y Personaje'}
+                    {aiConfigParagonType === 'nodo' && '✓ Disponible para Héroe y Personaje'}
+                    {aiConfigParagonType === 'atributos' && '⚠️ Solo disponible para Personaje'}
+                  </p>
+                </div>
+              )}
+
+              {/* Selector de tipo Runas/Gemas (si aplica) */}
+              {selectedCategory === 'runas' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    💎 Tipo de datos: <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={aiConfigRunaGemaType}
+                    onChange={(e) => setAiConfigRunaGemaType(e.target.value as 'runas' | 'gemas')}
+                    className="w-full p-3 bg-d4-surface border border-d4-border rounded-lg text-d4-text"
+                  >
+                    <option value="runas">ᚱ Runas</option>
+                    <option value="gemas">💠 Gemas</option>
+                  </select>
+                  <p className="text-xs text-d4-text-dim mt-1">
+                    ✓ Se importará al catálogo global unificado (archivo gemas_runas.json)
+                  </p>
+                </div>
+              )}
+
+              {/* Selector de destino (Héroe/Personaje) */}
+              {selectedCategory !== 'runas' && selectedCategory !== 'build' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    🎯 Destino de la importación: <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex gap-3">
+                    {/* Botón Héroe (ocultar si categoría lo prohíbe) */}
+                    {(selectedCategory !== 'estadisticas' && selectedCategory !== 'paragon') || 
+                     (selectedCategory === 'paragon' && aiConfigParagonType !== 'atributos') ? (
+                      <button
+                        onClick={() => setAiConfigPromptType('heroe')}
+                        className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                          aiConfigPromptType === 'heroe'
+                            ? 'bg-d4-accent/20 border-d4-accent text-d4-accent font-bold'
+                            : 'bg-d4-bg border-d4-border text-d4-text hover:border-d4-accent/50'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🦸</div>
+                        <div className="font-semibold">Héroe</div>
+                        <div className="text-xs text-d4-text-dim mt-1">
+                          Base de datos maestra por clase
+                        </div>
+                      </button>
+                    ) : null}
+                    
+                    {/* Botón Personaje */}
+                    <button
+                      onClick={() => setAiConfigPromptType('personaje')}
+                      className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                        aiConfigPromptType === 'personaje'
+                          ? 'bg-d4-accent/20 border-d4-accent text-d4-accent font-bold'
+                          : 'bg-d4-bg border-d4-border text-d4-text hover:border-d4-accent/50'
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">👤</div>
+                      <div className="font-semibold">Personaje</div>
+                      <div className="text-xs text-d4-text-dim mt-1">
+                        Personaje específico creado
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Mensaje para categorías forzadas */}
+              {selectedCategory === 'runas' && (
+                <div className="p-3 bg-blue-600/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    ℹ️ Las runas y gemas siempre se importan al catálogo global
+                  </p>
+                </div>
+              )}
+              
+              {selectedCategory === 'build' && (
+                <div className="p-3 bg-blue-600/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    ℹ️ El equipo siempre se importa a un personaje específico
+                  </p>
+                </div>
+              )}
+
+              {/* Selector de clase (si modo héroe) */}
+              {aiConfigPromptType === 'heroe' && selectedCategory !== 'runas' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    ⚔️ Clase del héroe: <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={aiConfigClase}
+                    onChange={(e) => setAiConfigClase(e.target.value)}
+                    className={`w-full p-3 bg-d4-surface border rounded-lg text-d4-text ${
+                      !aiConfigClase ? 'border-red-500/50' : 'border-d4-border'
+                    }`}
+                  >
+                    <option value="">-- Selecciona una clase --</option>
+                    {availableClasses.map(clase => (
+                      <option key={clase} value={clase}>
+                        {clase}
+                      </option>
+                    ))}
+                  </select>
+                  {!aiConfigClase && (
+                    <p className="text-xs text-red-400 mt-1">
+                      ⚠️ Debes seleccionar una clase para continuar
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Selector de personaje (si modo personaje) */}
+              {aiConfigPromptType === 'personaje' && selectedCategory !== 'runas' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    👤 Personaje de destino: <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={aiConfigPersonajeId || ''}
+                    onChange={(e) => setAiConfigPersonajeId(e.target.value || null)}
+                    className={`w-full p-3 bg-d4-surface border rounded-lg text-d4-text ${
+                      !aiConfigPersonajeId ? 'border-red-500/50' : 'border-d4-border'
+                    }`}
+                  >
+                    <option value="">-- Selecciona un personaje --</option>
+                    {personajes && personajes.length > 0 ? (
+                      personajes.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} - {p.clase} (Nv. {p.nivel}{p.nivel_paragon ? ` / Paragon ${p.nivel_paragon}` : ''})
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>No hay personajes creados</option>
+                    )}
+                  </select>
+                  {!aiConfigPersonajeId && (
+                    <p className="text-xs text-red-400 mt-1">
+                      ⚠️ Debes seleccionar un personaje para continuar
+                    </p>
+                  )}
+                  {personajes.length === 0 && (
+                    <p className="text-xs text-orange-400 mt-1">
+                      ⚠️ No tienes personajes creados. Crea uno primero en la sección de Personajes.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer con botones */}
+            <div className="mt-6 pt-4 border-t border-d4-border flex gap-3">
+              <button
+                onClick={() => setShowAIConfigModal(false)}
+                className="flex-1 px-4 py-3 bg-d4-bg border border-d4-border rounded-lg text-d4-text hover:bg-d4-border transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  // Validar campos requeridos
+                  const validationErrors: string[] = [];
+
+                  // Validar tipo de paragon
+                  if (selectedCategory === 'paragon' && !aiConfigParagonType) {
+                    validationErrors.push('Selecciona el tipo de Paragon');
+                  }
+
+                  // Validar tipo de runa/gema
+                  if (selectedCategory === 'runas' && !aiConfigRunaGemaType) {
+                    validationErrors.push('Selecciona Runas o Gemas');
+                  }
+
+                  // Validar destino (excepto categorías globales)
+                  if (selectedCategory !== 'runas') {
+                    // Determinar tipo efectivo
+                    const effectiveType = 
+                      selectedCategory === 'estadisticas' ? 'personaje' :
+                      selectedCategory === 'build' ? 'personaje' :
+                      aiConfigPromptType;
+
+                    if (effectiveType === 'heroe' && !aiConfigClase) {
+                      validationErrors.push('Selecciona una clase para el héroe');
+                    }
+
+                    if (effectiveType === 'personaje' && !aiConfigPersonajeId) {
+                      validationErrors.push('Selecciona un personaje');
+                    }
+                  }
+
+                  if (validationErrors.length > 0) {
+                    showToast(`⚠️ Faltan campos:\n${validationErrors.join('\n')}`, 'error');
+                    return;
+                  }
+
+                  // Actualizar estados globales con la configuración
+                  setPromptType(aiConfigPromptType);
+                  setSelectedClase(aiConfigClase);
+                  setSelectedPersonajeId(aiConfigPersonajeId);
+                  setParagonType(aiConfigParagonType);
+                  setRunaGemaType(aiConfigRunaGemaType);
+
+                  // Cerrar modal
+                  setShowAIConfigModal(false);
+
+                  // Ejecutar el servicio correspondiente CON LA CONFIGURACIÓN
+                  const aiConfig = {
+                    paragonType: aiConfigParagonType,
+                    runaGemaType: aiConfigRunaGemaType
+                  };
+                  
+                  if (aiServiceToUse === 'gemini') {
+                    void processWithAI(aiConfig);
+                  } else if (aiServiceToUse === 'openai') {
+                    void processWithOpenAI(aiConfig);
+                  }
+                }}
+                disabled={(() => {
+                  // Lógica de validación para deshabilitar botón
+                  if (selectedCategory === 'paragon' && !aiConfigParagonType) return true;
+                  if (selectedCategory === 'runas' && !aiConfigRunaGemaType) return true;
+                  
+                  if (selectedCategory !== 'runas') {
+                    const effectiveType = 
+                      selectedCategory === 'estadisticas' ? 'personaje' :
+                      selectedCategory === 'build' ? 'personaje' :
+                      aiConfigPromptType;
+
+                    if (effectiveType === 'heroe' && !aiConfigClase) return true;
+                    if (effectiveType === 'personaje' && !aiConfigPersonajeId) return true;
+                  }
+
+                  return false;
+                })()}
+                className={`flex-1 px-4 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                  (() => {
+                    if (selectedCategory === 'paragon' && !aiConfigParagonType) return true;
+                    if (selectedCategory === 'runas' && !aiConfigRunaGemaType) return true;
+                    
+                    if (selectedCategory !== 'runas') {
+                      const effectiveType = 
+                        selectedCategory === 'estadisticas' ? 'personaje' :
+                        selectedCategory === 'build' ? 'personaje' :
+                        aiConfigPromptType;
+
+                      if (effectiveType === 'heroe' && !aiConfigClase) return true;
+                      if (effectiveType === 'personaje' && !aiConfigPersonajeId) return true;
+                    }
+
+                    return false;
+                  })()
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : aiServiceToUse === 'gemini'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
+                      : 'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-600 hover:from-teal-500 hover:via-teal-600 hover:to-emerald-700 text-white shadow-lg'
+                }`}
+              >
+                {aiServiceToUse === 'gemini' ? (
+                  <>
+                    <Zap className="w-5 h-5" />
+                    Procesar con Gemini
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Procesar con OpenAI
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

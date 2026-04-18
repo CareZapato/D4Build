@@ -13,6 +13,7 @@ import HeroManager from './components/heroes/HeroManager';
 import PromptGenerator from './components/prompts/PromptGenerator';
 import { TagsManager } from './components/tags/TagsManager';
 import RunesGemsSection from './components/runes/RunesGemsSection';
+import BillingPanel from './components/common/BillingPanel';
 
 type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems';
 
@@ -110,11 +111,14 @@ function AppContent() {
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       )}
       
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto relative">
         <div className="container mx-auto p-6 max-w-7xl">
           {renderContent()}
         </div>
       </main>
+      
+      {/* Panel de Billing (desactivable con botón) */}
+      {workspaceLoaded && <BillingPanel />}
     </div>
   );
 }

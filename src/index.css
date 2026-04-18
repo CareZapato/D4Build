@@ -230,7 +230,7 @@ h6 { font-size: 1rem; }
 
 /* Tooltips */
 .tooltip {
-  @apply absolute z-50 bg-d4-surface border-2 border-d4-accent rounded-lg p-3 shadow-2xl;
+  @apply absolute z-[5] bg-d4-surface border-2 border-d4-accent rounded-lg p-3 shadow-2xl;
   box-shadow: 0 8px 32px rgba(184, 134, 11, 0.5), 0 0 60px rgba(184, 134, 11, 0.2);
   max-width: 22rem;
   font-size: 0.9rem;

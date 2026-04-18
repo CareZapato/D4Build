@@ -87,8 +87,9 @@ const ConfirmImportModal: React.FC<Props> = ({
   const hasChanges = summaryItems.length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
-      <div className="card max-w-lg w-full border-l-4 border-d4-accent animate-fade-in shadow-2xl">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100000] p-4 animate-fade-in">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className="card max-w-lg w-full border-l-4 border-d4-accent animate-fade-in shadow-2xl relative z-[1]">
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-xl font-bold text-d4-text flex-1">Confirmar Importación</h3>
           <button

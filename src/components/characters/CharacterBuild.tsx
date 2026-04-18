@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, Shield, Copy, Check, X } from 'lucide-react';
+import { Upload, Shield, Copy, Check, X, Trash2 } from 'lucide-react';
 import { Personaje, Build, PiezaEquipo } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
@@ -109,6 +109,32 @@ const CharacterBuild: React.FC<Props> = ({ personaje, onChange }) => {
     navigator.clipboard.writeText(prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRemovePiece = async (espacio: keyof Build['piezas']) => {
+    if (!build) return;
+
+    const newBuild = {
+      ...build,
+      piezas: { ...build.piezas }
+    };
+    delete newBuild.piezas[espacio];
+
+    // Recalcular poder total
+    const poderTotal = Object.values(newBuild.piezas)
+      .filter(Boolean)
+      .reduce((sum, p) => sum + (p?.poder_objeto || 0), 0);
+    newBuild.poder_total = poderTotal;
+
+    // Actualizar personaje
+    const updatedPersonaje = {
+      ...personaje,
+      build: newBuild
+    };
+    await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+
+    setBuild(newBuild);
+    onChange(newBuild);
   };
 
   const getRarezaColor = (rareza: string) => {
@@ -288,6 +314,16 @@ const CharacterBuild: React.FC<Props> = ({ personaje, onChange }) => {
                       </h4>
                     </div>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemovePiece(espacio);
+                    }}
+                    className="p-1 hover:bg-red-900/30 rounded transition-colors"
+                    title="Eliminar pieza"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </button>
                 </div>
 
                 {pieza.poder_objeto && (
@@ -332,7 +368,7 @@ const CharacterBuild: React.FC<Props> = ({ personaje, onChange }) => {
 
       {/* Modal detalles de pieza */}
       {selectedPiece && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] p-4">
           <div className="card max-w-2xl w-full max-h-[80vh] overflow-y-auto animate-fade-in">
             <div className="flex items-start justify-between mb-4">
               <h3 className="text-xl font-bold text-d4-text">{selectedPiece.nombre}</h3>

@@ -423,7 +423,7 @@ const CharacterRunes: React.FC<Props> = ({ personaje, onChange }) => {
 
       {/* Modal Agregar Runa */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] p-4">
           <div className="card max-w-4xl w-full max-h-[80vh] overflow-y-auto animate-fade-in">
             <h3 className="text-lg font-bold text-d4-text mb-4">Agregar Runa del Catálogo</h3>
             

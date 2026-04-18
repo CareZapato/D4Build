@@ -12,7 +12,7 @@ import { useModal } from '../../hooks/useModal';
 interface Props {
   personaje: Personaje;
   onChange: (skillsRefs: { 
-    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number; en_batalla?: boolean }>; 
     pasivas: Array<{ skill_id: string; puntos_asignados?: number }>;
   }) => void;
 }
@@ -24,7 +24,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
   const [activeSkillsData, setActiveSkillsData] = useState<HabilidadActiva[]>([]);
   const [passiveSkillsData, setPassiveSkillsData] = useState<HabilidadPasiva[]>([]);
   const [skillsRefs, setSkillsRefs] = useState<{ 
-    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number; en_batalla?: boolean }>; 
     pasivas: Array<{ skill_id: string; puntos_asignados?: number }> 
   }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
@@ -586,6 +586,20 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
     }
   };
 
+  // Toggle habilidad "en batalla" (barra de acciones)
+  const handleToggleBattle = (skillId: string) => {
+    const updatedRefs = {
+      ...skillsRefs,
+      activas: skillsRefs.activas.map(ref => 
+        ref.skill_id === skillId 
+          ? { ...ref, en_batalla: !ref.en_batalla }
+          : ref
+      )
+    };
+    setSkillsRefs(updatedRefs);
+    onChange(updatedRefs);
+  };
+
   // Gestión de modificadores
   const handleCopyPrompt = async () => {
     const count = parseInt(promptElementCount, 10);
@@ -610,6 +624,10 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
           <Zap className="w-5 h-5 text-d4-accent" />
           <span className="text-sm text-d4-text">
             Total: {activeSkillsData.length + passiveSkillsData.length}
+          </span>
+          <span className="text-xs text-d4-text-dim">|</span>
+          <span className="text-sm text-d4-accent font-semibold">
+            En Batalla: {skillsRefs.activas.filter(r => r.en_batalla).length}/6
           </span>
         </div>
         <div className="flex gap-1">
@@ -761,6 +779,9 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="space-y-2">
             {filteredAndSortedActives.map((skill) => {
               const isExpanded = expandedSkills.has(skill.id!);
+              // Obtener estado "en batalla" desde skillsRefs
+              const skillRef = skillsRefs.activas.find(r => r.skill_id === skill.id);
+              const enBatalla = skillRef?.en_batalla || false;
               // Obtener modificadores del personaje
               const modificadoresPersonaje = skill.modificadores || [];
               const hasModifiers = modificadoresPersonaje.length > 0;
@@ -775,6 +796,13 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
+                          <input
+                            type="checkbox"
+                            checked={enBatalla}
+                            onChange={() => handleToggleBattle(skill.id!)}
+                            className="w-4 h-4 accent-d4-accent cursor-pointer flex-shrink-0"
+                            title="Marcar como habilidad en batalla (barra de acciones, máx. 6)"
+                          />
                           <h5 className="font-bold text-d4-accent text-base" title={skill.nombre}>
                             {skill.nombre}
                           </h5>
@@ -965,7 +993,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] p-4">
           <div className="card max-w-4xl w-full max-h-[80vh] overflow-y-auto animate-fade-in">
             <h3 className="text-lg font-bold text-d4-text mb-4">
               Seleccionar Habilidad {modalType === 'activa' ? 'Activa' : 'Pasiva'} del Héroe

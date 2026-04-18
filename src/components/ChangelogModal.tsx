@@ -10,8 +10,9 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="card max-w-3xl w-full max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] p-4 animate-fade-in">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className="card max-w-3xl w-full max-h-[85vh] overflow-y-auto relative z-[1]">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 sticky top-0 bg-d4-surface pb-4 border-b border-d4-border">
           <div>
@@ -41,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">15 de Abril, 2026 (v0.5.1)</p>
+                <p className="text-d4-text font-semibold">18 de Abril, 2026 (v0.6.4)</p>
               </div>
             </div>
           </div>
@@ -64,6 +65,441 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.6.4 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.6.4</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-300 px-2 py-1 rounded">💰 Dev Tools & Docs</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                💸 Panel de Costos Minimalista (Dev)
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nuevo diseño</strong>: Estilo VS Code Copilot - compacto y no intrusivo</li>
+                <li><strong>Tamaño reducido</strong>: 272px de ancho (antes 384px) y máximo 320px de alto</li>
+                <li><strong>Texto minimalista</strong>: 11px, información condensada y fácil de leer</li>
+                <li><strong>Números amigables</strong>: 1.5K, 2.3M tokens (formato compacto)</li>
+                <li><strong>Costos precisos</strong>: Hasta 6 decimales para costos muy bajos</li>
+                <li><strong>Solo 3 últimas llamadas</strong>: Información más relevante sin scroll excesivo</li>
+                <li><strong>Colores oscuros</strong>: #1e1e1e background con bordes #3c3c3c (tema VS Code)</li>
+                <li><strong>Auto-refresh</strong>: Cada 15 segundos (antes 10s) para menor carga</li>
+                <li><strong>Botón discreto</strong>: Estilo semi-transparente con backdrop-blur</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🔧 Control de Visibilidad con ENV
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nueva variable</strong>: <code className="bg-d4-surface px-1 rounded">VITE_ENABLE_BILLING_PANEL</code></li>
+                <li><strong>Valores</strong>: true (mostrar) / false (ocultar completamente)</li>
+                <li><strong>Por defecto</strong>: true (visible para desarrolladores)</li>
+                <li><strong>Uso</strong>: Establecer en false para builds de producción</li>
+                <li>Panel no se renderiza si está deshabilitado (0 overhead)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🐛 Fixes Críticos
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>BillingPanel crash fix</strong>: Validación opcional <code className="bg-d4-surface px-1 rounded">billingData?.summary?.byProvider</code></li>
+                <li><strong>Error resuelto</strong>: "Cannot convert undefined or null to object"</li>
+                <li><strong>Prevención</strong>: Verifica existencia de datos antes de Object.keys()</li>
+                <li>Panel muestra datos vacíos correctamente si no hay historial</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                📖 Documentación Completa
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>CONTEXT.md creado</strong>: Documentación exhaustiva del proyecto (5000+ líneas)</li>
+                <li><strong>Arquitectura</strong>: Modelo de referencias, stack tecnológico</li>
+                <li><strong>Procesos</strong>: Flujos de importación paso a paso</li>
+                <li><strong>Formatos JSON</strong>: Estructuras esperadas con ejemplos</li>
+                <li><strong>Prompts IA</strong>: Sistema de generación de prompts</li>
+                <li><strong>Servicios</strong>: Documentación de WorkspaceService, OpenAIService, BillingService</li>
+                <li><strong>Flujos de usuario</strong>: 6 flujos principales documentados</li>
+                <li><strong>Variables de entorno</strong>: Lista completa con descripciones</li>
+                <li><strong>Troubleshooting</strong>: Errores comunes y soluciones</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🔧 Archivos Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión actualizada a 0.6.4</li>
+                <li><code className="bg-d4-surface px-1 rounded">BillingPanel.tsx</code>: Rediseño completo estilo VS Code</li>
+                <li><code className="bg-d4-surface px-1 rounded">.env</code>: Nueva variable VITE_ENABLE_BILLING_PANEL</li>
+                <li><code className="bg-d4-surface px-1 rounded">OpenAIService.ts</code>: Disclaimer ultra-reforzado</li>
+                <li><code className="bg-d4-surface px-1 rounded">CONTEXT.md</code>: Documentación completa creada</li>
+                <li><code className="bg-d4-surface px-1 rounded">ChangelogModal.tsx</code>: v0.6.4 documentada</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.6.3 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.6.3</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 px-2 py-1 rounded">🧹 UX & Limpieza</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                📌 Menú Lateral Persistente (Sticky)
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Problema resuelto</strong>: El sidebar desaparecía al hacer scroll hacia abajo</li>
+                <li><strong>Solución</strong>: Añadido <code className="bg-d4-surface px-1 rounded">sticky top-0</code> al componente Sidebar</li>
+                <li><strong>Beneficio</strong>: Navegación siempre visible sin importar posición del scroll</li>
+                <li>Mejora la experiencia de usuario en páginas largas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🗑️ Limpieza de Archivos de Documentación
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Eliminados</strong>: 29 archivos .md obsoletos del repositorio</li>
+                <li><strong>Conservados</strong>: Solo README.md y LICENSE</li>
+                <li><strong>Archivos removidos</strong>: GEMINI_*.md, CHANGELOG-*.md, API-KEYS-SETUP.md, MIGRATION_*.md, etc.</li>
+                <li>Repositorio más limpio y fácil de navegar</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                📁 Estructura de Carpetas Corregida
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Problema</strong>: Se creaba carpeta separada 'runas' en vez de usar 'gemas_runas'</li>
+                <li><strong>Solución</strong>: WorkspaceService ahora crea solo carpeta 'gemas_runas' unificada</li>
+                <li><strong>Beneficio</strong>: Estructura de archivos más organizada y coherente</li>
+                <li>Evita duplicación y confusión en el workspace</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                💰 Panel de Uso de OpenAI con Toggle
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nuevo componente</strong>: BillingPanel con visibilidad desactivable</li>
+                <li><strong>Botón flotante</strong>: Esquina inferior derecha con ícono de dólar</li>
+                <li><strong>Panel flotante</strong>: Muestra costo total, tokens, solicitudes por proveedor</li>
+                <li><strong>Últimas 5 consultas</strong>: Timestamp, modelo, costo, categoría</li>
+                <li><strong>Auto-actualización</strong>: Refresca cada 10 segundos cuando está visible</li>
+                <li><strong>Persistencia</strong>: Estado guardado en localStorage</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🔇 Eliminación de Logs Informativos
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Limpieza masiva</strong>: Eliminados 100+ console.log, console.info, console.warn</li>
+                <li><strong>Archivos afectados</strong>: ImageCaptureModal.tsx (~80 logs), GeminiImageService.ts (~26 logs), BillingService.ts (2 logs)</li>
+                <li><strong>Conservados</strong>: Solo console.error para errores críticos</li>
+                <li><strong>Excepciones</strong>: Archivos .example.tsx mantienen logs educativos</li>
+                <li>Consola más limpia en producción</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🔧 Archivos Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión actualizada a 0.6.3</li>
+                <li><code className="bg-d4-surface px-1 rounded">Sidebar.tsx</code>: Sticky positioning + badge v0.6.3</li>
+                <li><code className="bg-d4-surface px-1 rounded">WorkspaceService.ts</code>: Corrección carpeta gemas_runas</li>
+                <li><code className="bg-d4-surface px-1 rounded">BillingPanel.tsx</code>: Nuevo componente creado</li>
+                <li><code className="bg-d4-surface px-1 rounded">App.tsx</code>: Importación y renderizado de BillingPanel</li>
+                <li><code className="bg-d4-surface px-1 rounded">ImageCaptureModal.tsx</code>: Logs eliminados (80+ líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">GeminiImageService.ts</code>: Logs eliminados (26 líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">BillingService.ts</code>: Logs eliminados (2 líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">CharacterAspects.tsx</code>: Log eliminado (1 línea)</li>
+                <li>Eliminados: 29 archivos .md no utilizados</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.6.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.6.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-300 px-2 py-1 rounded">🛡️ Seguridad & UX</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🛡️ Disclaimer de Videojuego Reforzado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Problema resuelto</strong>: OpenAI rechazaba contenido de Paragon con "I'm sorry, I can't assist with that"</li>
+                <li><strong>Disclaimer ampliado</strong>: Contexto explícito que es Diablo IV (videojuego ARPG de Blizzard)</li>
+                <li><strong>Advertencia prominente</strong>: ⚠️ ATENCIÓN OBLIGATORIA al inicio de todos los prompts</li>
+                <li><strong>Clarificaciones incluidas</strong>: Contenido ficticio, mecánicas de juego, análisis de UI</li>
+                <li>Reduce significativamente rechazos por filtros de seguridad</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🎨 Botones Redondos en Captura
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Diseño mejorado</strong>: Botones de captura ahora son completamente redondos (rounded-full)</li>
+                <li><strong>Padding ajustado</strong>: p-2 / p-2.5 para mantener forma circular perfecta</li>
+                <li><strong>Mejor estética</strong>: Aspecto más moderno y limpio en la interfaz</li>
+                <li>Afecta botones: Nuevo, Completar, Copiar, Prompt embebido</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                💰 Sistema de Billing para OpenAI
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>BillingService nuevo</strong>: Rastreo automático de costos de API</li>
+                <li><strong>Cálculo preciso</strong>: Tokens de entrada/salida × precio por 1K tokens</li>
+                <li><strong>Archivo billing.json</strong>: Guardado en raíz del proyecto con historial completo</li>
+                <li><strong>Metadata detallado</strong>: Categoría, tipo, destino, clase, personaje, timestamp</li>
+                <li><strong>Estadísticas</strong>: Costo total, tokens usados, requests exitosos/fallidos</li>
+                <li><strong>Modo desarrollador</strong>: Información embebida lista para dashboard de admin</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                📊 Nueva Fórmula de Completitud
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Distribución actualizada</strong>: Refleja todas las categorías del personaje</li>
+                <li><strong>Estadísticas</strong>: 30% (antes 40%)</li>
+                <li><strong>Skills</strong>: 20% - Activas + Pasivas combinadas (antes separadas)</li>
+                <li><strong>Build</strong>: 20% (NUEVO) - Piezas de equipamiento</li>
+                <li><strong>Glifos</strong>: 10% (sin cambios)</li>
+                <li><strong>Runas</strong>: 10% (NUEVO) - Runas equipadas</li>
+                <li><strong>Nodos Paragon</strong>: 10% (NUEVO) - Nodos activados</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🎴 Tarjeta de Personaje Rediseñada
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Diseño minimalista</strong>: 2 columnas para mejor aprovechamiento del espacio</li>
+                <li><strong>Iconos con tooltips</strong>: Indicadores visuales claros del significado</li>
+                <li><strong>Información ampliada</strong>: Incluye nodos de Paragon y runas equipadas</li>
+                <li><strong>Mejor legibilidad</strong>: Jerarquía visual mejorada con tamaños y colores</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                🔧 Archivos Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión actualizada a 0.6.1</li>
+                <li><code className="bg-d4-surface px-1 rounded">OpenAIService.ts</code>: Disclaimer reforzado + integración de billing</li>
+                <li><code className="bg-d4-surface px-1 rounded">BillingService.ts</code>: Nuevo servicio de rastreo de costos</li>
+                <li><code className="bg-d4-surface px-1 rounded">ImageCaptureModal.tsx</code>: Botones redondos + metadata de billing</li>
+                <li><code className="bg-d4-surface px-1 rounded">CharacterList.tsx</code>: Nueva fórmula de completitud + tarjeta rediseñada</li>
+                <li><code className="bg-d4-surface px-1 rounded">Sidebar.tsx</code>: Badge de versión actualizado</li>
+                <li><code className="bg-d4-surface px-1 rounded">ChangelogModal.tsx</code>: Nueva versión documentada</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.6.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.6.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-yellow-600/20 to-amber-600/20 text-yellow-300 px-2 py-1 rounded">🎨 Visual & Validación</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                🎨 Botones Rediseñados en Preview
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Diseño compacto</strong>: Grid de 3×2 (móvil) o 6 columnas (escritorio)</li>
+                <li><strong>Solo íconos</strong>: Eliminado texto de todos los botones para diseño más limpio</li>
+                <li><strong>Tamaño uniforme</strong>: Padding consistente <code className="bg-d4-surface px-1 rounded">p-3</code> en todos los botones</li>
+                <li><strong>Distribución equitativa</strong>: Botones distribuidos a lo ancho de la preview</li>
+                <li>Íconos más grandes (w-5 h-5) para mejor visibilidad</li>
+                <li>Tooltips descriptivos en cada botón</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                ⚡ Validación Mejorada para Botones de IA
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Campos requeridos ahora se validan</strong> antes de ejecutar IA</li>
+                <li><strong>Tipo de destino</strong>: Héroe (requiere clase) o Personaje (requiere selección)</li>
+                <li><strong>Paragon</strong>: Requiere seleccionar tipo (Tablero/Nodo/Atributos)</li>
+                <li><strong>Runas</strong>: Requiere seleccionar tipo (Runas/Gemas)</li>
+                <li><strong>Mensajes descriptivos</strong>: Lista exacta de qué campos faltan</li>
+                <li>Aplica tanto a Gemini como OpenAI</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                📝 Ejemplo de Validación
+              </h4>
+              <div className="text-sm text-d4-text space-y-2 ml-4">
+                <p>Si intentas procesar Paragon sin seleccionar todos los campos:</p>
+                <div className="bg-d4-surface p-3 rounded border border-d4-border mt-2">
+                  <p className="text-yellow-300 font-mono text-xs">
+                    ⚠️ Campos requeridos:<br/>
+                    <br/>
+                    📌 Selecciona un PERSONAJE en el panel de Prompt<br/>
+                    📌 Selecciona el tipo de Paragon (Tablero/Nodo/Atributos)
+                  </p>
+                </div>
+                <p className="text-d4-text-dim text-xs mt-2">Esto previene errores y asegura que la IA reciba el contexto completo.</p>
+              </div>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-teal-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-teal-300 mb-2 flex items-center gap-2">
+                📚 Documentación Ampliada de OpenAI
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>CHANGELOG-v0.6.0.md</strong>: Changelog completo con diagramas de flujo</li>
+                <li><strong>CORS-FIX.md</strong>: Guía paso a paso para resolver problemas CORS</li>
+                <li><strong>API-KEYS-SETUP.md</strong>: Tutorial de configuración de API keys</li>
+                <li>Documentación del proxy Vite para desarrollo</li>
+                <li>Manejo de refusals de OpenAI (filtros de contenido)</li>
+                <li>Logs de debugging con prefijos claros</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                🔧 Archivos Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión actualizada a 0.6.0</li>
+                <li><code className="bg-d4-surface px-1 rounded">ImageCaptureModal.tsx</code>: Botones rediseñados + validación mejorada</li>
+                <li><code className="bg-d4-surface px-1 rounded">OpenAIService.ts</code>: Auto-mejora de prompts + detección de refusals</li>
+                <li><code className="bg-d4-surface px-1 rounded">README.md</code>: Badge de versión + entrada en changelog</li>
+                <li><code className="bg-d4-surface px-1 rounded">ChangelogModal.tsx</code>: Nueva versión documentada</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.5.3 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.5.3</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-teal-600/20 to-emerald-600/20 text-teal-300 px-2 py-1 rounded">🤖 OpenAI Integration</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-teal-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-teal-300 mb-2 flex items-center gap-2">
+                ✨ Integración con OpenAI GPT-4o
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nuevo servicio OpenAIService.ts</strong>: Procesamiento de imágenes con GPT-4o y capacidades de visión</li>
+                <li><strong>Botón independiente de OpenAI</strong>: Ícono Sparkles (✨) con gradiente teal-emerald característico</li>
+                <li><strong>Modo JSON nativo</strong>: Respuestas estructuradas sin markdown code blocks</li>
+                <li><strong>Procesamiento de alta precisión</strong>: Temperature 0.1 para máxima exactitud en extracción de datos</li>
+                <li>Compatible con todo el flujo existente: mismo sistema de importación, validación y guardado</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-emerald-300 mb-2 flex items-center gap-2">
+                📊 Barra de Progreso Visual
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>5 etapas del procesamiento</strong>: Envío → Análisis → Recibido → Guardando → Listo</li>
+                <li><strong>Animaciones fluidas</strong>: Transiciones suaves con porcentaje en tiempo real</li>
+                <li><strong>Estados visuales claros</strong>: Highlights y colores diferenciados por etapa</li>
+                <li><strong>Vista previa de JSON</strong>: Botón de copia rápida del JSON extraído</li>
+                <li>Auto-dismiss después de 3 segundos al completar</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🔄 Sistema Dual de IA
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Gemini</strong>: gemini-1.5-flash-002 con fallback automático | Botón con ícono Zap (⚡)</li>
+                <li><strong>OpenAI</strong>: gpt-4o con visión avanzada | Botón con ícono Sparkles (✨)</li>
+                <li>Ambos servicios totalmente independientes con sus propios estados</li>
+                <li>Comparten el mismo sistema de prompts y flujo de importación</li>
+                <li>Sin modificaciones al código existente de Gemini (100% compatible)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🔧 Detalles Técnicos
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nuevo archivo</strong>: <code className="bg-d4-surface px-1 rounded">src/services/OpenAIService.ts</code> (360 líneas)</li>
+                <li><strong>Función processWithOpenAI()</strong>: 146 líneas que replican el flujo de Gemini</li>
+                <li><strong>Estados separados</strong>: openAiProcessing, openAiProgress, openAiExtractedJSON</li>
+                <li><strong>Manejo de errores robusto</strong>: Categorización de errores (401 = API key inválida, 429 = rate limit)</li>
+                <li>Logging exhaustivo con prefijos <code className="bg-d4-surface px-1 rounded">[processWithOpenAI]</code> para debugging</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                ⚙️ Configuración de OpenAI
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Modelo</strong>: gpt-4o</li>
+                <li><strong>Max Tokens</strong>: 4096</li>
+                <li><strong>Temperature</strong>: 0.1 (máxima precisión)</li>
+                <li><strong>Response Format</strong>: JSON object (modo nativo de OpenAI)</li>
+                <li><strong>Vision Detail</strong>: high (máxima calidad de análisis de imagen)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                ⚠️ Consideraciones de Seguridad
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>API keys hardcodeadas</strong> en frontend solo para desarrollo</li>
+                <li>⚠️ <strong>NO apto para producción</strong> sin backend proxy</li>
+                <li>Para producción se requiere: servidor proxy, autenticación de usuarios, rate limiting</li>
+                <li>Recomendación: Usar variables de entorno y backend para gestionar API keys</li>
+              </ul>
             </div>
           </div>
         </div>

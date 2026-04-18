@@ -41,7 +41,7 @@ const StatField: React.FC<StatFieldProps> = ({
             <Info className="w-3.5 h-3.5 text-d4-accent cursor-help" />
             
             {showTooltip && (
-              <div className="absolute z-50 left-0 top-full mt-1 w-[22rem] bg-d4-bg border-2 border-d4-accent rounded-lg shadow-2xl p-3"
+              <div className="absolute z-[5] left-0 top-full mt-1 w-[22rem] bg-d4-bg border-2 border-d4-accent rounded-lg shadow-2xl p-3"
                 style={{
                   boxShadow: '0 8px 32px rgba(184, 134, 11, 0.5), 0 0 60px rgba(184, 134, 11, 0.2)'
                 }}

@@ -1,82 +1,282 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.5.1-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.6.4-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
 
-Una aplicación web moderna y reactiva para gestionar y optimizar tus builds de Diablo 4.
+Una aplicación web moderna y reactiva para gestionar y optimizar tus builds de Diablo 4 con **integración de IA** para extracción automática de datos desde imágenes del juego.
 
 ## ✨ Características Principales
 
-- 📁 **Gestión de Workspace**: Organiza todos tus datos en una carpeta local
-- 👤 **Personajes**: Crea y gestiona múltiples personajes con sus builds
-- ⚔️ **Habilidades**: Importa y consulta habilidades activas y pasivas
-- 💎 **Glifos**: Administra glifos del tablero Paragon con sus bonificaciones
-- ✨ **Aspectos Legendarios**: Gestiona aspectos organizados por categorías (Ofensivo, Defensivo, Recurso, Utilidad, Movilidad)
-- 📊 **Estadísticas**: Registra todas las stats de tu personaje
-- 🛡️ **Base de Datos de Héroes**: Mantén una base maestra para cada clase
-- 🤖 **Generador de Prompts**: Crea prompts optimizados para extraer datos con IA
-- 🔍 **Búsqueda y Filtrado**: Encuentra rápidamente habilidades, glifos y aspectos
-- 📄 **Sistema de Paginación**: Navega eficientemente entre grandes cantidades de datos
-- 🎨 **Interfaz Temática**: Diseño inspirado en la estética de Diablo 4
+### 🎮 Gestión Completa de Builds
+- 📁 **Workspace Local**: Todos tus datos guardados en una carpeta de tu elección
+- 👤 **Personajes**: Crea y gestiona múltiples personajes con estadísticas completas
+- ⚔️ **Habilidades**: Importa y organiza habilidades activas y pasivas por clase
+- 💎 **Glifos Paragon**: Administra glifos del tablero Paragon con niveles y bonificaciones
+- ✨ **Aspectos Legendarios**: 5 categorías (Ofensivo, Defensivo, Recurso, Utilidad, Movilidad)
+- 🔮 **Runas & Gemas**: Gestión de runas de invocación y gemas de habilidad
+- 🛡️ **Equipo & Build**: Sistema completo de piezas de equipamiento
+- 📊 **Estadísticas Detalladas**: Todos los atributos del personaje
 
-## 🚀 Instalación
+### 🤖 IA Integrada (Extracción Automática)
+- **Gemini AI**: gemini-1.5-flash-002 con modo JSON experimental
+- **OpenAI GPT-4o**: Modelo con visión avanzada y disclaimer reforzado
+- **Procesamiento de imágenes**: Toma screenshots del juego y extrae datos JSON
+- **Auto-importación**: Los datos se guardan automáticamente en el workspace
+- **Categorías soportadas**: Habilidades, Glifos, Aspectos, Stats, Paragon, Runas, Equipo
+
+### 📚 Base de Datos de Héroes
+- Datos maestros por clase (Paladín, Bárbaro, Hechicero, etc.)
+- Sistema de referencias: personajes solo guardan IDs
+- Actualizaciones centralizadas sin duplicación
+- Gestión completa desde la UI (CRUD)
+
+### 🎨 Experiencia de Usuario
+- Interfaz temática inspirada en Diablo 4
+- Búsqueda y filtrado avanzado
+- Sistema de paginación inteligente
+- Modales con z-index jerarquizado
+- Menú lateral persistente (sticky)
+
+### 💰 Herramientas de Desarrollo (v0.6.4)
+- **Panel de Costos**: Monitoreo de gastos de API OpenAI/Gemini
+- **Diseño minimalista**: Estilo VS Code Copilot notification
+- **Formatos compactos**: 1.5K, 2.3M tokens (abreviaciones)
+- **Control por ENV**: Habilitar/deshabilitar con variable de entorno
+
+## 🚀 Instalación y Configuración
 
 ### Requisitos Previos
 
 - Node.js 18 o superior
 - npm o yarn
+- Navegador moderno con soporte para File System Access API
 
 ### Pasos de Instalación
 
-1. Clona el repositorio:
+1. **Clona el repositorio:**
 ```bash
 git clone https://github.com/CareZapato/D4Build.git
 cd D4Builds
 ```
 
-2. Instala las dependencias:
+2. **Instala las dependencias:**
 ```bash
 npm install
 ```
 
-3. Inicia el servidor de desarrollo:
+3. **Configura las variables de entorno** (crea archivo `.env`):
+```bash
+# API Keys (al menos una requerida para IA)
+VITE_OPENAI_API_KEY=sk-proj-...        # OpenAI GPT-4o
+VITE_GEMINI_API_KEY=...                # Google Gemini (opcional)
+
+# Developer Tools
+VITE_ENABLE_BILLING_PANEL=true         # true = mostrar | false = ocultar
+```
+
+4. **Inicia el servidor de desarrollo:**
 ```bash
 npm run dev
 ```
 
-4. Abre tu navegador en `http://localhost:3000`
+5. **Abre tu navegador** en `http://localhost:5173`
 
-## 📖 Uso
+## 📖 Guía de Uso
 
-### 1. Configurar Workspace
+### 1. Configurar Workspace (Primera Vez)
 
-Al iniciar la aplicación por primera vez:
-- Haz clic en "Seleccionar Carpeta de Workspace"
-- Elige una carpeta donde se guardarán todos tus datos
-- La app creará automáticamente la estructura de carpetas necesaria
+1. Al abrir la app, verás el **WorkspaceSelector**
+2. Haz clic en **"Seleccionar Carpeta de Workspace"**
+3. Elige una carpeta vacía o crea una nueva
+4. La app generará automáticamente esta estructura:
 
-### 2. Importar Datos de Héroes
+```
+📁 Tu Workspace/
+├── 📁 personajes/           # JSONs de personajes individuales
+│   ├── personaje_1.json
+│   └── personaje_2.json
+├── 📁 heroes/               # Datos maestros por clase
+│   ├── 📁 paladin/
+│   │   ├── habilidades.json
+│   │   ├── glifos.json
+│   │   ├── aspectos.json
+│   │   ├── runas.json
+│   │   └── gemas.json
+│   ├── 📁 barbaro/
+│   └── ...
+├── 📁 images/               # Capturas procesadas
+│   ├── 📁 habilidades/
+│   ├── 📁 glifos/
+│   ├── 📁 aspectos/
+│   ├── 📁 stats/
+│   └── ...
+└── billing.json             # Registro de costos de IA (dev)
+```
 
-Antes de crear personajes, importa los datos base:
-- Ve a la sección "Héroes"
-- Selecciona la clase (Paladín, Bárbaro, etc.)
-- Importa los JSONs de habilidades y glifos
-- Los archivos deben seguir el formato especificado en la documentación
+### 2. Importar Datos de Héroes (Base de Datos)
 
-### 3. Crear Personajes
+Antes de crear personajes, configura los datos base por clase:
 
-- Ve a "Personajes" y haz clic en "Nuevo Personaje"
-- Completa los datos básicos (nombre, clase, nivel)
-- Edita el personaje para agregar habilidades y glifos
+1. Ve a la sección **"Héroes"** en el menú lateral
+2. Selecciona una **clase** (ej: Paladín)
+3. Usa la pestaña **"Importar/Exportar"**:
+   - **Desde archivo JSON**: Sube un archivo con el formato correcto
+   - **Desde texto**: Pega el JSON directamente
+4. Los formatos esperados están documentados en `ejemplos/` y `CONTEXT.md`
+5. Opcionalmente, usa **"Copiar Prompt para IA"** para generar prompts optimizados
 
-### 4. Generar Prompts
+**Pestaña "Gestionar Datos":** Edita, agrega o elimina habilidades/glifos/aspectos directamente desde la UI.
 
-- Ve a "Prompts"
-- Selecciona un personaje
-- Elige el tipo de consulta (personalizada, sinergias, optimización)
-- Copia el prompt generado y úsalo en ChatGPT, Claude u otra IA
+### 3. Crear y Gestionar Personajes
+
+1. Ve a **"Personajes"** → **"Nuevo Personaje"**
+2. Completa:
+   - Nombre
+   - Clase (debe tener datos de héroe importados)
+   - Nivel (1-100)
+   - Nivel de Paragon (opcional)
+3. Haz clic en el personaje para **editar**:
+   - **Estadísticas**: Importa JSON o edita manualmente
+   - **Habilidades**: Selecciona desde la base del héroe
+   - **Glifos**: Asigna glifos y sus niveles actuales
+   - **Aspectos**: Asigna aspectos legendarios
+   - **Build**: Equipa piezas de equipamiento
+   - **Paragon**: Administra tableros y nodos
+   - **Runas**: Gestiona runas de invocación y gemas
+
+### 4. Extracción con IA (Procesamiento de Imágenes)
+
+#### 4.1 Abrir Modal de Captura
+- Haz clic en el botón **"Captura"** (ícono cámara) en el menú lateral
+- O usa el botón de cámara flotante en varias secciones
+
+#### 4.2 Configurar Extracción
+1. **Seleccionar imagen**: Arrastra o selecciona screenshot del juego
+2. **Elegir categoría**: Habilidades, Glifos, Aspectos, Stats, etc.
+3. **Definir destino**:
+   - **Héroe**: Selecciona clase (datos maestros)
+   - **Personaje**: Selecciona un personaje existente
+4. **Configuración adicional** (según categoría):
+   - Paragon: Tipo (Tablero/Nodo/Atributos)
+   - Runas: Tipo (Runas/Gemas)
+
+#### 4.3 Procesar con IA
+- **Botón Gemini** (⚡): Procesamiento rápido con gemini-1.5-flash
+- **Botón OpenAI** (✨): Procesamiento con GPT-4o (con disclaimer reforzado)
+- Ambos muestran:
+  - Barra de progreso en tiempo real
+  - JSON extraído en preview
+  - Modal de resultados con botones de importación
+- Los datos se guardan automáticamente si se confirman
+
+#### 4.4 Prompts Embebidos
+- Copia prompts optimizados para usar en ChatGPT/Claude
+- Incluye disclaimer de videojuego para evitar rechazos
+- Formato JSON estructurado según categoría
+
+### 5. Generar Prompts Personalizados
+
+1. Ve a **"Prompts"**
+2. Selecciona un **personaje** (con datos completos)
+3. Elige tipo de análisis:
+   - **Consulta personalizada**: Pregunta específica sobre el build
+   - **Análisis de sinergias**: Optimización de habilidades
+   - **Recomendaciones**: Sugerencias de mejora
+4. **Copia el prompt** generado
+5. Pégalo en ChatGPT, Claude o tu IA preferida
+
+### 6. Buscar y Filtrar Datos
+
+- Usa el buscador global para encontrar habilidades, glifos, aspectos
+- Filtra por tipo, rama, categoría
+- Sistema de paginación para navegación eficiente
+
+## 📊 Formatos JSON Esperados
+
+### Ejemplo: Habilidades
+
+```json
+{
+  "habilidades": {
+    "activas": [
+      {
+        "id": "habilidad_1",
+        "nombre": "Golpe Sagrado",
+        "tipo": "Básica",
+        "rama": "Core",
+        "descripcion": "Golpea con poder sagrado",
+        "puntos_max": 5,
+        "mejoras": ["Mejora 1", "Mejora 2"]
+      }
+    ],
+    "pasivas": [...]
+  }
+}
+```
+
+### Ejemplo: Glifos
+
+```json
+{
+  "glifos": [
+    {
+      "id": "glifo_1",
+      "nombre": "Espíritu",
+      "nivel_max": 21,
+      "bonificacion_base": "+50% daño",
+      "bonificacion_max": "+100% daño",
+      "radio_base": 3,
+      "radio_max": 5,
+      "descripcion": "Aumenta el daño de habilidades"
+    }
+  ]
+}
+```
+
+Consulta `ejemplos/` y `CONTEXT.md` para ver todos los formatos completos.
+
+## 🔧 Variables de Entorno
+
+```bash
+# ========================================
+# API Keys (al menos una requerida)
+# ========================================
+VITE_OPENAI_API_KEY=sk-proj-xxxxx
+# - Obtén tu API key en: https://platform.openai.com/api-keys
+# - Modelo usado: gpt-4o (visión + JSON)
+# - Costos aprox: $0.005 - $0.02 por imagen
+
+VITE_GEMINI_API_KEY=xxxxx
+# - Obtén tu API key en: https://aistudio.google.com/apikey
+# - Modelo usado: gemini-1.5-flash-002
+# - Gratis hasta cierto límite mensual
+
+# ========================================
+# Developer Tools
+# ========================================
+VITE_ENABLE_BILLING_PANEL=true
+# - true: Muestra botón $ para ver costos de API
+# - false: Oculta completamente el panel
+# - Recomendado: false en producción
+```
+
+## 💸 Panel de Costos (Dev Tool)
+
+El panel de monitoreo de costos (v0.6.4) te permite:
+- Ver **costo total acumulado** de llamadas a API
+- **Desglose por proveedor** (OpenAI vs Gemini)
+- **Últimas 3 llamadas** con modelo, timestamp, costo
+- **Formato compacto**: 1.5K tokens, 2.3M tokens, $0.0050
+- **Auto-refresh**: Cada 15 segundos
+- **Persistencia**: Estado recordado en localStorage
+
+**Cómo usarlo:**
+1. Habilita con `VITE_ENABLE_BILLING_PANEL=true`
+2. Botón $ aparece en esquina inferior derecha
+3. Clic para expandir/colapsar panel
+4. Datos guardados en `billing.json` del workspace
 
 ## Estructura de Datos
 
@@ -218,6 +418,15 @@ Esta aplicación usa la File System Access API, que es compatible con:
 - [ ] Modo oscuro/claro
 
 ## 📝 Changelog
+
+### v0.6.0 (17 de Abril, 2026)
+**🎨 Mejoras Visuales y Validación**
+- ✅ **Botones rediseñados**: Grid compacto 3×2/6 columnas, solo íconos, distribución uniforme
+- ✅ **Validación mejorada**: Los botones de IA ahora validan campos requeridos antes de procesar
+- ✅ **Mensajes claros**: Indica exactamente qué campos faltan (héroe/personaje, clase, tipo de paragon, tipo de runa)
+- ✅ **Integración OpenAI completa**: Documentación de proxy CORS, API keys, manejo de refusals
+- 📚 **Documentación ampliada**: [CHANGELOG-v0.6.0.md](./CHANGELOG-v0.6.0.md) con detalles completos
+- 📚 **Nuevos archivos**: `CORS-FIX.md`, `API-KEYS-SETUP.md` con guías paso a paso
 
 ### v0.1.1 (20 de Marzo, 2026)
 **🔧 Correcciones y Mejoras**

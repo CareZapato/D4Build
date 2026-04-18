@@ -163,10 +163,6 @@ export async function fileToBase64(file: File | Blob): Promise<ImagePart> {
           return;
         }
         
-        console.log('✅ [fileToBase64] Conversión exitosa');
-        console.log(`   MIME: ${mimeType}`);
-        console.log(`   Size: ${(base64Data.length / 1024).toFixed(2)} KB`);
-        
         resolve({
           inlineData: {
             mimeType,
@@ -473,8 +469,6 @@ REGLAS:
  * @returns Objeto parseado o lanza error
  */
 export function extractJSON(text: string): any {
-  console.log('🔍 [extractJSON] Analizando respuesta...');
-  
   let cleanJson = text.trim();
   
   // Caso 1: Remover bloques ```json...```
@@ -482,7 +476,6 @@ export function extractJSON(text: string): any {
     const match = cleanJson.match(/```json\s*([\s\S]*?)\s*```/);
     if (match) {
       cleanJson = match[1].trim();
-      console.log('   ✓ JSON extraído desde bloque ```json```');
     }
   }
   // Caso 2: Remover bloques genéricos ```...```
@@ -490,7 +483,6 @@ export function extractJSON(text: string): any {
     const match = cleanJson.match(/```\s*([\s\S]*?)\s*```/);
     if (match) {
       cleanJson = match[1].trim();
-      console.log('   ✓ JSON extraído desde bloque ```');
     }
   }
   
@@ -516,12 +508,9 @@ export function extractJSON(text: string): any {
   
   cleanJson = cleanJson.substring(start, end + 1);
   
-  console.log('   ✓ JSON extraído (length:', cleanJson.length, 'chars)');
-  
   // Parsear
   try {
     const parsed = JSON.parse(cleanJson);
-    console.log('   ✅ JSON parseado correctamente');
     return parsed;
   } catch (parseError) {
     console.error('   ❌ Error al parsear JSON:', parseError);
@@ -579,29 +568,20 @@ export class GeminiImageService {
     
     const { image, analysisType, customPrompt } = request;
     
-    console.log('\n🚀 [GeminiImageService] Iniciando análisis...');
-    console.log(`📋 Tipo: ${analysisType}`);
-    console.log(`🤖 Modelo: ${model}`);
-    console.log(`🌡️  Temperatura: ${temperature}`);
-    
     try {
       // ----------------------------------------------------------------
       // PASO 1: Convertir imagen a base64
       // ----------------------------------------------------------------
-      console.log('\n🖼️  [PASO 1/4] Convirtiendo imagen...');
       const imagePart = await fileToBase64(image);
       
       // ----------------------------------------------------------------
       // PASO 2: Obtener prompt según tipo de análisis
       // ----------------------------------------------------------------
-      console.log('\n📝 [PASO 2/4] Generando prompt...');
       const prompt = customPrompt || getPromptForAnalysisType(analysisType);
-      console.log(`   Prompt length: ${prompt.length} caracteres`);
       
       // ----------------------------------------------------------------
       // PASO 3: Inicializar cliente y enviar request
       // ----------------------------------------------------------------
-      console.log('\n🔧 [PASO 3/4] Enviando a Gemini...');
       const ai = new GoogleGenAI({ apiKey });
       
       // ESTRUCTURA CORRECTA según documentación:
@@ -623,9 +603,6 @@ export class GeminiImageService {
       
       const rawText = result.text;
       
-      console.log('\n📥 [PASO 4/4] Respuesta recibida');
-      console.log(`   Tamaño: ${rawText?.length || 0} caracteres`);
-      
       // ----------------------------------------------------------------
       // PASO 4: Validar y parsear respuesta
       // ----------------------------------------------------------------
@@ -643,9 +620,6 @@ export class GeminiImageService {
       // Extraer y parsear JSON
       try {
         const data = extractJSON(rawText);
-        
-        console.log('✅ Análisis completado exitosamente');
-        console.log(`📦 Datos extraídos (${Object.keys(data).length} campos)`);
         
         return {
           success: true,
@@ -743,24 +717,16 @@ export class GeminiImageService {
       ? [config.model, ...AVAILABLE_MODELS.filter(m => m !== config.model)]
       : [...AVAILABLE_MODELS];
     
-    console.log('\n🔄 [Fallback] Modelos a intentar:', modelsToTry);
-    
     for (const model of modelsToTry) {
-      console.log(`\n🎯 Intentando con: ${model}`);
-      
       const response = await this.analyzeImage<T>(request, { ...config, model });
       
       if (response.success) {
-        console.log(`✅ Éxito con modelo: ${model}`);
         return response;
       }
       
       if (response.errorType !== 'MODEL_UNAVAILABLE') {
-        console.log(`⛔ Error no recuperable: ${response.errorType}`);
         return response;
       }
-      
-      console.log(`⚠️  Modelo ${model} no disponible, probando siguiente...`);
     }
     
     return {
@@ -789,8 +755,6 @@ export class GeminiImageService {
     
     const { images, analysisType, customPrompt } = request;
     const { apiKey, model = DEFAULT_MODEL, temperature = 0.1, maxOutputTokens = 8192 } = config;
-    
-    console.log(`\n🖼️  [Multi-Image] Analizando ${images.length} imágenes...`);
     
     try {
       // Convertir todas las imágenes a base64

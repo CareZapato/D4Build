@@ -145,7 +145,7 @@ export class WorkspaceService {
       await imagesDir.getDirectoryHandle('aspectos', { create: true });
       await imagesDir.getDirectoryHandle('estadisticas', { create: true });
       await imagesDir.getDirectoryHandle('paragon', { create: true });
-      await imagesDir.getDirectoryHandle('runas', { create: true });
+      await imagesDir.getDirectoryHandle('gemas_runas', { create: true });
       await imagesDir.getDirectoryHandle('build', { create: true });
       await imagesDir.getDirectoryHandle('otros', { create: true });
     } catch (error) {
@@ -190,6 +190,34 @@ export class WorkspaceService {
   // Obtener la configuración actual
   static getWorkspaceConfig(): WorkspaceConfig | null {
     return this.workspaceConfig;
+  }
+
+  // Leer archivo del workspace (helper genérico)
+  static async readFile(fileName: string): Promise<string> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const fileHandle = await this.fileSystemHandle.getFileHandle(fileName);
+      const file = await fileHandle.getFile();
+      return await file.text();
+    } catch (error) {
+      throw error; // Propagar error para que el caller pueda manejarlo
+    }
+  }
+
+  // Guardar archivo en el workspace (helper genérico)
+  static async saveFile(fileName: string, content: string): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const fileHandle = await this.fileSystemHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+    } catch (error) {
+      console.error(`Error guardando archivo ${fileName}:`, error);
+      throw error;
+    }
   }
 
   // Guardar personaje con merge seguro (lee el archivo actual primero)

@@ -2,52 +2,122 @@ import { Personaje, PromptConfig, Glifo, HabilidadActiva, HabilidadPasiva } from
 import { WorkspaceService } from './WorkspaceService';
 
 export class PromptService {
-  // Generar prompt de análisis profundo del personaje
+  // Generar prompt de análisis profundo del personaje (v0.6.2 - Análisis basado en tags)
   static async generateDeepAnalysisPrompt(personaje: Personaje): Promise<string> {
-    let prompt = `# Análisis Profundo de Build - ${personaje.nombre} (${personaje.clase})\n\n`;
+    let prompt = `# CONTEXTO DEL SISTEMA\n\n`;
     
-    prompt += `Eres un experto en Diablo 4 especializado en optimización de builds. Analiza este personaje en detalle.\n\n`;
+    prompt += `Esta aplicación utiliza un enfoque basado en datos estructurados JSON para analizar y optimizar personajes de Diablo 4.\n\n`;
+    
+    prompt += `## Sistema de Tags como Lenguaje Común\n`;
+    prompt += `Los elementos del build (habilidades, aspectos, glifos, nodos Paragon, estadísticas) están conectados mediante **tags** (palabras clave).\n`;
+    prompt += `Los tags representan mecánicas del juego como: 'crítico', 'vulnerabilidad', 'espinas', 'fortificación', 'sangrado', 'veneno', etc.\n\n`;
+    
+    prompt += `**OBJETIVO DEL ANÁLISIS**: Identificar tags compartidos entre elementos para descubrir sinergias, optimizar el build y detectar mecánicas desaprovechadas.\n\n`;
+    
+    prompt += `---\n\n`;
+    prompt += `# ANÁLISIS DE BUILD: ${personaje.nombre} (${personaje.clase})\n\n`;
     
     // Información básica
-    prompt += `## Información del Personaje\n`;
+    prompt += `## 📊 Información General\n`;
     prompt += `- **Clase**: ${personaje.clase}\n`;
     prompt += `- **Nivel**: ${personaje.nivel}`;
     if (personaje.nivel_paragon) {
-      prompt += ` | **Nivel Paragon**: ${personaje.nivel_paragon}`;
+      prompt += ` | **Paragon**: ${personaje.nivel_paragon}`;
     }
     if (personaje.puertas_anexo) {
-      prompt += `\n- **Puertas de Anexo**: ${personaje.puertas_anexo} (otorga +${personaje.puertas_anexo * 5} a todos los atributos principales)`;
+      prompt += ` | **Puertas Anexo**: ${personaje.puertas_anexo} (+${personaje.puertas_anexo * 5} atributos)`;
     }
     prompt += `\n\n`;
 
-    // Atributos principales con bonus de puertas
-    if (personaje.estadisticas?.atributosPrincipales) {
-      const atrib = personaje.estadisticas.atributosPrincipales;
-      const bonusPuertas = (personaje.puertas_anexo || 0) * 5;
-      
-      prompt += `## Atributos Principales\n`;
-      prompt += `- **Fuerza**: ${(atrib.fuerza || 0) + bonusPuertas}`;
-      if (bonusPuertas > 0) prompt += ` (${atrib.fuerza} base + ${bonusPuertas} puertas)`;
-      prompt += `\n`;
-      prompt += `- **Inteligencia**: ${(atrib.inteligencia || 0) + bonusPuertas}`;
-      if (bonusPuertas > 0) prompt += ` (${atrib.inteligencia} base + ${bonusPuertas} puertas)`;
-      prompt += `\n`;
-      prompt += `- **Voluntad**: ${(atrib.voluntad || 0) + bonusPuertas}`;
-      if (bonusPuertas > 0) prompt += ` (${atrib.voluntad} base + ${bonusPuertas} puertas)`;
-      prompt += `\n`;
-      prompt += `- **Destreza**: ${(atrib.destreza || 0) + bonusPuertas}`;
-      if (bonusPuertas > 0) prompt += ` (${atrib.destreza} base + ${bonusPuertas} puertas)`;
-      prompt += `\n\n`;
-    }
-
-    // Estadísticas detalladas
-    if (personaje.estadisticas) {
-      prompt += await this.formatEstadisticasDetalladas(personaje.estadisticas);
-    }
-
-    // Habilidades equipadas
+    // Habilidades EN BATALLA únicamente (v0.6.2)
     if (personaje.habilidades_refs) {
-      prompt += await this.formatHabilidadesEquipadas(personaje);
+      try {
+        const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
+        if (heroSkills) {
+          const habilidadesEnBatalla = (personaje.habilidades_refs.activas || [])
+            .filter(ref => ref.en_batalla === true)
+            .map(ref => heroSkills.habilidades_activas.find(s => s.id === ref.skill_id))
+            .filter((skill): skill is HabilidadActiva => skill !== undefined);
+          
+          const habilidadesPasivas = (personaje.habilidades_refs.pasivas || [])
+            .map(ref => {
+              const skillId = typeof ref === 'string' ? ref : ref.skill_id;
+              return heroSkills.habilidades_pasivas.find(s => s.id === skillId);
+            })
+            .filter((skill): skill is HabilidadPasiva => skill !== undefined);
+
+          if (habilidadesEnBatalla.length > 0 || habilidadesPasivas.length > 0) {
+            prompt += `## ⚔️ Habilidades en Batalla (${habilidadesEnBatalla.length}/6 activas)\n`;
+            
+            // Solo habilidades marcadas como "en batalla"
+            habilidadesEnBatalla.forEach(skill => {
+              prompt += `- **${skill.nombre}** (${skill.tipo} - ${skill.rama})\n`;
+              prompt += `  - ${skill.descripcion}\n`;
+              if (skill.tags && skill.tags.length > 0) {
+                prompt += `  - 🏷️ Tags: ${skill.tags.join(', ')}\n`;
+              }
+            });
+
+            if (habilidadesPasivas.length > 0) {
+              prompt += `\n**Pasivas** (${habilidadesPasivas.length}):\n`;
+              habilidadesPasivas.forEach(skill => {
+                prompt += `- **${skill.nombre}**: ${skill.efecto}\n`;
+                if (skill.tags && skill.tags.length > 0) {
+                  prompt += `  - 🏷️ Tags: ${skill.tags.join(', ')}\n`;
+                }
+              });
+            }
+            prompt += `\n`;
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando habilidades:', error);
+      }
+    }
+
+    // Aspectos equipados vs disponibles (comparación)
+    if (personaje.aspectos_refs) {
+      try {
+        const heroAspects = await WorkspaceService.loadHeroAspects(personaje.clase);
+        if (heroAspects) {
+          const aspectosEquipados = personaje.aspectos_refs
+            .map(ref => {
+              const aspectoId = typeof ref === 'string' ? ref : ref.aspecto_id;
+              return heroAspects.aspectos.find(a => a.id === aspectoId);
+            })
+            .filter(a => a !== undefined);
+          
+          const equipadosIds = new Set(personaje.aspectos_refs.map(ref => 
+            typeof ref === 'string' ? ref : ref.aspecto_id
+          ));
+          const aspectosDisponibles = heroAspects.aspectos.filter(a => !equipadosIds.has(a.id));
+
+          prompt += `## 🔮 Aspectos (${aspectosEquipados.length} equipados / ${aspectosDisponibles.length} disponibles)\n`;
+          prompt += `### Equipados:\n`;
+          aspectosEquipados.forEach(aspecto => {
+            prompt += `- **${aspecto.name}** (${aspecto.category})\n`;
+            prompt += `  - ${aspecto.effect}\n`;
+            if (aspecto.tags && aspecto.tags.length > 0) {
+              prompt += `  - 🏷️ Tags: ${aspecto.tags.join(', ')}\n`;
+            }
+          });
+          
+          prompt += `\n### Disponibles NO equipados (muestra):\n`;
+          aspectosDisponibles.slice(0, 10).forEach(aspecto => {
+            prompt += `- **${aspecto.name}** (${aspecto.category})\n`;
+            prompt += `  - ${aspecto.effect}\n`;
+            if (aspecto.tags && aspecto.tags.length > 0) {
+              prompt += `  - 🏷️ Tags: ${aspecto.tags.join(', ')}\n`;
+            }
+          });
+          if (aspectosDisponibles.length > 10) {
+            prompt += `- ... y ${aspectosDisponibles.length - 10} más disponibles.\n`;
+          }
+          prompt += `\n`;
+        }
+      } catch (error) {
+        console.error('Error cargando aspectos:', error);
+      }
     }
 
     // Glifos equipados
@@ -55,68 +125,54 @@ export class PromptService {
       prompt += await this.formatGlifosEquipados(personaje);
     }
 
-    // Aspectos equipados
-    if (personaje.aspectos_refs && personaje.aspectos_refs.length > 0) {
-      prompt += await this.formatAspectosEquipados(personaje);
-    }
-
-    // Build equipada (si existe)
+    // Build equipada (items)
     prompt += this.formatBuildEquipada(personaje);
 
-    // Sistema Paragon (mejorado con conteo de nodos activos)
+    // Sistema Paragon
     if (personaje.paragon_refs || personaje.paragon || personaje.atributos_paragon) {
       prompt += await this.formatParagonEquipado(personaje);
-      
-      // Agregar información adicional de nodos activos
-      const nodosHuerfanos = personaje.paragon_refs?.nodos_huerfanos || [];
-      const nodosEnTableros = personaje.paragon_refs?.tableros_equipados?.flatMap(t => 
-        t.nodos_activados_ids || []
-      ) || [];
-      const totalNodosActivos = nodosHuerfanos.length + nodosEnTableros.length;
-      
-      if (totalNodosActivos > 0) {
-        prompt += `\n**IMPORTANTE**: Nodos activos totales: ${totalNodosActivos}`;
-        if (nodosHuerfanos.length > 0) {
-          prompt += ` (incluye ${nodosHuerfanos.length} nodos huérfanos sin tablero asignado)`;
-        }
-        prompt += `\n`;
-      }
     }
 
-    // Pregunta de análisis
-    prompt += `\n## Tarea de Análisis\n\n`;
-    prompt += `Proporciona un análisis detallado del build:\n\n`;
-    prompt += `### 1. Evaluación General (0-10)\n`;
-    prompt += `- **Coherencia del Build**: ¿Las habilidades, glifos y aspectos trabajan juntos?\n`;
-    prompt += `- **Optimización de Stats**: ¿Las estadísticas están bien distribuidas?\n`;
-    prompt += `- **Viabilidad**: ¿Es viable para contenido endgame?\n`;
-    prompt += `- **Sistema Paragon**: ¿La configuración Paragon es óptima?\n\n`;
+    // Estadísticas clave
+    if (personaje.estadisticas) {
+      prompt += await this.formatEstadisticasDetalladas(personaje.estadisticas);
+    }
+
+    // Instrucciones de análisis
+    prompt += `\n---\n\n`;
+    prompt += `# INSTRUCCIONES DE ANÁLISIS\n\n`;
     
-    prompt += `### 2. Fortalezas Identificadas\n`;
-    prompt += `- ¿Qué está haciendo bien este build?\n`;
-    prompt += `- ¿Qué sinergias efectivas existen?\n`;
-    prompt += `- ¿Qué aspectos son particularmente fuertes?\n`;
-    prompt += `- ¿Los tableros y nodos Paragon complementan el build?\n\n`;
+    prompt += `## 1️⃣ DIAGNÓSTICO RÁPIDO\n`;
+    prompt += `- Identifica el **arquetipo/estilo de juego** basado en tags dominantes\n`;
+    prompt += `- Evalúa coherencia general (1-10)\n`;
+    prompt += `- ¿Está enfocado o disperso?\n\n`;
     
-    prompt += `### 3. Debilidades y Puntos Críticos\n`;
-    prompt += `- ¿Qué carencias tiene el build?\n`;
-    prompt += `- ¿Hay habilidades/glifos/aspectos que no aportan valor?\n`;
-    prompt += `- ¿Qué mecánicas del juego no está aprovechando?\n`;
-    prompt += `- ¿La configuración Paragon es óptima para el build?\n`;
-    prompt += `- ¿Debería conseguir más puertas de anexo?\n\n`;
+    prompt += `## 2️⃣ SINERGIAS (Análisis Transversal por Tags)\n`;
+    prompt += `- Lista tags compartidos entre habilidades en batalla, aspectos equipados, glifos y nodos\n`;
+    prompt += `- Identifica mecánicas fuertes (ej: si 'crítico' aparece en 4+ elementos)\n`;
+    prompt += `- Detecta anti-sinergias (elementos que no comparten tags)\n\n`;
     
-    prompt += `### 4. Prioridades de Optimización\n`;
-    prompt += `Ordena por importancia (1 = más urgente):\n`;
-    prompt += `- Estadísticas a mejorar\n`;
-    prompt += `- Habilidades a cambiar\n`;
-    prompt += `- Glifos a reemplazar\n`;
-    prompt += `- Aspectos a buscar\n`;
-    prompt += `- Tableros Paragon a optimizar\n`;
-    prompt += `- Nodos Paragon a activar/cambiar\n`;
-    prompt += `- Puertas de Anexo a conseguir\n\n`;
+    prompt += `## 3️⃣ PROBLEMAS CRÍTICOS\n`;
+    prompt += `- Habilidades en batalla sin soporte (sin aspectos/glifos que compartan tags)\n`;
+    prompt += `- Aspectos equipados que no conectan con habilidades activas\n`;
+    prompt += `- Mecánicas desaprovechadas (tags en aspectos disponibles que potenciarían el build)\n`;
+    prompt += `- Carencias defensivas/ofensivas según estadísticas\n\n`;
     
-    prompt += `### 5. Plan de Acción Inmediato\n`;
-    prompt += `Dame 3-5 cambios concretos que pueda hacer YA para mejorar el rendimiento.\n`;
+    prompt += `## 4️⃣ RECOMENDACIONES PRIORIZADAS\n`;
+    prompt += `Ordena por impacto (1 = más urgente):\n`;
+    prompt += `1. **Aspectos a cambiar**: Especifica cuáles equipados reemplazar y por cuáles disponibles (justifica con tags compartidos)\n`;
+    prompt += `2. **Habilidades a ajustar**: Si alguna en batalla tiene 0 sinergias, sugiere alternativas\n`;
+    prompt += `3. **Glifos a optimizar**: Prioriza niveles o reemplazos según tags\n`;
+    prompt += `4. **Estadísticas a mejorar**: Basado en análisis de stats\n`;
+    prompt += `5. **Nodos Paragon a priorizar**: Si hay info disponible\n\n`;
+    
+    prompt += `## 5️⃣ PLAN DE ACCIÓN (3-5 pasos concretos)\n`;
+    prompt += `Lista cambios inmediatos, cada uno con:\n`;
+    prompt += `- Qué hacer exactamente\n`;
+    prompt += `- Por qué (menciona tags/sinergias)\n`;
+    prompt += `- Impacto esperado\n\n`;
+    
+    prompt += `**FORMATO DE RESPUESTA**: Conciso, con viñetas, sin repetir información innecesaria. Enfócate en tags compartidos como criterio principal.\n`;
 
     return prompt;
   }
@@ -642,56 +698,6 @@ Identifica:
     return prompt;
   }
 
-  // Helper: Formatear habilidades equipadas
-  private static async formatHabilidadesEquipadas(personaje: Personaje): Promise<string> {
-    let prompt = '';
-    
-    try {
-      const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
-      
-      if (heroSkills && personaje.habilidades_refs) {
-        // Activas
-        const activeSkills: HabilidadActiva[] = (personaje.habilidades_refs.activas || [])
-          .map(ref => heroSkills.habilidades_activas.find(s => s.id === ref.skill_id))
-          .filter((skill): skill is HabilidadActiva => skill !== undefined);
-
-        if (activeSkills.length > 0) {
-          prompt += `\n## Habilidades Activas\n`;
-          activeSkills.forEach(skill => {
-            prompt += `\n### ${skill.nombre} (${skill.tipo} - ${skill.rama})\n`;
-            prompt += `- **Descripción**: ${skill.descripcion}\n`;
-            if (skill.tipo_danio) prompt += `- **Tipo de Daño**: ${skill.tipo_danio}\n`;
-            if (skill.modificadores && skill.modificadores.length > 0) {
-              prompt += `- **Modificadores**:\n`;
-              skill.modificadores.forEach(mod => {
-                prompt += `  - ${mod.nombre}: ${mod.descripcion}\n`;
-              });
-            }
-          });
-        }
-
-        // Pasivas
-        const passiveSkills: HabilidadPasiva[] = (personaje.habilidades_refs.pasivas || [])
-          .map(ref => {
-            const skillId = typeof ref === 'string' ? ref : ref.skill_id;
-            return heroSkills.habilidades_pasivas.find(s => s.id === skillId);
-          })
-          .filter((skill): skill is HabilidadPasiva => skill !== undefined);
-
-        if (passiveSkills.length > 0) {
-          prompt += `\n## Habilidades Pasivas\n`;
-          passiveSkills.forEach(skill => {
-            prompt += `- **${skill.nombre}**: ${skill.efecto}\n`;
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error cargando habilidades:', error);
-    }
-
-    return prompt;
-  }
-
   // Helper: Formatear glifos equipados
   private static async formatGlifosEquipados(personaje: Personaje): Promise<string> {
     let prompt = '';
@@ -716,36 +722,6 @@ Identifica:
       }
     } catch (error) {
       console.error('Error cargando glifos:', error);
-    }
-
-    return prompt;
-  }
-
-  // Helper: Formatear aspectos equipados
-  private static async formatAspectosEquipados(personaje: Personaje): Promise<string> {
-    let prompt = '';
-    
-    try {
-      const heroAspects = await WorkspaceService.loadHeroAspects(personaje.clase);
-      
-      if (heroAspects && personaje.aspectos_refs && personaje.aspectos_refs.length > 0) {
-        prompt += `\n## Aspectos Equipados\n`;
-        
-        for (const ref of personaje.aspectos_refs) {
-          const aspectoId = typeof ref === 'string' ? ref : ref.aspecto_id;
-          const aspecto = heroAspects.aspectos.find(a => a.id === aspectoId);
-          
-          if (aspecto) {
-            prompt += `\n### ${aspecto.name} (${aspecto.category})\n`;
-            prompt += `- **Efecto**: ${aspecto.effect}\n`;
-            if (typeof ref === 'object' && ref.nivel_actual) {
-              prompt += `- **Nivel**: ${ref.nivel_actual}\n`;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error cargando aspectos:', error);
     }
 
     return prompt;

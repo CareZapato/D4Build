@@ -199,8 +199,15 @@ const RunesGemsSection: React.FC = () => {
                           className="w-full p-3 text-left hover:bg-black/10 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className={`font-semibold text-base ${typeColor.accentClass}`}>{runa.nombre}</div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-semibold text-base ${typeColor.accentClass}`}>{runa.nombre}</span>
+                                {(runa.en_bolsas !== undefined && runa.en_bolsas > 0) && (
+                                  <span className="px-1.5 py-0.5 rounded bg-d4-accent/20 text-d4-accent text-[10px] font-bold border border-d4-accent/30">
+                                    x{runa.en_bolsas}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-d4-text-dim text-xs mt-1 flex flex-wrap gap-2 items-center">
                                 <span className="capitalize">{runa.tipo} · {runa.rareza}</span>
                                 <span>{typeColor.label}</span>
@@ -284,8 +291,15 @@ const RunesGemsSection: React.FC = () => {
                           className="w-full p-3 text-left hover:bg-black/10 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className={`font-semibold text-base ${gemColor.accentClass}`}>{gema.nombre}</div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-semibold text-base ${gemColor.accentClass}`}>{gema.nombre}</span>
+                                {(gema.en_bolsas !== undefined && gema.en_bolsas > 0) && (
+                                  <span className="px-1.5 py-0.5 rounded bg-d4-accent/20 text-d4-accent text-[10px] font-bold border border-d4-accent/30">
+                                    x{gema.en_bolsas}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-d4-text-dim text-xs mt-1 flex flex-wrap gap-2 items-center">
                                 <span className="capitalize">{gema.tipo || 'gema'}{gema.calidad ? ` · ${gema.calidad}` : ''}</span>
                                 <span>{gemColor.label}</span>
@@ -323,7 +337,7 @@ const RunesGemsSection: React.FC = () => {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-d4-text-dim">
                               <div>ID: <span className="text-d4-text">{gema.id}</span></div>
                               <div>Tier: <span className="text-d4-text">{gema.rango_calidad ?? '-'}</span></div>
-                              <div>Nivel: <span className="text-d4-text">{gema.nivel_requerido ?? gema.requerimientos?.nivel ?? '-'}</span></div>
+                              <div>Bolsas: <span className="text-d4-text">{gema.en_bolsas ?? '-'}</span></div>
                               <div>Venta: <span className="text-d4-text">{gema.valor_venta ?? '-'}</span></div>
                             </div>
 

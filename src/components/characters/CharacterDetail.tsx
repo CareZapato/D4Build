@@ -5,7 +5,6 @@ import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
 import CharacterGlyphs from './CharacterGlyphs';
 import CharacterSkills from './CharacterSkills';
-import CharacterAspects from './CharacterAspects';
 import CharacterPrompts from './CharacterPrompts';
 import CharacterParagon from './CharacterParagon';
 import CharacterRunes from './CharacterRunes';
@@ -31,7 +30,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     personaje.glifos_refs || []
   );
   const [pendingSkills, setPendingSkills] = useState<{ 
-    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number }>; 
+    activas: Array<{ skill_id: string; modificadores_ids: string[]; nivel_actual?: number; en_batalla?: boolean }>; 
     pasivas: Array<{ skill_id: string; puntos_asignados?: number }>
   }>(
     personaje.habilidades_refs || { activas: [], pasivas: [] }
@@ -48,7 +47,6 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [runesCollapsed, setRunesCollapsed] = useState(false);
   const [buildCollapsed, setBuildCollapsed] = useState(false);
   const [paragonCollapsed, setParagonCollapsed] = useState(false);
-  const [aspectsCollapsed, setAspectsCollapsed] = useState(false);
   const [promptsCollapsed, setPromptsCollapsed] = useState(false);
 
   // Sincronizar estados cuando cambie el personaje prop
@@ -179,27 +177,6 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     } catch (error) {
       console.error('Error guardando habilidades:', error);
       modal.showError('Error al guardar las habilidades');
-    }
-  };
-
-  const handleAspectsChange = async (aspectsRefs: Array<{ aspecto_id: string; nivel_actual: string; slot_equipado?: string; valores_actuales: Record<string, string> }>) => {
-    // Construir personaje actualizado
-    const updatedPersonaje: Personaje = {
-      ...editedPersonaje,
-      aspectos_refs: aspectsRefs,
-      fecha_actualizacion: new Date().toISOString(),
-    };
-    
-    // Actualizar estado local
-    setEditedPersonaje(updatedPersonaje);
-    
-    // Guardar automáticamente con merge seguro
-    try {
-      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-      onUpdate();
-    } catch (error) {
-      console.error('Error guardando aspectos:', error);
-      modal.showError('Error al guardar los aspectos');
     }
   };
 
@@ -715,33 +692,6 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             {!paragonCollapsed && (
               <div className="px-4 pb-4">
                 <CharacterParagon personaje={editedPersonaje} onChange={handleParagonChange} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Aspectos */}
-        <div className="lg:col-span-3">
-          <div className="card">
-            <button
-              onClick={() => setAspectsCollapsed(!aspectsCollapsed)}
-              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
-            >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Aspectos Equipados</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
-              </div>
-              {aspectsCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
-              ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
-              )}
-            </button>
-            {!aspectsCollapsed && (
-              <div className="px-4 pb-4">
-                <CharacterAspects personaje={editedPersonaje} onChange={handleAspectsChange} />
               </div>
             )}
           </div>

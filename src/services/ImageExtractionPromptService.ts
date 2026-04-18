@@ -1417,6 +1417,68 @@ Los tableros Paragon son las estructuras base donde se colocan los nodos. Cada c
   }
 
   // Generar prompt GENÉRICO para extraer nodos Paragon (todas las rarezas)
+  // Versión ULTRA-SIMPLIFICADA para OpenAI (máxima compatibilidad con filtros)
+  static generateParagonNodesPromptForOpenAI(): string {
+    return `Extract character progression tree node data from the game UI screenshot.
+
+**NODE TYPES (identify by border color):**
+- Normal (gray/white border)
+- Magic (blue border)
+- Rare (yellow border)
+- Legendary (orange border)
+
+**JSON OUTPUT STRUCTURE:**
+
+\`\`\`json
+{
+  "nodos": [
+    {
+      "id": "node_unique_123",
+      "nombre": "Node visible name",
+      "rareza": "magico",
+      "atributos": [
+        { "tipo": "max_health", "valor": 4.0 },
+        { "tipo": "armor", "valor": 1.5 }
+      ],
+      "detalles": [
+        {
+          "texto": "Exact effect text 1",
+          "activo": true,
+          "valor": "4.0%"
+        },
+        {
+          "texto": "Exact effect text 2",
+          "activo": true,
+          "valor": "1.5%"
+        }
+      ],
+      "requisitos": {
+        "atributo": "strength",
+        "valor_actual": 100,
+        "valor_requerido": 200
+      },
+      "replicas": 2,
+      "tablero_id": "main_board",
+      "tags": []
+    }
+  ],
+  "palabras_clave": []
+}
+\`\`\`
+
+**REQUIREMENTS:**
+1. Field "rareza" is mandatory (normal/magico/raro/legendario)
+2. "detalles[].activo": true if text is active (bright color), false if disabled (gray)
+3. "requisitos": only if requirement text is visible (e.g., "Required: X/Y Attribute")
+4. "replicas": only if identical nodes exist (same name and effects)
+5. Extract ALL stat bonuses visible in each node
+6. Use Spanish field names but English explanations
+
+**COMMON STAT TYPES:**
+strength, dexterity, intelligence, willpower, max_health, armor, resistance, movement_speed, critical_chance, damage, etc.`;
+  }
+
+  // Versión completa para Gemini (más detallada)
   static generateParagonNodesPrompt(): string {
     return `Analiza la imagen y extrae los nodos del tablero Paragon de Diablo 4.
 

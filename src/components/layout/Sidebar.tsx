@@ -23,12 +23,12 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   ];
 
   return (
-    <aside className="w-72 h-screen bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl overflow-hidden">
+    <aside className="w-72 h-screen bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl overflow-hidden sticky top-0 z-10">
       <div className="p-6 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden flex-shrink-0">
         {/* Efecto de brillo de fondo */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-d4-accent/10 rounded-full blur-3xl"></div>
         
-        <div className="relative z-10 flex items-start justify-between gap-2">
+        <div className="relative flex items-start justify-between gap-2">
           <div className="flex-1">
             <h1 className="text-3xl font-black text-d4-accent leading-tight tracking-wide drop-shadow-lg">
               D4 BUILDS
@@ -42,7 +42,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             className="mt-1 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.5.1
+            v0.6.4
           </button>
         </div>
       </div>

@@ -85,8 +85,9 @@ const ImportResultsModal: React.FC<ImportResultsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
-      <div className="bg-[#15171f] border border-white/10 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-[100000] p-4">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className="bg-[#15171f] border border-white/10 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col relative z-[1]">
         {/* Header */}
         <div className={`px-4 py-3 border-b border-white/10 flex items-center justify-between ${
           results.success && !hasErrors 
