@@ -11,6 +11,23 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### 🔧 Fixed (Arreglado)
 
+#### Deployment: API URL incorrecta en producción
+- **Problema**: Frontend intentaba acceder a `https://d4build.onrender.com:3001/api` (puerto explícito en producción)
+- **Causa**: Lógica de detección de API URL agregaba `:3001` para todas las URLs no-localhost
+- **Solución**: 
+  - Actualizado `ApiService.ts` para NO agregar puerto en producción
+  - En producción: `https://dominio.com/api` (sin puerto)
+  - En desarrollo: `http://localhost:3001/api` (con puerto)
+  - Soporte para `VITE_API_URL` env var si se necesita backend separado
+
+#### Deployment: Backend no servía frontend
+- **Problema**: En producción, backend solo tenía API, frontend debía desplegarse por separado
+- **Solución**: 
+  - Agregado middleware `express.static` para servir archivos desde `dist/`
+  - Agregada ruta catch-all `app.get('*')` para SPA routing
+  - Ahora un solo servicio sirve frontend + backend (más económico)
+  - Imports de `path` y `fileURLToPath` para ES6 modules
+
 #### Deployment: "vite: not found" Error
 - **Problema**: Build falla en Render/Netlify con `sh: 1: vite: not found`
 - **Causa**: `npm ci` en producción no instala `devDependencies`, donde estaba `vite`
@@ -37,17 +54,40 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - **BUILD_GUIDE.md**: Guía completa para resolver errores de TypeScript en build
   - Explicación del problema y solución
   - Comandos de build para desarrollo vs producción
-  - Troubleshooting de errores comunes
+  - Troubleshooting de errores comunes (incluyendo "vite: not found")
   - Configuración para diferentes plataformas (Render, Vercel, Netlify)
   - Verificación post-build
   - Mejoras futuras opcionales para mantener strict mode en desarrollo
 
 #### Referencias cruzadas
 - Actualizado README.md con link a BUILD_GUIDE.md
-- Actualizado DEPLOYMENT.md con nota sobre errores resueltos
+- Actualizado DEPLOYMENT.md con:
+  - Diagrama de arquitectura fullstack en un solo servicio
+  - Instrucciones específicas para Render (build + start commands)
+  - Variables de entorno actualizadas (sin CORS_ORIGIN)
+  - Pasos de verificación con URLs correctas
+  - Eliminada configuración de frontend separado
 - Sección de soporte mejorada con BUILD_GUIDE como primer punto
 
 ### 🔄 Changed (Cambiado)
+
+#### Backend (server/index.js)
+- **Arquitectura fullstack**: Backend ahora sirve frontend en producción
+  - Imports agregados: `path`, `fileURLToPath` para ES6 modules
+  - Middleware `express.static(dist/)` para archivos estáticos
+  - Ruta catch-all `app.get('*')` que sirve `index.html` (SPA routing)
+  - Solo se activa en producción (`NODE_ENV=production`)
+- **Elimina necesidad de**: 
+  - Servicio separado para frontend
+  - Configuración de CORS compleja
+  - Múltiples dominios/servicios
+
+#### Frontend (src/services/ApiService.ts)
+- **Detección de API URL mejorada**:
+  - Desarrollo: `http://localhost:3001/api` (con puerto)
+  - Producción: `${protocol}//${hostname}/api` (sin puerto)
+  - Soporte para override via `VITE_API_URL` env var
+  - Log mejorado con info de override
 
 #### Configuración de Build
 - **package.json**: 

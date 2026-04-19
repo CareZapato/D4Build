@@ -4,6 +4,42 @@
 
 ---
 
+## 🏗️ Arquitectura de Deployment
+
+D4Builds usa una arquitectura **fullstack en un solo servicio**:
+
+```
+┌─────────────────────────────────────────┐
+│  Render Web Service                     │
+│  https://d4build.onrender.com           │
+│                                         │
+│  ┌────────────────────────────────┐    │
+│  │  Express Backend (puerto 10000)│    │
+│  │  - API en /api/*               │    │
+│  │  - Sirve frontend en /*        │    │
+│  └────────────────────────────────┘    │
+│                                         │
+│  ┌────────────────────────────────┐    │
+│  │  Frontend (dist/)              │    │
+│  │  - React SPA                   │    │
+│  │  - Detecta API automáticamente │    │
+│  └────────────────────────────────┘    │
+└─────────────────────────────────────────┘
+          ⬇
+┌─────────────────────────────────────────┐
+│  PostgreSQL Database (separado)         │
+│  prod-postgres-d4build                  │
+└─────────────────────────────────────────┘
+```
+
+**Ventajas:**
+- ✅ Un solo servicio (más económico)
+- ✅ No hay problemas de CORS
+- ✅ URL única: `https://d4build.onrender.com`
+- ✅ Backend sirve frontend automáticamente
+
+---
+
 ## 📋 Paso 1: Configuración de Base de Datos PostgreSQL
 
 ### Valores a usar en el formulario:
@@ -38,34 +74,98 @@ DB_PASSWORD=<password-generado>
 JWT_SECRET=8ZyKTmCSGhyQCv/lNx6mnGdYOoTYUsrNWkkwKBvrj4E=
 JWT_EXPIRES_IN=7d
 
-# CORS (reemplaza con tu dominio real)
-CORS_ORIGIN=https://d4builds.com,https://www.d4builds.com
+# CORS - NO ES NECESARIO en arquitectura de un solo servicio
+# El backend sirve el frontend, por lo que no hay CORS
 NODE_ENV=production
 
-# Puerto
-PORT=3001
+# Puerto - Render lo asigna automáticamente via PORT env var
+# No es necesario configurarlo manualmente
 ```
 
 ---
 
-## 🌐 Paso 3: Ejecutar Migraciones en Producción
+## 🌐 Paso 3: Configurar Web Service en Render
+
+### Crear nuevo Web Service:
+
+1. **Dashboard de Render** → New → Web Service
+2. **Conectar repositorio**: GitHub → CareZapato/D4Build
+
+3. **Configuración del servicio**:
+```yaml
+Name: d4build
+Region: Oregon (US West)
+Branch: main
+Root Directory: (dejar vacío - usa raíz del repo)
+
+# Build Command - IMPORTANTE: construye frontend Y prepara backend
+Build Command: npm install && npm run build && cd server && npm install
+
+# Start Command - inicia el servidor Express
+Start Command: cd server && node index.js
+
+# Environment
+NODE_VERSION: 20
+```
+
+4. **Variables de entorno** (desde Paso 2):
+   - Clic en "Advanced" → "Add Environment Variable"
+   - Agregar todas las variables del Paso 2
+
+5. **Deploy automático**:
+   - ✅ Auto-Deploy: Yes
+   - Esto re-deployará cada vez que hagas push a `main`
+
+### ⚠️ IMPORTANTE: Orden de Comandos
+
+El build command debe:
+1. `npm install` - Instalar dependencias del frontend (incluye vite)
+2. `npm run build` - Construir frontend → crea carpeta `dist/`
+3. `cd server && npm install` - Instalar dependencias del backend
+
+El start command:
+1. `cd server && node index.js` - Inicia Express que:
+   - Sirve API en `/api/*`
+   - Sirve frontend (dist/) en `/*`
+
+---
+
+## 🔧 Paso 4: Ejecutar Migraciones en Producción
 
 Desde el panel de tu servicio o usando SSH:
 
+## 🔧 Paso 4: Ejecutar Migraciones en Producción
+
+Hay dos formas de ejecutar las migraciones:
+
+### Opción A: Auto-Migración (Recomendada)
+
+Agregar variable de entorno en Render:
 ```bash
-# Conectar a tu servidor
-cd /app  # o donde esté tu código
-
-# Ejecutar migraciones
-npm run migrate
-
-# Verificar que las tablas se crearon
-# (esto se puede hacer desde el dashboard de tu servicio de DB)
+AUTO_MIGRATE=true
 ```
+
+El servidor ejecutará automáticamente las migraciones al iniciar.
+
+### Opción B: Manual via Shell
+
+Desde el panel de Render:
+1. **Shell** → Abrir shell
+2. Ejecutar:
+
+```bash
+cd server
+npm run migrate
+```
+
+Verificarás que se crearon las tablas:
+- ✅ users
+- ✅ subscriptions  
+- ✅ billing_usage
 
 ---
 
-## 👤 Paso 4: Crear Usuario Administrador Inicial
+## 👤 Paso 5: Crear Usuario Administrador Inicial
 
 ```bash
 # En el servidor de producción
@@ -83,46 +183,35 @@ Esto creará el usuario admin con:
 
 ---
 
-## 🎨 Paso 5: Configurar Frontend para Producción
-
-### En tu servicio de frontend (Vercel, Netlify, etc.):
-
-**Variables de entorno del frontend:**
-```bash
-# NO necesitas estas en el frontend
-# El API URL se detecta automáticamente en ApiService.ts
-```
-
-**Verificar que el código detecte la URL correcta:**
-El archivo `src/services/ApiService.ts` ya tiene detección automática:
-- En localhost: `http://localhost:3001/api`
-- En producción: `https://tu-backend.com:3001/api`
-
----
-
 ## ✅ Paso 6: Verificación Final
+
+### URL de acceso:
+Tu aplicación estará disponible en:
+```
+https://d4build.onrender.com
+```
 
 ### Checklist de verificación:
 - [ ] Base de datos creada y accesible
 - [ ] Migraciones ejecutadas (3 tablas: users, subscriptions, billing_usage)
 - [ ] Usuario admin creado
 - [ ] Backend desplegado y respondiendo en /health
-- [ ] Frontend desplegado
+- [ ] Frontend carga correctamente
 - [ ] Login funciona con admin@d4builds.com / admin123
-- [ ] CORS configurado correctamente
+- [ ] Las llamadas a API funcionan (no hay errores de CORS)
 - [ ] Cambiar contraseña del admin
 
 ### Comandos de verificación:
 
 ```bash
 # Verificar health del backend
-curl https://tu-backend.com:3001/health
+curl https://d4build.onrender.com/health
 
 # Debería retornar:
 # {"status":"OK","version":"0.7.1"}
 
 # Probar login
-curl -X POST https://tu-backend.com:3001/api/auth/login \
+curl -X POST https://d4build.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@d4builds.com","password":"admin123"}'
 ```
@@ -133,10 +222,11 @@ curl -X POST https://tu-backend.com:3001/api/auth/login \
 
 - [ ] Cambiar password de admin@d4builds.com
 - [ ] Verificar que JWT_SECRET sea diferente al de desarrollo
-- [ ] Confirmar que CORS_ORIGIN solo incluya tu dominio de producción
-- [ ] Habilitar HTTPS en tu dominio
+- [ ] Confirmar que NODE_ENV=production esté configurado
+- [ ] Habilitar HTTPS (Render lo proporciona automáticamente)
 - [ ] Configurar backups automáticos de la base de datos
-- [ ] Monitorear logs de errores
+- [ ] Monitorear logs de errores en Render dashboard
+- [ ] Considerar agregar dominio personalizado
 
 ---
 

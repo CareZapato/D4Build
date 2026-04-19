@@ -4,9 +4,9 @@ import axios from 'axios';
 // DETECCIÓN DINÁMICA DE API URL
 // ============================================================================
 // Detecta automáticamente la URL correcta del backend basándose en:
-// - Hostname actual (localhost, 127.0.0.1, o IP de red)
-// - Protocolo actual (http/https)
-// El backend siempre corre en puerto 3001
+// - En desarrollo (localhost): http://localhost:3001/api
+// - En producción: usa la misma base URL sin puerto (backend sirve frontend)
+// - Permite override con VITE_API_URL si se necesita un backend separado
 
 const getApiUrl = () => {
   const currentHost = window.location.hostname;
@@ -19,9 +19,15 @@ const getApiUrl = () => {
   if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
     apiUrl = 'http://localhost:3001/api';
   } 
-  // Si estamos en una IP de red local (192.168.x.x, 10.x.x.x, etc)
+  // En producción: usa la misma URL base sin puerto (backend y frontend en mismo servicio)
   else {
-    apiUrl = `${currentProtocol}//${currentHost}:3001/api`;
+    apiUrl = `${currentProtocol}//${currentHost}/api`;
+  }
+  
+  // Override con variable de entorno si existe (para backend separado)
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  if (envApiUrl) {
+    apiUrl = envApiUrl;
   }
   
   // Log para debugging en desarrollo
@@ -30,7 +36,8 @@ const getApiUrl = () => {
       frontend: `${currentProtocol}//${currentHost}:${currentPort}`,
       backend: apiUrl,
       hostname: currentHost,
-      isLocalhost: currentHost === 'localhost' || currentHost === '127.0.0.1'
+      isLocalhost: currentHost === 'localhost' || currentHost === '127.0.0.1',
+      envOverride: envApiUrl || 'none'
     });
   }
   

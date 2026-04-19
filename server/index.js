@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import billingRoutes from './routes/billing.js';
@@ -14,6 +16,10 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Para usar __dirname con ES6 modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // CORS dinámico e inteligente
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -84,7 +90,27 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', version: '0.7.1' });
 });
 
-// Error handler
+// ============================================================================
+// SERVIR FRONTEND EN PRODUCCIÓN
+// ============================================================================
+// En producción, el backend sirve los archivos estáticos del frontend
+// Esto permite tener un solo servicio en Render/Railway/etc.
+if (!isDevelopment) {
+  const distPath = path.join(__dirname, '../dist');
+  
+  console.log(`📦 Sirviendo frontend desde: ${distPath}`);
+  
+  // Servir archivos estáticos
+  app.use(express.static(distPath));
+  
+  // Catch-all: devolver index.html para rutas del frontend (SPA)
+  // Esto debe estar DESPUÉS de las rutas /api
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+// Error handler (debe ser el último middleware)
 app.use(errorHandler);
 
 /**
