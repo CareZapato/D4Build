@@ -11,16 +11,32 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### 🔧 Fixed (Arreglado)
 
-#### Deployment: 404 en rutas de API
-- **Problema**: Todas las rutas de API retornan 404 en producción
-- **Causas identificadas**:
-  1. CORS bloqueando requests cuando `CORS_ORIGIN` no está configurado
-  2. Catch-all `app.get('*')` potencialmente interfiriendo con rutas API
-- **Soluciones aplicadas**:
-  - **CORS**: Permite automáticamente todos los origins en producción si `CORS_ORIGIN` no está configurado (arquitectura fullstack)
-  - **Catch-all**: Modificado para excluir explícitamente rutas `/api/*` y `/health`
-  - **Logging**: Mensaje mejorado para indicar "Arquitectura fullstack (permite same-origin)"
-- **Resultado**: API funciona correctamente en producción sin necesidad de configurar `CORS_ORIGIN`
+#### Deployment: 404 en rutas de API (v3 - fix definitivo)
+- **Problema persistente**: API sigue devolviendo 404 a pesar de fixes anteriores
+- **Nuevo diagnóstico**:
+  1. Faltaba middleware para manejar rutas API no encontradas específicamente
+  2. Catch-all del frontend podía estar interfiriendo
+  3. Falta de logging en producción dificultaba debugging
+- **Soluciones definitivas aplicadas**:
+  - **Logging middleware**: Agregado en producción para ver todas las requests (`📡 METHOD /path`)
+  - **Middleware /api/* 404**: Nuevo handler específico para rutas API inexistentes (antes del frontend)
+  - **Catch-all simplificado**: Ya no necesita lógica de exclusión, solo sirve index.html
+  - **Logging mejorado**: Muestra rutas registradas al iniciar + modo (DEV/PROD) + __dirname
+  - **Build command actualizado**: Usa `npm ci` en lugar de `npm install` para CI/CD
+- **Orden final de middlewares**:
+  1. CORS + express.json
+  2. Logging (solo producción)
+  3. Rutas /api/*
+  4. Health check
+  5. Middleware 404 para /api/* no encontradas
+  6. express.static (archivos del frontend)
+  7. Catch-all GET * (SPA routing)
+  8. Error handler
+
+#### Documentación
+- **PRODUCTION_TEST.md**: Guía para probar configuración de producción localmente
+- **DEPLOYMENT.md**: Nueva sección troubleshooting con pasos específicos para error 404
+- **server/index.js**: Logging extensivo para debugging en producción
 
 #### Deployment: API URL incorrecta en producción
 - **Problema**: Frontend intentaba acceder a `https://d4build.onrender.com:3001/api` (puerto explícito en producción)

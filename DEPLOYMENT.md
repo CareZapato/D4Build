@@ -103,7 +103,7 @@ Branch: main
 Root Directory: (dejar vacío - usa raíz del repo)
 
 # Build Command - IMPORTANTE: construye frontend Y prepara backend
-Build Command: npm install && npm run build && cd server && npm install
+Build Command: npm ci && npm run build && cd server && npm install
 
 # Start Command - inicia el servidor Express
 Start Command: cd server && node index.js
@@ -111,6 +111,15 @@ Start Command: cd server && node index.js
 # Environment
 NODE_VERSION: 20
 ```
+
+**⚠️ IMPORTANTE - Build Command:**
+- `npm ci` - Instalación limpia (más confiable que `npm install` en CI/CD)
+- `npm run build` - Construye frontend → crea carpeta `dist/`
+- `cd server && npm install` - Instala dependencias del backend
+
+**⚠️ VERIFICAR después del deploy:**
+- En los logs de build, debe aparecer: `✓ built in X.XXs`
+- En los logs de runtime, debe aparecer: `📦 Sirviendo frontend desde: /opt/render/project/src/dist`
 
 4. **Variables de entorno** (desde Paso 2):
    - Clic en "Advanced" → "Add Environment Variable"
@@ -259,6 +268,72 @@ Tu aplicación creará estas tablas:
 ---
 
 ## 🆘 Solución de Problemas
+
+### ❌ Error: API devuelve 404 (POST /api/auth/login)
+
+**Síntomas:**
+- Frontend carga correctamente
+- Pero al hacer login aparece: `POST https://d4build.onrender.com/api/auth/login 404 (Not Found)`
+
+**Causas posibles:**
+
+1. **Frontend no se construyó correctamente**
+   ```bash
+   # Verifica en logs de Render - Build debe mostrar:
+   ✓ 1510 modules transformed
+   ✓ built in 2.XXs
+   dist/index.html ...
+   ```
+   
+   Si no aparece, el build falló. Verifica `package.json` dependencies.
+
+2. **Servidor no inició en producción**
+   ```bash
+   # Verifica en logs de Render - Runtime debe mostrar:
+   📦 Sirviendo frontend desde: /opt/render/project/src/dist
+   📋 Rutas registradas:
+      • GET  /health
+      • *    /api/auth
+   ```
+   
+   Si no aparece, hay un error al iniciar. Revisa logs de errores.
+
+3. **Carpeta dist/ no se copió correctamente**
+   ```bash
+   # En Shell de Render, ejecuta:
+   ls -la dist/
+   
+   # Debe mostrar:
+   index.html
+   assets/
+   ```
+   
+   Si no existe, el build command está mal configurado.
+
+**Soluciones:**
+
+✅ **Verificar Build Command en Render:**
+```bash
+npm ci && npm run build && cd server && npm install
+```
+
+✅ **Verificar Start Command en Render:**
+```bash
+cd server && node index.js
+```
+
+✅ **Verificar NODE_ENV:**
+```bash
+NODE_ENV=production  # Debe estar configurado
+```
+
+✅ **Verificar logs en tiempo real:**
+- Render Dashboard → tu servicio → Logs
+- Busca líneas con: `📡 POST /api/auth/login`
+- Si no aparecen, el servidor no recibe las requests
+
+✅ **Forzar re-deploy:**
+- Render Dashboard → Manual Deploy → Deploy latest commit
 
 ### Error: "user must not be one of the following values: postgres"
 **Solución**: Usa `d4builds_admin` como nombre de usuario

@@ -84,7 +84,15 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rutas
+// Logging middleware en producción para debugging
+if (!isDevelopment) {
+  app.use((req, res, next) => {
+    console.log(`📡 ${req.method} ${req.path}`);
+    next();
+  });
+}
+
+// Rutas de API
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/billing', billingRoutes);
@@ -94,6 +102,15 @@ app.use('/api/profile', profileRoutes);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', version: '0.7.1' });
+});
+
+// Middleware para manejar rutas API no encontradas
+app.use('/api/*', (req, res) => {
+  console.warn(`⚠️  Ruta API no encontrada: ${req.method} ${req.path}`);
+  res.status(404).json({
+    error: true,
+    message: `Ruta no encontrada: ${req.method} ${req.path}`
+  });
 });
 
 // ============================================================================
@@ -110,12 +127,7 @@ if (!isDevelopment) {
   app.use(express.static(distPath));
   
   // Catch-all: devolver index.html para rutas del frontend (SPA)
-  // IMPORTANTE: Solo para rutas que NO sean de API
-  app.get('*', (req, res, next) => {
-    // Excluir rutas de API y health check
-    if (req.path.startsWith('/api') || req.path === '/health') {
-      return next();
-    }
+  app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
@@ -147,6 +159,9 @@ async function startServer() {
   console.log('║           🎮 D4BUILDS - SERVIDOR BACKEND v0.7.1           ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
   
+  console.log(`📊 Modo: ${isDevelopment ? 'DESARROLLO' : 'PRODUCCIÓN'}`);
+  console.log(`📂 __dirname: ${__dirname}\n`);
+  
   // Verificar conexión a BD
   const dbConnected = await checkDatabaseConnection();
   if (!dbConnected) {
@@ -162,6 +177,20 @@ async function startServer() {
     }
   } else {
     console.log('ℹ️  Auto-migración deshabilitada (AUTO_MIGRATE=false)\n');
+  }
+  
+  // Mostrar rutas registradas
+  console.log('📋 Rutas registradas:');
+  console.log('   • GET  /health');
+  console.log('   • *    /api/auth');
+  console.log('   • *    /api/users');
+  console.log('   • *    /api/billing');
+  console.log('   • *    /api/admin');
+  console.log('   • *    /api/profile');
+  if (!isDevelopment) {
+    console.log('   • GET  /* (frontend SPA)\n');
+  } else {
+    console.log('');
   }
   
   // Iniciar servidor HTTP
