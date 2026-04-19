@@ -105,12 +105,17 @@ Root Directory: (dejar vacío - usa raíz del repo)
 # Build Command - IMPORTANTE: construye frontend Y prepara backend
 Build Command: npm ci && npm run build && cd server && npm install
 
-# Start Command - inicia el servidor Express
-Start Command: cd server && node index.js
+# Start Command - CRÍTICO: debe ejecutar el servidor Express, NO vite preview
+Start Command: npm start
+# Alternativa: cd server && node index.js
 
 # Environment
 NODE_VERSION: 20
 ```
+
+**⚠️ CRÍTICO - Start Command:**
+- **CORRECTO**: `npm start` o `cd server && node index.js`
+- **INCORRECTO**: `npm run preview` (esto solo sirve archivos estáticos, NO tiene API)
 
 **⚠️ IMPORTANTE - Build Command:**
 - `npm ci` - Instalación limpia (más confiable que `npm install` en CI/CD)
@@ -268,6 +273,44 @@ Tu aplicación creará estas tablas:
 ---
 
 ## 🆘 Solución de Problemas
+
+### ❌ ERROR CRÍTICO: Render ejecuta `vite preview` en lugar del servidor
+
+**Síntomas:**
+- Frontend carga correctamente
+- Todas las rutas API retornan 404
+- En logs de Render aparece:
+  ```
+  ==> Running 'npm run preview -- --host 0.0.0.0 --port $PORT'
+  > vite preview --host 0.0.0.0 --port 3001
+  ```
+
+**Causa:**
+Render está ejecutando `npm run preview` (servidor estático de Vite) en lugar de tu servidor Express con la API.
+
+**Solución INMEDIATA:**
+1. **Render Dashboard** → tu servicio → **Settings**
+2. Scroll hasta **Build & Deploy**
+3. **Start Command**: Cambiar a:
+   ```bash
+   npm start
+   ```
+   O directamente:
+   ```bash
+   cd server && node index.js
+   ```
+4. **Save Changes**
+5. **Manual Deploy** → Deploy latest commit
+
+**Verificación:**
+Después del re-deploy, los logs deben mostrar:
+```
+📦 Sirviendo frontend desde: /opt/render/project/src/dist
+📋 Rutas registradas:
+   • GET  /health
+   • *    /api/auth
+✅ SERVIDOR INICIADO
+```
 
 ### ❌ Error: API devuelve 404 (POST /api/auth/login)
 

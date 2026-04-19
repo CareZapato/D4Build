@@ -11,6 +11,21 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### 🔧 Fixed (Arreglado)
 
+#### Deployment: Render ejecutando comando incorrecto (FIX CRÍTICO)
+- **Problema identificado**: Render ejecutaba `npm run preview` en lugar del servidor Express
+- **Causa raíz**: Faltaba script "start" en package.json, Render usa "preview" por defecto
+- **Síntoma**: Frontend carga pero API retorna 404 (porque vite preview solo sirve estáticos)
+- **Logs mostraban**:
+  ```
+  ==> Running 'npm run preview -- --host 0.0.0.0 --port $PORT'
+  > vite preview --host 0.0.0.0 --port 3001
+  ```
+- **Solución definitiva**:
+  - Agregado script `"start": "cd server && node index.js"` a package.json
+  - Actualizado Start Command en Render a `npm start`
+  - Actualizado render.yaml y DEPLOYMENT.md
+  - Ahora Render ejecutará el servidor Express correctamente
+
 #### Deployment: 404 en rutas de API (v3 - fix definitivo)
 - **Problema persistente**: API sigue devolviendo 404 a pesar de fixes anteriores
 - **Nuevo diagnóstico**:
