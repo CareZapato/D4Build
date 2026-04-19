@@ -11,6 +11,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### 🔧 Fixed (Arreglado)
 
+#### Deployment: PostgreSQL requiere SSL en producción
+- **Problema**: Error "SSL/TLS required" al conectar a PostgreSQL en Render
+- **Causa**: PostgreSQL en Render requiere conexión SSL, pero pool no tenía configuración SSL
+- **Solución**: Agregado `ssl: { rejectUnauthorized: false }` al pool en producción
+- **Afectado**: `server/config/database.js`
+
 #### Deployment: Render ejecutando comando incorrecto (FIX CRÍTICO)
 - **Problema identificado**: Render ejecutaba `npm run preview` en lugar del servidor Express
 - **Causa raíz**: Faltaba script "start" en package.json, Render usa "preview" por defecto
