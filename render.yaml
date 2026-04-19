@@ -1,0 +1,45 @@
+# Render Blueprint para D4Builds v0.7.1
+# Este archivo permite desplegar con un solo clic en Render
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Web Service - Backend + Frontend
+  - type: web
+    name: d4build
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build && cd server && npm install
+    startCommand: cd server && node index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      - key: AUTO_MIGRATE
+        value: "true"
+      - key: DB_HOST
+        sync: false  # Usuario debe configurar manualmente
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        value: d4buildsbd
+      - key: DB_USER
+        value: d4builds_admin
+      - key: DB_PASSWORD
+        sync: false  # Usuario debe configurar manualmente
+      - key: JWT_SECRET
+        generateValue: true  # Render genera automáticamente
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+
+# PostgreSQL Database (separado)
+databases:
+  - name: prod-postgres-d4build
+    region: oregon
+    plan: free
+    databaseName: d4buildsbd
+    user: d4builds_admin
+    # Password será generado automáticamente por Render
