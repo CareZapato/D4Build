@@ -124,6 +124,35 @@ Ver [DEPLOYMENT.md](DEPLOYMENT.md) para detalles completos.
 
 **Solución**: Ya resuelto en `tsconfig.json` con `noImplicitAny: false`
 
+### Error: "sh: 1: vite: not found" en Render/Netlify
+
+**Causa**: `npm ci` en producción no instala `devDependencies`, pero `vite` estaba ahí
+
+**Solución**: ✅ Ya resuelto moviendo herramientas de build a `dependencies`:
+```json
+{
+  "dependencies": {
+    "vite": "^8.0.8",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.32",
+    "autoprefixer": "^10.4.16"
+  }
+}
+```
+
+**Por qué ocurre:**
+- Render usa `npm ci` que respeta `NODE_ENV=production`
+- En producción, solo se instalan `dependencies`
+- Vite es necesario para `npm run build`, por eso debe estar en `dependencies`
+
+**Verificación local:**
+```bash
+# Simular instalación de producción
+NODE_ENV=production npm ci
+npm run build  # Debe funcionar
+```
+
 ### Build funciona local pero falla en producción
 
 **Posibles causas:**

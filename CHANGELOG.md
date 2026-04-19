@@ -11,6 +11,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### 🔧 Fixed (Arreglado)
 
+#### Deployment: "vite: not found" Error
+- **Problema**: Build falla en Render/Netlify con `sh: 1: vite: not found`
+- **Causa**: `npm ci` en producción no instala `devDependencies`, donde estaba `vite`
+- **Solución**: Movidas herramientas de build de `devDependencies` a `dependencies`:
+  - `vite` (build tool)
+  - `@vitejs/plugin-react` (Vite plugin)
+  - `tailwindcss` (CSS framework)
+  - `postcss` (CSS processor)
+  - `autoprefixer` (CSS vendor prefixes)
+- **Resultado**: Deployment exitoso en servicios de hosting
+
 #### TypeScript Build Errors
 - **Problema**: Errores de compilación en producción por tipos implícitos `any`
 - **Archivos afectados**: AdminUsers.tsx, CharacterParagon.tsx, CharacterSkills.tsx, BillingPanel.tsx, ImportResultsModal.tsx, Modal.tsx, HeroSkills.tsx, PromptGenerator.tsx
@@ -43,6 +54,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `build`: Cambiado de `tsc && vite build` a `vite build` (más rápido, menos estricto)
   - `build:check`: Nuevo script con `tsc && vite build` para verificación completa
   - Actualizada versión a 0.7.1
+  - **Movidas a dependencies** (desde devDependencies):
+    - `vite`: Build tool necesario en producción
+    - `@vitejs/plugin-react`: Plugin de Vite
+    - `tailwindcss`: Framework CSS
+    - `postcss`: Procesador CSS
+    - `autoprefixer`: Prefijos de vendor
 
 - **tsconfig.json**: 
   - `strict`: `true` → `false`
