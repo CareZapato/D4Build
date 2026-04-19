@@ -1,16 +1,44 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.6.4-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.7.1-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
+[![Express](https://img.shields.io/badge/Express-4.18.2-green.svg)](https://expressjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
 
-Una aplicación web moderna y reactiva para gestionar y optimizar tus builds de Diablo 4 con **integración de IA** para extracción automática de datos desde imágenes del juego.
+Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus builds de Diablo 4 con **integración de IA**, **sistema de autenticación**, **suscripciones Premium** y **gestión de perfil**.
 
 ## ✨ Características Principales
 
+### 💳 Sistema de Suscripciones (v0.7.1 - NUEVO)
+- 📅 **Planes Flexibles**: 1 mes ($5), 6 meses ($25), 1 año ($45)
+- 💰 **Créditos para IA**: 80% del pago se convierte en créditos ($4 de cada $5)
+- 📋 **Tabla subscriptions**: Historial completo de suscripciones con fechas y estado
+- ⏰ **Control de expiración**: Alertas cuando tu suscripción está próxima a vencer
+- 🔄 **Extensión de plan**: Renueva o extiende antes de que expire
+- 🎯 **Descuentos por volumen**: Planes largos incluyen más créditos (ahorra hasta 25%)
+- 📊 **Balance dinámico**: Sistema premium_balance que se recarga al contratar
+
+### 👤 Perfil de Usuario (v0.7.1 - NUEVO)
+- ⚙️ **Gestión completa**: Edita username, email, cambia contraseña
+- 📊 **Análisis de uso**: Estadísticas detalladas por semana, mes y año
+- 💳 **Historial de gastos**: Lista paginada de todas las consultas de IA con costos
+- 👑 **Info de suscripción**: Estado, plan actual, fechas de inicio/fin, renovación
+- 💵 **Vista de créditos**: Balance actual, total usado, consumo por período
+- 🚨 **Alertas inteligentes**: Notificaciones de expiración y saldo bajo
+- 🔒 **Seguridad**: Cambio de contraseña con validación de contraseña actual
+
+### 🔐 Sistema de Autenticación (v0.7.0)
+- 👤 **Login/Registro**: Autenticación JWT con PostgreSQL backend
+- 💎 **Cuentas Premium/Basic**: Sistema de niveles con funcionalidades exclusivas
+- 🔒 **Restricciones por Cuenta**: Candados en UI, blur de stats para usuarios Basic
+- 📊 **Tracking de Uso**: Monitoreo de consumo de API OpenAI por usuario
+- 💳 **Sistema de Upgrade**: Proceso ficticio de pago para upgrade a Premium
+- 🛡️ **Seguridad**: Tokens JWT, passwords hasheados (bcrypt), middleware de autorización
+
 ### 🎮 Gestión Completa de Builds
-- 📁 **Workspace Local**: Todos tus datos guardados en una carpeta de tu elección
+- 📁 **Workspace Dinámico**: Cambia de carpeta sin recargar la página
 - 👤 **Personajes**: Crea y gestiona múltiples personajes con estadísticas completas
 - ⚔️ **Habilidades**: Importa y organiza habilidades activas y pasivas por clase
 - 💎 **Glifos Paragon**: Administra glifos del tablero Paragon con niveles y bonificaciones
@@ -25,6 +53,7 @@ Una aplicación web moderna y reactiva para gestionar y optimizar tus builds de 
 - **Procesamiento de imágenes**: Toma screenshots del juego y extrae datos JSON
 - **Auto-importación**: Los datos se guardan automáticamente en el workspace
 - **Categorías soportadas**: Habilidades, Glifos, Aspectos, Stats, Paragon, Runas, Equipo
+- 🔒 **Premium Only**: Captura AI restringida a cuentas Premium
 
 ### 📚 Base de Datos de Héroes
 - Datos maestros por clase (Paladín, Bárbaro, Hechicero, etc.)
@@ -38,16 +67,137 @@ Una aplicación web moderna y reactiva para gestionar y optimizar tus builds de 
 - Sistema de paginación inteligente
 - Modales con z-index jerarquizado
 - Menú lateral persistente (sticky)
+- Badge de nivel de cuenta (Basic/Premium) en UI con tooltip de expiración
+- Perfil de usuario accesible desde Sidebar
+- 💵 **Indicador de créditos**: Muestra balance restante en Sidebar para Premium
+- 🔄 **Cambio de workspace**: Cambia de carpeta sin recargar la página
+- 🔔 **Alertas de expiración**: Notificaciones cuando la suscripción está por vencer
 
-### 💰 Herramientas de Desarrollo (v0.6.4)
-- **Panel de Costos**: Monitoreo de gastos de API OpenAI/Gemini
+### 💰 Herramientas de Desarrollo
+- **Panel de Costos**: Monitoreo de gastos de API OpenAI/Gemini por usuario
 - **Diseño minimalista**: Estilo VS Code Copilot notification
 - **Formatos compactos**: 1.5K, 2.3M tokens (abreviaciones)
 - **Control por ENV**: Habilitar/deshabilitar con variable de entorno
+- **Billing por Usuario**: Tracking de tokens y costos vinculados a cada cuenta
 
-## 🚀 Instalación y Configuración
+### ⚙️ Backend & Infraestructura (v0.7.0-0.7.1)
+- **Express.js**: API RESTful en Node.js con 30+ endpoints
+- **PostgreSQL**: Base de datos relacional con 3 tablas principales (users, subscriptions, billing_usage)
+- **Auto-Migración**: Detecta y recrea tablas si faltan al iniciar (002_create_subscriptions_table.sql)
+- **CORS Dinámico**: Configuración multi-origen para desarrollo y producción
+- **Control de saldo**: Billing descontado automáticamente de premium_balance
+- **Transacciones atómicas**: BEGIN/COMMIT/ROLLBACK para consistencia de datos
+- **npm run dev**: Inicia frontend + backend simultáneamente
 
-### Requisitos Previos
+## 🚀 Inicio Rápido
+
+### 1. Instalación
+
+```bash
+# Clonar repositorio
+git clone https://github.com/CareZapato/D4Build.git
+cd D4Build
+
+# Instalar todas las dependencias (cliente + servidor)
+npm run setup
+```
+
+### 2. Configurar Base de Datos
+
+```sql
+-- Crear la base de datos en PostgreSQL
+CREATE DATABASE d4buildsbd;
+```
+
+### 3. Configurar Variables de Entorno
+
+```bash
+# Frontend (.env en raíz)
+cp .env.example .env
+
+# Backend (server/.env)
+cd server
+cp .env.example .env
+```
+
+Edita los archivos `.env` con tus credenciales (ver [INSTALL.md](INSTALL.md) para detalles).
+
+### 4. Iniciar la Aplicación
+
+```bash
+# Desde la raíz del proyecto
+npm run dev
+```
+
+Esto iniciará:
+- 🎨 Frontend en http://localhost:5173
+- ⚙️ Backend en http://localhost:3001
+
+El backend ejecutará **auto-migración** de tablas si es necesario.
+
+## 📖 Documentación Completa
+
+Para instrucciones detalladas de instalación, configuración de producción, variables de entorno y solución de problemas, consulta:
+
+📘 **[INSTALL.md](INSTALL.md)** - Guía completa de instalación y configuración
+
+## 🔑 Características de Autenticación
+
+### Niveles de Cuenta
+
+#### 🆓 Basic (Gratuito)
+- Gestión básica de personajes y builds
+- Acceso a stats y habilidades
+- Prompts de análisis básicos
+- Stats borrosos en lista de personajes
+- Sin acceso a Captura AI
+
+#### 💎 Premium
+- **Todo lo de Basic** +
+- 🤖 Captura AI con OpenAI/Gemini
+- 📊 Prompts de análisis avanzados (comparativas, externos)
+- 👁️ Vista completa de stats en lista de personajes
+- 🎯 Funcionalidades exclusivas futuras
+
+### API Endpoints
+
+#### Autenticación
+- `POST /api/auth/register` - Registro de nuevo usuario
+- `POST /api/auth/login` - Inicio de sesión
+- `GET /api/auth/verify` - Verificar token JWT
+
+#### Usuarios
+- `GET /api/users/profile` - Obtener perfil y estadísticas
+- `PUT /api/users/profile` - Actualizar perfil
+- `POST /api/users/upgrade-premium` - Upgrade a Premium (ficticio)
+
+#### Billing
+- `POST /api/billing/log` - Registrar uso de API
+- `GET /api/billing/my-usage` - Consultar mi uso
+- `GET /api/billing/stats` - Estadísticas globales
+
+## 🚀 Scripts Disponibles
+
+### Raíz del Proyecto
+
+```bash
+npm run dev           # Inicia frontend + backend simultáneamente
+npm run setup         # Instala todas las dependencias
+npm run migrate       # Ejecuta migraciones de BD manualmente
+npm run build         # Construye el frontend para producción
+npm run dev:client    # Solo frontend
+npm run dev:server    # Solo backend
+```
+
+### Backend (server/)
+
+```bash
+npm run dev           # Servidor en modo desarrollo (nodemon)
+npm start             # Servidor en modo producción
+npm run migrate       # Ejecutar migraciones
+```
+
+## 🔧 Requisitos Previos
 
 - Node.js 18 o superior
 - npm o yarn
@@ -355,6 +505,94 @@ El sistema acepta dos formatos:
     }
   ]
 }
+```
+
+---
+
+## 🚀 Despliegue a Producción
+
+Para desplegar D4Builds en producción, consulta la **[Guía Completa de Despliegue](DEPLOYMENT.md)**.
+
+### Resumen Rápido:
+
+#### 📋 Valores para PostgreSQL en Producción:
+- **Database**: `d4buildsbd`
+- **User**: `d4builds_admin` ⚠️ **NO uses "postgres"**
+- **PostgreSQL Version**: 18 (o 14+)
+- **Region**: Selecciona la más cercana a tus usuarios
+
+#### 🔐 Variables de Entorno Requeridas:
+```bash
+# Base de datos
+DB_HOST=<tu-host-postgresql>
+DB_PORT=5432
+DB_NAME=d4buildsbd
+DB_USER=d4builds_admin
+DB_PASSWORD=<password-generado>
+
+# JWT (genera una clave segura)
+JWT_SECRET=<clave-aleatoria-32-chars>
+JWT_EXPIRES_IN=7d
+
+# CORS
+CORS_ORIGIN=https://tu-dominio.com
+NODE_ENV=production
+PORT=3001
+```
+
+#### ✅ Checklist Post-Despliegue:
+1. ✅ Ejecutar migraciones: `npm run migrate`
+2. ✅ Crear usuario admin: `node check-admin.js`
+3. ✅ Verificar health endpoint: `/health`
+4. ✅ Cambiar contraseña del admin
+5. ✅ Configurar backups de base de datos
+
+**Ver documentación completa**: [DEPLOYMENT.md](DEPLOYMENT.md)
+
+---
+
+## 📄 Archivos de Configuración
+
+- `.env.production.example` - Plantilla de variables de entorno para producción
+- `DEPLOYMENT.md` - Guía completa de despliegue paso a paso
+- `server/migrations/` - Migraciones de base de datos (auto-ejecutables)
+
+---
+
+## 🛠️ Stack Tecnológico
+
+### Frontend
+- React 18.3.1 + TypeScript 5.6.3
+- Vite 8.0.8 (build tool)
+- TailwindCSS (estilos)
+- Lucide Icons
+- Axios (HTTP client con interceptores)
+
+### Backend
+- Node.js + Express 4.18.2
+- PostgreSQL 14+ (base de datos)
+- JWT (autenticación)
+- bcryptjs (hash de contraseñas)
+- Migraciones automáticas
+
+### APIs de IA
+- OpenAI GPT-4o-mini
+- Google Gemini (alternativa)
+
+---
+
+## 📞 Soporte
+
+¿Problemas con el despliegue? Revisa:
+1. [DEPLOYMENT.md](DEPLOYMENT.md) - Guía completa
+2. Logs del servidor (`nodemon` o servicio de hosting)
+3. Configuración de variables de entorno
+4. Estado de las migraciones (`npm run migrate`)
+
+---
+
+**Versión**: 0.7.1  
+**Última actualización**: Abril 2026
 ```
 
 **Categorías válidas:** `ofensivo`, `defensivo`, `recurso`, `utilidad`, `movilidad`

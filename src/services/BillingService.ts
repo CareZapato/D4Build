@@ -1,9 +1,11 @@
 /**
  * BillingService - Servicio para rastreo de costos de API de OpenAI
- * Guarda registros de uso y costos en archivo JSON en la raíz del workspace
+ * Guarda registros de uso y costos en el backend (usuarios autenticados)
+ * o en archivo JSON local del workspace (fallback)
  */
 
 import { WorkspaceService } from './WorkspaceService';
+import { BillingAPIService } from './ApiService';
 
 export interface BillingEntry {
   timestamp: string;           // ISO timestamp de la operación
@@ -99,42 +101,79 @@ export class BillingService {
   }
 
   /**
-   * Guarda una nueva entrada de billing en el workspace
+   * Guarda una nueva entrada de billing (backend o archivo local)
    */
   static async recordBilling(entry: Omit<BillingEntry, 'timestamp'>): Promise<void> {
     try {
-      // Leer datos actuales (o crear nuevo si no existe)
-      let billingData: BillingData;
-      try {
-        const jsonText = await WorkspaceService.readFile(this.BILLING_FILE);
-        billingData = JSON.parse(jsonText);
-      } catch (error) {
-        // Si no existe, crear nuevo
-        billingData = this.createEmptyBillingData();
+      // Intentar guardar en backend si el usuario está autenticado
+      const token = localStorage.getItem('d4builds_token');
+      
+      if (token) {
+        // Usuario autenticado: usar backend API
+        await BillingAPIService.logUsage({
+          provider: entry.service,
+          model: entry.model,
+          functionality: entry.category,
+          tokens_input: entry.tokens.prompt,
+          tokens_output: entry.tokens.completion,
+          tokens_total: entry.tokens.total,
+          cost_input: entry.cost.input,
+          cost_output: entry.cost.output,
+          cost_total: entry.cost.total,
+          category: entry.tipo || entry.category,
+          operation: `${entry.destination || 'unknown'}_${entry.clase || 'unknown'}${entry.personaje ? '_' + entry.personaje : ''}`
+        });
+        console.log('✅ [BillingService] Uso registrado en backend');
+      } else {
+        // Sin autenticación: guardar localmente
+        await this.recordLocalBilling(entry);
+        console.log('ℹ️ [BillingService] Uso guardado localmente (sin autenticación)');
       }
-      
-      // Crear nueva entrada con timestamp
-      const newEntry: BillingEntry = {
-        ...entry,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Agregar a la lista
-      billingData.entries.push(newEntry);
-      
-      // Recalcular totales desde cero (más preciso)
-      billingData.summary.totalCost = billingData.entries.reduce((sum, e) => sum + e.cost.total, 0);
-      billingData.summary.totalTokens = billingData.entries.reduce((sum, e) => sum + e.tokens.total, 0);
-      billingData.summary.totalRequests = billingData.entries.length;
-      billingData.summary.successfulRequests = billingData.entries.filter(e => e.success).length;
-      billingData.summary.failedRequests = billingData.entries.filter(e => !e.success).length;
-      billingData.summary.lastUpdated = new Date().toISOString();
-      
-      // Guardar en workspace
-      await WorkspaceService.saveFile(this.BILLING_FILE, JSON.stringify(billingData, null, 2));
     } catch (error) {
       console.error('❌ [BillingService] Error guardando billing:', error);
+      // Fallback a sistema local si falla el backend
+      try {
+        await this.recordLocalBilling(entry);
+        console.log('ℹ️ [BillingService] Uso guardado localmente (fallback)');
+      } catch (localError) {
+        console.error('❌ [BillingService] Error en fallback local:', localError);
+      }
     }
+  }
+
+  /**
+   * Guarda billing en archivo local del workspace (fallback)
+   */
+  private static async recordLocalBilling(entry: Omit<BillingEntry, 'timestamp'>): Promise<void> {
+    // Leer datos actuales (o crear nuevo si no existe)
+    let billingData: BillingData;
+    try {
+      const jsonText = await WorkspaceService.readFile(this.BILLING_FILE);
+      billingData = JSON.parse(jsonText);
+    } catch (error) {
+      // Si no existe, crear nuevo
+      billingData = this.createEmptyBillingData();
+    }
+    
+    // Crear nueva entrada con timestamp
+    const newEntry: BillingEntry = {
+      ...entry,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Agregar a la lista
+    billingData.entries.push(newEntry);
+    
+    // Recalcular totales desde cero (más preciso)
+    billingData.summary.totalCost = billingData.entries.reduce((sum, e) => sum + e.cost.total, 0);
+    billingData.summary.totalTokens = billingData.entries.reduce((sum, e) => sum + e.tokens.total, 0);
+    billingData.summary.totalRequests = billingData.entries.length;
+    billingData.summary.successfulRequests = billingData.entries.filter(e => e.success).length;
+    billingData.summary.failedRequests = billingData.entries.filter(e => !e.success).length;
+    billingData.summary.lastUpdated = new Date().toISOString();
+    
+    // Guardar en workspace
+    await WorkspaceService.saveFile(this.BILLING_FILE, JSON.stringify(billingData, null, 2));
   }
 
   /**
@@ -179,6 +218,48 @@ export class BillingService {
   static async getStats(): Promise<BillingData['summary']> {
     const billingData = await this.readBillingData();
     return billingData.summary;
+  }
+
+  /**
+   * Verifica si el usuario tiene crédito disponible para usar OpenAI
+   * Ahora usa el sistema de balance de créditos premium_balance
+   */
+  static async hasAvailableCredit(): Promise<{ hasCredit: boolean; used: number; limit: number; remaining: number }> {
+    const token = localStorage.getItem('d4builds_token');
+    const user = localStorage.getItem('d4builds_user');
+    
+    if (!token || !user) {
+      return { hasCredit: false, used: 0, limit: 0, remaining: 0 };
+    }
+
+    try {
+      const userData = JSON.parse(user);
+      
+      // Solo usuarios Premium tienen crédito
+      if (userData.account_type !== 'Premium') {
+        return { hasCredit: false, used: 0, limit: 0, remaining: 0 };
+      }
+
+      // Usar premium_balance como crédito disponible
+      const premiumBalance = parseFloat(userData.premium_balance || 0);
+
+      // Obtener uso actual del backend
+      const stats = await BillingAPIService.getStats();
+      const totalUsed = stats.total_cost || 0;
+
+      const hasCredit = premiumBalance > 0.001; // Margen de 0.1 centavos
+
+      return {
+        hasCredit,
+        used: totalUsed,
+        limit: premiumBalance + totalUsed, // Total que tenía inicialmente
+        remaining: Math.max(0, premiumBalance)
+      };
+    } catch (error) {
+      console.error('❌ [BillingService] Error verificando crédito:', error);
+      // En caso de error, no permitir por seguridad
+      return { hasCredit: false, used: 0, limit: 0, remaining: 0 };
+    }
   }
 
   /**

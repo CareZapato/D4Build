@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, User, Trash2, Eye, Zap, Star, Swords, Shield, Hexagon, Gem, Network, BarChart, Target } from 'lucide-react';
+import { Plus, User, Trash2, Eye, Zap, Star, Swords, Shield, Hexagon, Gem, Network, BarChart, Target, Lock } from 'lucide-react';
 import { Personaje } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
+import { useAuth } from '../../context/AuthContext';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 
@@ -14,6 +15,7 @@ interface Props {
 
 const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loading }) => {
   const modal = useModal();
+  const { isPremium } = useAuth();
   const [showNewModal, setShowNewModal] = useState(false);
   const [newCharName, setNewCharName] = useState('');
   const [newCharClass, setNewCharClass] = useState('Paladín');
@@ -231,8 +233,9 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
                   </div>
                 </div>
                 
-                {/* Grid de 2 columnas con métricas */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-4">
+                {/* Grid de 2 columnas con métricas - Blur para Basic */}
+                <div className={`relative ${!isPremium() ? 'blur-sm select-none pointer-events-none' : ''}`}>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-4">
                   {/* Nivel */}
                   <div className="flex items-center gap-2" title="Nivel del personaje">
                     <Zap className="w-4 h-4 text-yellow-400 flex-shrink-0" />
@@ -291,6 +294,18 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
                     <span className="text-sm text-d4-text font-bold ml-auto">{Math.round(statsPercentage)}%</span>
                   </div>
                 </div>
+                
+                {/* Overlay Premium para usuarios Basic */}
+                {!isPremium() && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+                    <div className="text-center px-4">
+                      <Lock className="w-8 h-8 text-yellow-300 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-yellow-300 uppercase tracking-wide">Premium</p>
+                      <p className="text-xs text-d4-text-dim mt-1">Desbloquea estadísticas completas</p>
+                    </div>
+                  </div>
+                )}
+              </div>
                 
                 {/* Barra de completitud */}
                 <div className="pt-3 border-t border-d4-border/50">

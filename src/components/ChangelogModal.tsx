@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">18 de Abril, 2026 (v0.6.4)</p>
+                <p className="text-d4-text font-semibold">18 de Abril, 2026 (v0.7.1)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,209 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.7.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.7.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-yellow-600/20 to-amber-600/20 text-yellow-300 px-2 py-1 rounded">🔒 Autenticación & Premium</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                🔐 Sistema de Autenticación Completo
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Backend Express + PostgreSQL</strong>: API REST en puerto 3001</li>
+                <li><strong>JWT tokens</strong>: Duración de 7 días, persistencia en localStorage</li>
+                <li><strong>Registro/Login</strong>: Validación con bcrypt (10 salt rounds)</li>
+                <li><strong>Auto-redirect</strong>: LoginPage si el token expira (401)</li>
+                <li><strong>AuthContext</strong>: Hook useAuth() para toda la app</li>
+                <li><strong>Middleware</strong>: authenticate, requirePremium, requireAdmin</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                💎 Sistema Premium
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Dos niveles</strong>: Basic (gratuito) vs Premium ($2.00 pago único)</li>
+                <li><strong>$1 de crédito incluido</strong>: Para ~50-100 consultas de IA</li>
+                <li><strong>Upgrade ficticio</strong>: Simulación de pago (1s delay)</li>
+                <li><strong>Badge en Sidebar</strong>: Basic gris / Premium dorado con corona</li>
+                <li><strong>Página Premium</strong>: Comparación de planes y features</li>
+                <li><strong>Botón Premium</strong>: Solo visible para usuarios Basic</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🔒 Restricciones Premium en UI
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>CharacterList</strong>: Stats borrosas con overlay de candado para Basic</li>
+                <li><strong>ImageCaptureModal</strong>: Botón OpenAI bloqueado con candado para Basic</li>
+                <li><strong>PromptGenerator</strong>: Prompts avanzados (Profundo, Pool) solo Premium</li>
+                <li><strong>Mensajes claros</strong>: Avisos para actualizar a Premium al intentar usar features</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🌐 API Transparente
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Detección automática</strong>: localhost usa :3001, producción/IP usa mismo host</li>
+                <li><strong>Sin configuración</strong>: VITE_API_URL ya no es necesario</li>
+                <li><strong>Funciona en cualquier red</strong>: Desarrollo, producción, IP local</li>
+                <li><strong>CORS dinámico</strong>: Soporta múltiples orígenes separados por comas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                📊 Billing Tracking Completo
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Tabla billing_usage</strong>: Registra tokens, costos, provider, modelo por usuario</li>
+                <li><strong>API endpoints</strong>: POST /billing/log, GET /billing/my-usage, GET /billing/stats</li>
+                <li><strong>Vista agregada</strong>: user_billing_summary con totales por usuario</li>
+                <li><strong>Integración con OpenAI</strong>: Tracking automático después de cada llamada</li>
+                <li><strong>Verificación de crédito</strong>: Valida $1 de límite antes de usar OpenAI</li>
+                <li><strong>Indicador en UI</strong>: Badge en Sidebar muestra crédito restante para Premium</li>
+                <li><strong>Fallback local</strong>: Guarda en archivo si no hay conexión al backend</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                ⚙️ Infraestructura Mejorada
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>npm run dev concurrente</strong>: Levanta frontend + backend simultáneamente</li>
+                <li><strong>Auto-migración</strong>: Detecta tablas faltantes y las recrea al iniciar</li>
+                <li><strong>Scripts organizados</strong>: setup, migrate, dev:client, dev:server</li>
+                <li><strong>Logs mejorados</strong>: Muestra localhost + IP local al iniciar</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🎨 Mejoras de UI
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Sidebar actualizado</strong>: Badge Premium/Basic, perfil con dropdown, logout</li>
+                <li><strong>Botón Gemini eliminado</strong>: Solo OpenAI disponible</li>
+                <li><strong>Botón Guardar agrandado</strong>: Misma altura que "Copiar Prompt"</li>
+                <li><strong>LoginPage</strong>: Tabs login/register con branding D4Builds</li>
+                <li><strong>PremiumPage</strong>: Comparación de planes con features detalladas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-gray-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                📝 Documentación
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">INSTALL.md</code>: Guía completa de instalación y configuración</li>
+                <li><code className="bg-d4-surface px-1 rounded">server/README.md</code>: Documentación del backend API</li>
+                <li><code className="bg-d4-surface px-1 rounded">README.md</code>: Actualizado con features v0.7.0</li>
+                <li><code className="bg-d4-surface px-1 rounded">.env.example</code>: Templates actualizados con VITE_API_URL comentado</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                🛡️ Panel de Administración
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Usuario Admin por defecto</strong>: admin / admin123 (cambiar después del primer login)</li>
+                <li><strong>Campo is_admin en BD</strong>: Nuevo campo booleano en tabla users</li>
+                <li><strong>Auto-migración</strong>: Usuario admin se crea automáticamente al reiniciar BD</li>
+                <li><strong>Sección Usuarios</strong>: Solo visible para administradores en Sidebar</li>
+                <li><strong>CRUD completo</strong>: Listar, editar, resetear contraseñas, activar/desactivar usuarios</li>
+                <li><strong>Estadísticas</strong>: Panel con totales de usuarios activos, Premium, admins, costo IA</li>
+                <li><strong>Búsqueda y paginación</strong>: Buscar por username/email, 20 usuarios por página</li>
+                <li><strong>Cambio de contraseña</strong>: Admin puede cambiar su propia contraseña con validación</li>
+                <li><strong>Protección anti-autodestrucción</strong>: Admin no puede desactivarse o quitarse permisos</li>
+                <li><strong>JWT actualizado</strong>: Token incluye campo is_admin para autorización</li>
+                <li><strong>Middleware requireAdmin</strong>: Valida permisos en rutas protegidas</li>
+                <li><strong>API REST completa</strong>: 7 endpoints en /api/admin/* para gestión</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.7.1 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.7.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">💎 Suscripciones & Perfil</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                💳 Sistema de Suscripciones Mejorado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nuevos planes</strong>: 1 mes ($5), 6 meses ($25, ahorra 17%), 1 año ($45, ahorra 25%)</li>
+                <li><strong>Créditos para IA</strong>: $4 por cada $5 de suscripción (80% del costo)</li>
+                <li><strong>Balance de créditos</strong>: Sistema premium_balance que se recarga al contratar/renovar</li>
+                <li><strong>Tabla subscriptions</strong>: Nueva tabla en BD para historial de suscripciones</li>
+                <li><strong>Control de expiracón</strong>: Fecha de vencimiento, estado activo/expirado, auto-renovación</li>
+                <li><strong>Extensión de plan</strong>: Posibilidad de extender antes de que expire</li>
+                <li><strong>Descuentos por volumen</strong>: Planes largos incluyen más créditos proporcionalmente</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-pink-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-pink-300 mb-2 flex items-center gap-2">
+                👤 Página de Perfil Completa
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Información personal</strong>: Editar username, email, ver fecha de registro</li>
+                <li><strong>Cambio de contraseña</strong>: Cambiar contraseña con validación de actual</li>
+                <li><strong>Análisis de uso</strong>: Estadísticas por semana, mes y año</li>
+                <li><strong>Historial completo</strong>: Lista paginada de todos los gastos con tipo y costo</li>
+                <li><strong>Información de suscripción</strong>: Estado, plan actual, fechas de inicio/fin</li>
+                <li><strong>Contratación desde perfil</strong>: Modal para contratar/extender suscripción</li>
+                <li><strong>Vista de créditos</strong>: Balance actual, total usado, gasto por período</li>
+                <li><strong>Tabs organizados</strong>: Perfil, Análisis, Historial, Suscripción</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                ⚙️ Mejoras de UX
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Tooltip en badge Premium/Basic</strong>: Muestra fecha de expiración al pasar mouse</li>
+                <li><strong>Cambio de workspace sin reload</strong>: Botón en Sidebar para cambiar carpeta dinámicamente</li>
+                <li><strong>Alertas de expiración</strong>: Notificación cuando la suscripción está próxima a vencer</li>
+                <li><strong>Menú de perfil</strong>: Acceso rápido a perfil desde dropdown de usuario</li>
+                <li><strong>Indicador de balance</strong>: Muestra créditos restantes en Sidebar para Premium</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                📊 Backend Actualizado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Rutas /api/profile</strong>: 6 nuevos endpoints para gestión de perfil</li>
+                <li><strong>Control de saldo</strong>: Billing descontado automáticamente de premium_balance</li>
+                <li><strong>Verificación de crédito</strong>: Usuarios Basic no pueden usar IA, Premium verifica saldo</li>
+                <li><strong>Migración 002</strong>: Nueva tabla subscriptions con campos completos</li>
+                <li><strong>Campos en users</strong>: subscription_id, subscription_expires_at, premium_balance</li>
+                <li><strong>Transacciones atómicas</strong>: BEGIN/COMMIT/ROLLBACK para suscripciones y billing</li>
+                <li><strong>Admin con suscripción</strong>: Usuario admin tiene 1 año de Premium y $100 créditos</li>
+              </ul>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { WorkspaceService } from './services/WorkspaceService';
 import { Personaje } from './types';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { useAuth } from './context/AuthContext';
 import './index.css';
 
 // Componentes
@@ -14,10 +15,15 @@ import PromptGenerator from './components/prompts/PromptGenerator';
 import { TagsManager } from './components/tags/TagsManager';
 import RunesGemsSection from './components/runes/RunesGemsSection';
 import BillingPanel from './components/common/BillingPanel';
+import LoginPage from './components/auth/LoginPage';
+import PremiumPage from './components/premium/PremiumPage';
+import AdminUsers from './components/admin/AdminUsers';
+import { ProfilePage } from './components/profile/ProfilePage';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems' | 'premium' | 'admin' | 'profile';
 
 function AppContent() {
+  const { user, loading: authLoading } = useAuth();
   const [currentView, setCurrentView] = useState<View>('characters');
   const [loading, setLoading] = useState(false);
   const {
@@ -29,6 +35,7 @@ function AppContent() {
     setSelectedPersonaje,
   } = useAppContext();
 
+  // Definir todos los hooks ANTES de cualquier return condicional
   const loadPersonajes = useCallback(async () => {
     setLoading(true);
     try {
@@ -39,13 +46,30 @@ function AppContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setPersonajes]);
 
   useEffect(() => {
     if (workspaceLoaded) {
       loadPersonajes();
     }
   }, [workspaceLoaded, loadPersonajes]);
+
+  // Ahora sí, returns condicionales DESPUÉS de todos los hooks
+  // Si está cargando la autenticación, mostrar pantalla de carga
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-d4-bg flex items-center justify-center">
+        <div className="text-d4-accent text-xl font-bold">
+          Cargando...
+        </div>
+      </div>
+    );
+  }
+
+  // Si no está autenticado, mostrar página de login
+  if (!user) {
+    return <LoginPage />;
+  }
 
   const handleWorkspaceLoaded = () => {
     setWorkspaceLoaded(true);
@@ -100,6 +124,12 @@ function AppContent() {
         return <TagsManager />;
       case 'runes-gems':
         return <RunesGemsSection />;
+      case 'premium':
+        return <PremiumPage />;
+      case 'admin':
+        return <AdminUsers />;
+      case 'profile':
+        return <ProfilePage />;
       default:
         return <div className="text-d4-text">Vista en construcción</div>;
     }

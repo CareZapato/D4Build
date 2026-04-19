@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Sparkles, Copy, Check, FileText } from 'lucide-react';
+import { Sparkles, Copy, Check, FileText, Lock } from 'lucide-react';
 import { Personaje } from '../../types';
 import { PromptService } from '../../services/PromptService';
+import { useAuth } from '../../context/AuthContext';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 
@@ -11,6 +12,7 @@ interface Props {
 
 const PromptGenerator: React.FC<Props> = ({ personajes }) => {
   const modal = useModal();
+  const { isPremium } = useAuth();
   const [selectedPersonaje, setSelectedPersonaje] = useState<string>('');
   const [promptType, setPromptType] = useState<'custom' | 'synergy' | 'optimization' | 'deepAnalysis' | 'poolComparison'>('custom');
   const [customQuestion, setCustomQuestion] = useState('');
@@ -24,6 +26,13 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
     const personaje = personajes.find(p => p.id === selectedPersonaje);
     if (!personaje) {
       modal.showWarning('Selecciona un personaje');
+      return;
+    }
+
+    // Verificar restricción Premium para prompts avanzados
+    const premiumPrompts = ['deepAnalysis', 'poolComparison'];
+    if (premiumPrompts.includes(promptType) && !isPremium()) {
+      modal.showWarning('⚡ Este prompt es Premium. Actualiza tu cuenta para desbloquearlo.');
       return;
     }
 
@@ -143,31 +152,45 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
                   </div>
                 </label>
 
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-d4-border transition-colors">
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-d4-border transition-colors relative">
                   <input
                     type="radio"
                     name="promptType"
                     value="deepAnalysis"
                     checked={promptType === 'deepAnalysis'}
                     onChange={() => setPromptType('deepAnalysis')}
+                    disabled={!isPremium()}
                   />
-                  <div>
-                    <div className="text-d4-text font-medium">🎯 Análisis Profundo</div>
+                  <div className="flex-1">
+                    <div className="text-d4-text font-medium flex items-center gap-2">
+                      🎯 Análisis Profundo
+                      {!isPremium() && <Lock className="w-3 h-3 text-yellow-400" />}
+                    </div>
                     <div className="text-xs text-d4-text-dim">Evaluación completa con scoring y prioridades</div>
+                    {!isPremium() && (
+                      <div className="text-xs text-yellow-400 font-semibold mt-1">Premium</div>
+                    )}
                   </div>
                 </label>
 
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-d4-border transition-colors">
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-d4-border transition-colors relative">
                   <input
                     type="radio"
                     name="promptType"
                     value="poolComparison"
                     checked={promptType === 'poolComparison'}
                     onChange={() => setPromptType('poolComparison')}
+                    disabled={!isPremium()}
                   />
-                  <div>
-                    <div className="text-d4-text font-medium">🔄 Comparación con Pool</div>
+                  <div className="flex-1">
+                    <div className="text-d4-text font-medium flex items-center gap-2">
+                      🔄 Comparación con Pool
+                      {!isPremium() && <Lock className="w-3 h-3 text-yellow-400" />}
+                    </div>
                     <div className="text-xs text-d4-text-dim">Compara equipado vs todo lo disponible</div>
+                    {!isPremium() && (
+                      <div className="text-xs text-yellow-400 font-semibold mt-1">Premium</div>
+                    )}
                   </div>
                 </label>
               </div>

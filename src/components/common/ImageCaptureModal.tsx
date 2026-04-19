@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
 import { useAppContext } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { GeminiService } from '../../services/GeminiService';
 import { OpenAIService } from '../../services/OpenAIService';
+import { BillingService } from '../../services/BillingService';
 import ImportResultsModal, { ImportResultDetails } from './ImportResultsModal';
 import ImageViewerModal from './ImageViewerModal';
 import EmptyImportWarningModal from './EmptyImportWarningModal';
@@ -45,6 +47,7 @@ const CATEGORIES: {
 ];
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const { personajes, availableClasses, selectedPersonaje, setSelectedPersonaje, setPersonajes, refreshPersonajes } = useAppContext();
+  const { isPremium } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [paragonType, setParagonType] = useState<ParagonType>('tablero');
   const [runaGemaType, setRunaGemaType] = useState<'runas' | 'gemas'>('runas');
@@ -4139,6 +4142,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     runaGemaType?: 'runas' | 'gemas';
   }) => {
     
+    // Verificar crédito disponible antes de procesar
+    const creditCheck = await BillingService.hasAvailableCredit();
+    if (!creditCheck.hasCredit) {
+      showToast(
+        `⚠️ Crédito agotado. Usado: $${creditCheck.used.toFixed(4)} de $${creditCheck.limit.toFixed(2)}`,
+        'error'
+      );
+      return;
+    }
+
     // Determinar qué imagen usar (galería seleccionada o compuesta)
     const imageToProcess = selectedGalleryImage || composedImageUrl;
     
@@ -4709,38 +4722,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       <Trash2 className="w-5 h-5" />
                     </button>
                     
-                    {/* Gemini AI */}
+                    {/* OpenAI GPT-4o - Premium Only */}
                     <button 
                       onClick={() => {
-                        if (composedImageUrl || selectedGalleryImage) {
-                          // Inicializar valores del modal con estados actuales
-                          setAiConfigPromptType(promptType);
-                          setAiConfigClase(selectedClase);
-                          setAiConfigPersonajeId(selectedPersonajeId);
-                          setAiConfigParagonType(paragonType);
-                          setAiConfigRunaGemaType(runaGemaType);
-                          setAiServiceToUse('gemini');
-                          setShowAIConfigModal(true);
+                        if (!isPremium()) {
+                          showToast('⚠️ Esta función requiere una cuenta Premium', 'info');
+                          return;
                         }
-                      }}
-                      disabled={!(composedImageUrl || selectedGalleryImage) || aiProcessing}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
-                        (composedImageUrl || selectedGalleryImage) && !aiProcessing
-                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
-                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      }`}
-                      title="Configurar y procesar con Gemini AI"
-                    >
-                      {aiProcessing ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      ) : (
-                        <Zap className="w-5 h-5" />
-                      )}
-                    </button>
-                    
-                    {/* OpenAI GPT-4o */}
-                    <button 
-                      onClick={() => {
                         if (composedImageUrl || selectedGalleryImage) {
                           // Inicializar valores del modal con estados actuales
                           setAiConfigPromptType(promptType);
@@ -4753,17 +4741,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!(composedImageUrl || selectedGalleryImage) || openAiProcessing}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center relative ${
+                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center relative gap-2 ${
                         (composedImageUrl || selectedGalleryImage) && !openAiProcessing
-                          ? 'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-600 hover:from-teal-500 hover:via-teal-600 hover:to-emerald-700 text-white shadow-lg'
+                          ? isPremium()
+                            ? 'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-600 hover:from-teal-500 hover:via-teal-600 hover:to-emerald-700 text-white shadow-lg'
+                            : 'bg-gradient-to-br from-gray-600 to-gray-700 text-gray-300 cursor-not-allowed border-2 border-yellow-500/50'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
-                      title="Configurar y procesar con OpenAI GPT-4o"
+                      title={isPremium() ? "Configurar y procesar con OpenAI GPT-4o" : "Función Premium - Actualiza para usar OpenAI"}
                     >
                       {openAiProcessing ? (
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                       ) : (
-                        <Sparkles className="w-5 h-5" />
+                        <>
+                          {!isPremium() && <Lock className="w-4 h-4" />}
+                          <Sparkles className="w-5 h-5" />
+                        </>
                       )}
                     </button>
                   </div>
@@ -5128,7 +5121,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => { void executeManualImportJSON(); }}
                       disabled={!jsonText.trim() || importing || !hasEffectiveTargetSelection}
-                      className={`mt-1.5 lg:mt-3 w-full px-2 lg:px-4 py-1 lg:py-2 rounded text-[10px] lg:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 lg:gap-2 ${
+                      className={`mt-1.5 lg:mt-3 w-full px-2 lg:px-4 py-2 lg:py-3 rounded text-[10px] lg:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 lg:gap-2 ${
                         jsonText.trim() && !importing && hasEffectiveTargetSelection
                           ? 'bg-green-600 hover:bg-green-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
