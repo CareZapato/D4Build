@@ -9,6 +9,21 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [0.7.1] - 2026-04-19
 
+### ✨ Added (Agregado)
+
+#### Deployment: Logging exhaustivo para debugging de APIs
+- **Objetivo**: Facilitar debugging de errores 404 y otros problemas en producción
+- **Implementación**:
+  - Middleware de logging GLOBAL (captura TODAS las requests)
+  - Log de método, URL, origin, host, content-type, user-agent
+  - Log de request body (con passwords ocultos)
+  - Log de response status code
+  - Logging específico en ruta `/api/auth/login` (cada paso del proceso)
+  - Logging exhaustivo en handler 404 de API (método, path, body, headers)
+- **Ubicación**: `server/index.js`, `server/routes/auth.js`
+- **Formato de logs**: Separadores visuales para fácil lectura
+- **Beneficios**: Ver exactamente qué requests llegan, qué respuestas se envían, dónde fallan
+
 ### 🔧 Fixed (Arreglado)
 
 #### Deployment: PostgreSQL requiere SSL en producción
