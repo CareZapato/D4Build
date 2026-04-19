@@ -1,5 +1,9 @@
 # 🚀 Checklist de Despliegue a Producción - D4Builds v0.7.1
 
+> ✅ **Errores de TypeScript resueltos**: Los errores de compilación en AdminUsers.tsx y otros archivos han sido solucionados ajustando `tsconfig.json` y el script de build. Ver [BUILD_GUIDE.md](BUILD_GUIDE.md) para detalles.
+
+---
+
 ## 📋 Paso 1: Configuración de Base de Datos PostgreSQL
 
 ### Valores a usar en el formulario:

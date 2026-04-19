@@ -555,6 +555,7 @@ PORT=3001
 
 - `.env.production.example` - Plantilla de variables de entorno para producción
 - `DEPLOYMENT.md` - Guía completa de despliegue paso a paso
+- `BUILD_GUIDE.md` - Guía de build y configuración TypeScript para producción
 - `server/migrations/` - Migraciones de base de datos (auto-ejecutables)
 
 ---
@@ -584,10 +585,11 @@ PORT=3001
 ## 📞 Soporte
 
 ¿Problemas con el despliegue? Revisa:
-1. [DEPLOYMENT.md](DEPLOYMENT.md) - Guía completa
-2. Logs del servidor (`nodemon` o servicio de hosting)
-3. Configuración de variables de entorno
-4. Estado de las migraciones (`npm run migrate`)
+1. [BUILD_GUIDE.md](BUILD_GUIDE.md) - Solución de errores de TypeScript en build
+2. [DEPLOYMENT.md](DEPLOYMENT.md) - Guía completa de despliegue
+3. Logs del servidor (`nodemon` o servicio de hosting)
+4. Configuración de variables de entorno
+5. Estado de las migraciones (`npm run migrate`)
 
 ---
 
