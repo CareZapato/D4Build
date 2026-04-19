@@ -89,14 +89,20 @@ router.post('/register', registerValidation, async (req, res) => {
 
 // POST /api/auth/login - Login de usuario
 router.post('/login', loginValidation, async (req, res) => {
+  console.log('🔐 [AUTH] Login request recibida');
+  console.log('🔐 [AUTH] Email:', req.body.email);
+  
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('🔐 [AUTH] Errores de validación:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { email, password } = req.body;
 
+    console.log('🔐 [AUTH] Buscando usuario en BD...');
+    
     // Buscar usuario con información de suscripción
     const result = await pool.query(
       `SELECT u.*, s.plan_type, s.end_date as subscription_end_date, s.is_active as subscription_active
@@ -106,7 +112,10 @@ router.post('/login', loginValidation, async (req, res) => {
       [email]
     );
 
+    console.log('🔐 [AUTH] Usuarios encontrados:', result.rows.length);
+
     if (result.rows.length === 0) {
+      console.log('🔐 [AUTH] Usuario no encontrado');
       return res.status(401).json({ 
         error: 'Credenciales inválidas',
         message: 'Email o contraseña incorrectos' 
@@ -115,8 +124,11 @@ router.post('/login', loginValidation, async (req, res) => {
 
     const user = result.rows[0];
 
+    console.log('🔐 [AUTH] Usuario encontrado:', user.email, '- Activo:', user.is_active);
+
     // Verificar si el usuario está activo
     if (!user.is_active) {
+      console.log('🔐 [AUTH] Usuario inactivo');
       return res.status(403).json({ 
         error: 'Cuenta desactivada',
         message: 'Tu cuenta ha sido desactivada. Contacta al administrador.' 
@@ -124,14 +136,18 @@ router.post('/login', loginValidation, async (req, res) => {
     }
 
     // Verificar contraseña
+    console.log('🔐 [AUTH] Verificando contraseña...');
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordMatch) {
+      console.log('🔐 [AUTH] Contraseña incorrecta');
       return res.status(401).json({ 
         error: 'Credenciales inválidas',
         message: 'Email o contraseña incorrectos' 
       });
     }
+
+    console.log('🔐 [AUTH] Contraseña correcta, generando token JWT...');
 
     // Actualizar updated_at
     await pool.query('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
@@ -149,6 +165,8 @@ router.post('/login', loginValidation, async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
+    console.log('🔐 [AUTH] ✅ Login exitoso para:', user.email);
+
     res.json({
       message: 'Login exitoso',
       token,
@@ -165,7 +183,8 @@ router.post('/login', loginValidation, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('🔐 [AUTH] ❌ Error en login:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: 'Error al iniciar sesión' });
   }
 });

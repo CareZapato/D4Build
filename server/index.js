@@ -79,18 +79,42 @@ const corsOptions = {
   maxAge: 86400 // 24 horas
 };
 
+// ============================================================================
+// LOGGING EXHAUSTIVO (debe ir PRIMERO para capturar TODO)
+// ============================================================================
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`📡 [${timestamp}] ${req.method} ${req.url}`);
+  console.log(`   Origin: ${req.get('origin') || 'none'}`);
+  console.log(`   Host: ${req.get('host')}`);
+  console.log(`   Content-Type: ${req.get('content-type') || 'none'}`);
+  console.log(`   User-Agent: ${req.get('user-agent')?.substring(0, 50) || 'none'}...`);
+  
+  // Log del body en requests POST/PUT/PATCH (sin passwords)
+  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    const bodyLog = { ...req.body };
+    if (bodyLog.password) bodyLog.password = '***';
+    if (bodyLog.newPassword) bodyLog.newPassword = '***';
+    if (bodyLog.currentPassword) bodyLog.currentPassword = '***';
+    console.log(`   Body: ${JSON.stringify(bodyLog)}`);
+  }
+  
+  // Interceptar la respuesta para loggear el status code
+  const originalSend = res.send;
+  res.send = function(data) {
+    console.log(`   ✅ Response: ${res.statusCode} ${res.statusMessage || ''}`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    originalSend.call(this, data);
+  };
+  
+  next();
+});
+
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Logging middleware en producción para debugging
-if (!isDevelopment) {
-  app.use((req, res, next) => {
-    console.log(`📡 ${req.method} ${req.path}`);
-    next();
-  });
-}
 
 // Rutas de API
 app.use('/api/auth', authRoutes);
@@ -106,10 +130,19 @@ app.get('/health', (req, res) => {
 
 // Middleware para manejar rutas API no encontradas
 app.use('/api/*', (req, res) => {
-  console.warn(`⚠️  Ruta API no encontrada: ${req.method} ${req.path}`);
+  console.error(`\n❌❌❌ RUTA API NO ENCONTRADA ❌❌❌`);
+  console.error(`   Método: ${req.method}`);
+  console.error(`   Path: ${req.path}`);
+  console.error(`   URL completa: ${req.url}`);
+  console.error(`   Body:`, req.body);
+  console.error(`   Headers:`, req.headers);
+  console.error(`❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n`);
+  
   res.status(404).json({
     error: true,
-    message: `Ruta no encontrada: ${req.method} ${req.path}`
+    message: `Ruta no encontrada: ${req.method} ${req.path}`,
+    path: req.path,
+    method: req.method
   });
 });
 
