@@ -11,6 +11,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### 🔧 Fixed (Arreglado)
 
+#### Deployment: 404 en rutas de API
+- **Problema**: Todas las rutas de API retornan 404 en producción
+- **Causas identificadas**:
+  1. CORS bloqueando requests cuando `CORS_ORIGIN` no está configurado
+  2. Catch-all `app.get('*')` potencialmente interfiriendo con rutas API
+- **Soluciones aplicadas**:
+  - **CORS**: Permite automáticamente todos los origins en producción si `CORS_ORIGIN` no está configurado (arquitectura fullstack)
+  - **Catch-all**: Modificado para excluir explícitamente rutas `/api/*` y `/health`
+  - **Logging**: Mensaje mejorado para indicar "Arquitectura fullstack (permite same-origin)"
+- **Resultado**: API funciona correctamente en producción sin necesidad de configurar `CORS_ORIGIN`
+
 #### Deployment: API URL incorrecta en producción
 - **Problema**: Frontend intentaba acceder a `https://d4build.onrender.com:3001/api` (puerto explícito en producción)
 - **Causa**: Lógica de detección de API URL agregaba `:3001` para todas las URLs no-localhost

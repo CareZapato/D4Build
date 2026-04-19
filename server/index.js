@@ -26,7 +26,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Permitir requests sin origin (como mobile apps, curl, Postman)
+    // Permitir requests sin origin (como mobile apps, curl, Postman, same-origin)
     if (!origin) return callback(null, true);
     
     // En desarrollo: permitir cualquier localhost:* y IPs de red local
@@ -52,12 +52,18 @@ const corsOptions = {
     // Si CORS_ORIGIN contiene '*', permitir todos
     if (corsOrigins.includes('*')) return callback(null, true);
     
+    // Si CORS_ORIGIN está vacío en producción, permitir todos
+    // (arquitectura fullstack en un solo servicio)
+    if (!isDevelopment && corsOrigins.length === 0) {
+      return callback(null, true);
+    }
+    
     // Verificar si el origin está en la lista permitida
     if (corsOrigins.includes(origin)) {
       return callback(null, true);
     }
     
-    // Si llegamos aquí en producción, denegar
+    // Si llegamos aquí en producción con CORS_ORIGIN configurado, denegar
     if (!isDevelopment) {
       console.warn(`⚠️  CORS bloqueó origen: ${origin}`);
       return callback(new Error('No permitido por CORS'));
@@ -104,8 +110,12 @@ if (!isDevelopment) {
   app.use(express.static(distPath));
   
   // Catch-all: devolver index.html para rutas del frontend (SPA)
-  // Esto debe estar DESPUÉS de las rutas /api
-  app.get('*', (req, res) => {
+  // IMPORTANTE: Solo para rutas que NO sean de API
+  app.get('*', (req, res, next) => {
+    // Excluir rutas de API y health check
+    if (req.path.startsWith('/api') || req.path === '/health') {
+      return next();
+    }
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
@@ -169,7 +179,22 @@ async function startServer() {
     console.log(`📊 Configuración:`);
     console.log(`   • Base de datos: ${process.env.DB_NAME}`);
     console.log(`   • JWT: ${process.env.JWT_SECRET ? '✅ Configurado' : '❌ No configurado'}`);
-    console.log(`   • CORS: ${isDevelopment ? '🔓 Modo desarrollo (acepta localhost:* e IPs locales)' : `🔒 ${process.env.CORS_ORIGIN || 'Sin configurar'}`}`);
+    
+    // Mensaje de CORS según configuración
+    let corsMessage;
+    if (isDevelopment) {
+      corsMessage = '🔓 Modo desarrollo (acepta localhost:* e IPs locales)';
+    } else {
+      const corsOrigin = process.env.CORS_ORIGIN;
+      if (!corsOrigin) {
+        corsMessage = '🔓 Arquitectura fullstack (permite same-origin)';
+      } else if (corsOrigin === '*') {
+        corsMessage = '🔓 Permitir todos los orígenes (*)';
+      } else {
+        corsMessage = `🔒 ${corsOrigin}`;
+      }
+    }
+    console.log(`   • CORS: ${corsMessage}`);
     console.log(`   • Entorno: ${process.env.NODE_ENV || 'development'}\n`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   });

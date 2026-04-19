@@ -74,13 +74,17 @@ DB_PASSWORD=<password-generado>
 JWT_SECRET=8ZyKTmCSGhyQCv/lNx6mnGdYOoTYUsrNWkkwKBvrj4E=
 JWT_EXPIRES_IN=7d
 
-# CORS - NO ES NECESARIO en arquitectura de un solo servicio
-# El backend sirve el frontend, por lo que no hay CORS
-NODE_ENV=production
+# CORS - OPCIONAL en arquitectura fullstack
+# Si no está configurado, permite same-origin automáticamente
+# Solo configura si tienes frontend en dominio diferente:
+# CORS_ORIGIN=https://frontend.com,https://www.frontend.com
 
-# Puerto - Render lo asigna automáticamente via PORT env var
-# No es necesario configurarlo manualmente
+# Entorno
+NODE_ENV=production
+AUTO_MIGRATE=true
 ```
+
+**Nota importante**: Como usamos arquitectura fullstack (backend sirve frontend), **NO necesitas configurar `CORS_ORIGIN`**. El backend permite automáticamente requests del mismo origin.
 
 ---
 
