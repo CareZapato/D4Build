@@ -125,6 +125,51 @@ export class PromptService {
       prompt += await this.formatGlifosEquipados(personaje);
     }
 
+    // Mecánicas de clase (v0.8.0)
+    if (personaje.mecanicas_clase_refs && personaje.mecanicas_clase_refs.length > 0) {
+      try {
+        const heroMechanics = await WorkspaceService.loadHeroClassMechanics(personaje.clase);
+        if (heroMechanics && heroMechanics.mecanicas) {
+          prompt += `## ✨ Mecánicas de Clase (${personaje.mecanicas_clase_refs.length})\n`;
+          
+          personaje.mecanicas_clase_refs.forEach(ref => {
+            const mecanica = heroMechanics.mecanicas.find(m => m.id === ref.id);
+            if (mecanica) {
+              const seleccionesActivas = mecanica.selecciones.filter(s => 
+                ref.selecciones_activas?.includes(s.id) || s.activo
+              );
+              
+              prompt += `### ${mecanica.nombre}\n`;
+              seleccionesActivas.forEach(sel => {
+                prompt += `- **${sel.nombre}** (${sel.categoria}) - Nv ${sel.nivel}/${sel.nivel_maximo}\n`;
+                prompt += `  - ${sel.efecto}\n`;
+                if (sel.detalles && sel.detalles.length > 0) {
+                  sel.detalles.forEach(detalle => {
+                    prompt += `    • ${detalle}\n`;
+                  });
+                }
+                if (sel.tags && sel.tags.length > 0) {
+                  prompt += `  - 🏷️ Tags: ${sel.tags.join(', ')}\n`;
+                }
+              });
+              
+              // Palabras clave de la mecánica
+              if (mecanica.palabras_clave && mecanica.palabras_clave.length > 0) {
+                prompt += `  - 📖 Palabras clave: ${mecanica.palabras_clave.map(pc => pc.tag).join(', ')}\n`;
+              }
+              
+              if (ref.notas) {
+                prompt += `  - 📝 Notas: ${ref.notas}\n`;
+              }
+              prompt += `\n`;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error cargando mecánicas de clase:', error);
+      }
+    }
+
     // Build equipada (items)
     prompt += this.formatBuildEquipada(personaje);
 
@@ -148,13 +193,15 @@ export class PromptService {
     prompt += `- ¿Está enfocado o disperso?\n\n`;
     
     prompt += `## 2️⃣ SINERGIAS (Análisis Transversal por Tags)\n`;
-    prompt += `- Lista tags compartidos entre habilidades en batalla, aspectos equipados, glifos y nodos\n`;
+    prompt += `- Lista tags compartidos entre habilidades en batalla, aspectos equipados, glifos, mecánicas de clase y nodos\n`;
     prompt += `- Identifica mecánicas fuertes (ej: si 'crítico' aparece en 4+ elementos)\n`;
-    prompt += `- Detecta anti-sinergias (elementos que no comparten tags)\n\n`;
+    prompt += `- Detecta anti-sinergias (elementos que no comparten tags)\n`;
+    prompt += `- Evalúa cómo las mecánicas de clase potencian o se integran con el resto del build\n\n`;
     
     prompt += `## 3️⃣ PROBLEMAS CRÍTICOS\n`;
-    prompt += `- Habilidades en batalla sin soporte (sin aspectos/glifos que compartan tags)\n`;
-    prompt += `- Aspectos equipados que no conectan con habilidades activas\n`;
+    prompt += `- Habilidades en batalla sin soporte (sin aspectos/glifos/mecánicas que compartan tags)\n`;
+    prompt += `- Aspectos equipados que no conectan con habilidades activas o mecánicas de clase\n`;
+    prompt += `- Mecánicas de clase sin sinergia con habilidades/aspectos\n`;
     prompt += `- Mecánicas desaprovechadas (tags en aspectos disponibles que potenciarían el build)\n`;
     prompt += `- Carencias defensivas/ofensivas según estadísticas\n\n`;
     
@@ -162,9 +209,10 @@ export class PromptService {
     prompt += `Ordena por impacto (1 = más urgente):\n`;
     prompt += `1. **Aspectos a cambiar**: Especifica cuáles equipados reemplazar y por cuáles disponibles (justifica con tags compartidos)\n`;
     prompt += `2. **Habilidades a ajustar**: Si alguna en batalla tiene 0 sinergias, sugiere alternativas\n`;
-    prompt += `3. **Glifos a optimizar**: Prioriza niveles o reemplazos según tags\n`;
-    prompt += `4. **Estadísticas a mejorar**: Basado en análisis de stats\n`;
-    prompt += `5. **Nodos Paragon a priorizar**: Si hay info disponible\n\n`;
+    prompt += `3. **Mecánicas de clase a optimizar**: Selecciones que maximicen sinergias con build actual\n`;
+    prompt += `4. **Glifos a optimizar**: Prioriza niveles o reemplazos según tags\n`;
+    prompt += `5. **Estadísticas a mejorar**: Basado en análisis de stats\n`;
+    prompt += `6. **Nodos Paragon a priorizar**: Si hay info disponible\n\n`;
     
     prompt += `## 5️⃣ PLAN DE ACCIÓN (3-5 pasos concretos)\n`;
     prompt += `Lista cambios inmediatos, cada uno con:\n`;
@@ -338,6 +386,46 @@ export class PromptService {
       console.error('Error cargando aspectos:', error);
     }
 
+    // Mecánicas de clase equipadas (v0.8.0)
+    if (personaje.mecanicas_clase_refs && personaje.mecanicas_clase_refs.length > 0) {
+      try {
+        const heroMechanics = await WorkspaceService.loadHeroClassMechanics(personaje.clase);
+        if (heroMechanics && heroMechanics.mecanicas) {
+          prompt += `\n## Mecánicas de Clase: Configuración Actual\n\n`;
+          
+          personaje.mecanicas_clase_refs.forEach(ref => {
+            const mecanica = heroMechanics.mecanicas.find(m => m.id === ref.id);
+            if (mecanica) {
+              const seleccionesActivas = mecanica.selecciones.filter(s => 
+                ref.selecciones_activas?.includes(s.id) || s.activo
+              );
+              const seleccionesInactivas = mecanica.selecciones.filter(s => 
+                !ref.selecciones_activas?.includes(s.id) && !s.activo
+              );
+              
+              prompt += `### ${mecanica.nombre}\n`;
+              prompt += `**Selecciones Activas (${seleccionesActivas.length})**:\n`;
+              seleccionesActivas.forEach(sel => {
+                prompt += `- **${sel.nombre}** (${sel.categoria}) - Nv ${sel.nivel}/${sel.nivel_maximo}\n`;
+                prompt += `  - ${sel.efecto}\n`;
+              });
+              
+              if (seleccionesInactivas.length > 0) {
+                prompt += `\n**Opciones Disponibles NO Activas (${seleccionesInactivas.length})**:\n`;
+                seleccionesInactivas.forEach(sel => {
+                  prompt += `- **${sel.nombre}** (${sel.categoria})\n`;
+                  prompt += `  - ${sel.efecto}\n`;
+                });
+              }
+              prompt += `\n`;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error cargando mecánicas de clase:', error);
+      }
+    }
+
     // Preguntas de comparación
     // Paragon equipado vs disponible
     if (personaje.paragon_refs || personaje.paragon || personaje.atributos_paragon) {
@@ -399,22 +487,27 @@ export class PromptService {
     prompt += `- ¿Por qué esos cambios mejorarían el build?\n`;
     prompt += `- ¿Hay modificadores que no están siendo aprovechados?\n\n`;
     
-    prompt += `### 2. Optimización de Glifos\n`;
+    prompt += `### 2. Optimización de Mecánicas de Clase\n`;
+    prompt += `- ¿Las selecciones activas son las más adecuadas para el build?\n`;
+    prompt += `- ¿Qué opciones no activas ofrecerían mejores sinergias?\n`;
+    prompt += `- ¿Cómo potenciar las mecánicas de clase con aspectos/habilidades disponibles?\n\n`;
+    
+    prompt += `### 3. Optimización de Glifos\n`;
     prompt += `- ¿Qué glifos equipados son subóptimos?\n`;
     prompt += `- ¿Qué glifos disponibles ofrecen mejor valor?\n`;
     prompt += `- Orden de prioridad para nivel de glifos (1-5)\n\n`;
     
-    prompt += `### 3. Mejoras de Aspectos\n`;
+    prompt += `### 4. Mejoras de Aspectos\n`;
     prompt += `- ¿Qué aspectos equipados no aportan suficiente valor?\n`;
     prompt += `- ¿Qué aspectos disponibles crean mejores sinergias?\n`;
     prompt += `- Top 3 aspectos a conseguir/equipar\n\n`;
     
-    prompt += `### 4. Optimización del Sistema Paragon\n`;
+    prompt += `### 5. Optimización del Sistema Paragon\n`;
     prompt += `- ¿Los tableros equipados son los más adecuados para este build?\n`;
     prompt += `- ¿Qué nodos Paragon deberían priorizarse?\n`;
     prompt += `- ¿Hay tableros disponibles que ofrezcan mejores sinergias?\n\n`;
     
-    prompt += `### 5. Conclusión\n`;
+    prompt += `### 6. Conclusión\n`;
     prompt += `Resume los 5 cambios más impactantes que puede hacer usando SOLO lo que ya tiene disponible.\n`;
 
     return prompt;
@@ -540,6 +633,58 @@ export class PromptService {
       }
     }
 
+    // Cargar mecánicas de clase desde el héroe usando referencias
+    if (config.incluir_mecanicas && personaje.mecanicas_clase_refs) {
+      try {
+        const heroMechanics = await WorkspaceService.loadHeroClassMechanics(personaje.clase);
+        
+        if (heroMechanics && heroMechanics.mecanicas.length > 0) {
+          prompt += `\n## Mecánicas de Clase\n`;
+          
+          // Para cada referencia del personaje
+          personaje.mecanicas_clase_refs.forEach(mechanicRef => {
+            // Buscar la mecánica completa en el héroe
+            const mecanica = heroMechanics.mecanicas.find(m => m.id === mechanicRef.id);
+            
+            if (mecanica) {
+              prompt += `\n### ${mecanica.nombre} (${mecanica.clase})\n`;
+              
+              // Filtrar solo las selecciones activas
+              const seleccionesActivas = mecanica.selecciones.filter(sel => 
+                mechanicRef.selecciones_activas?.includes(sel.id)
+              );
+              
+              if (seleccionesActivas.length > 0) {
+                prompt += `**Selecciones Activas:**\n`;
+                seleccionesActivas.forEach(seleccion => {
+                  prompt += `- **${seleccion.nombre}** (${seleccion.categoria})\n`;
+                  prompt += `  - Nivel: ${seleccion.nivel}/${seleccion.nivel_maximo}\n`;
+                  prompt += `  - Efecto: ${seleccion.efecto}\n`;
+                  
+                  if (seleccion.detalles && seleccion.detalles.length > 0) {
+                    prompt += `  - Detalles:\n`;
+                    seleccion.detalles.forEach(detalle => {
+                      prompt += `    - ${detalle}\n`;
+                    });
+                  }
+                  
+                  if (seleccion.tags && seleccion.tags.length > 0) {
+                    prompt += `  - 🏷️ Tags: ${seleccion.tags.join(', ')}\n`;
+                  }
+                });
+              }
+              
+              if (mechanicRef.notas) {
+                prompt += `- **Notas**: ${mechanicRef.notas}\n`;
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error cargando mecánicas del héroe:', error);
+      }
+    }
+
     // Incluir build equipada para dar contexto de optimización
     prompt += this.formatBuildEquipada(personaje);
 
@@ -562,12 +707,14 @@ export class PromptService {
       incluir_habilidades: true,
       incluir_glifos: true,
       incluir_estadisticas: true,
-      pregunta_personalizada: `Analiza las sinergias entre las habilidades activas y los glifos equipados. 
+      incluir_mecanicas: true,
+      pregunta_personalizada: `Analiza las sinergias entre las habilidades activas, glifos equipados y mecánicas de clase. 
 Identifica:
 1. Qué combinaciones funcionan bien y por qué
-2. Qué glifos podrían optimizarse o cambiarse
-3. Sugerencias de modificadores alternativos
-4. Posibles debilidades en el build actual`
+2. Cómo las mecánicas de clase potencian habilidades/aspectos
+3. Qué glifos podrían optimizarse o cambiarse
+4. Sugerencias de modificadores alternativos
+5. Posibles debilidades en el build actual`
     });
   }
 
@@ -577,12 +724,14 @@ Identifica:
       incluir_habilidades: true,
       incluir_glifos: true,
       incluir_estadisticas: true,
+      incluir_mecanicas: true,
       pregunta_personalizada: `Analiza este build y proporciona recomendaciones para optimizarlo:
 1. ¿Hay mejores opciones de habilidades para el objetivo del build?
-2. ¿Los glifos elegidos son óptimos?
-3. ¿Qué estadísticas debería priorizar?
-4. ¿Hay sinergias no aprovechadas?
-5. Sugerencias de aspectos legendarios que complementen el build`
+2. ¿Las mecánicas de clase están optimizadas? ¿Selecciones más adecuadas?
+3. ¿Los glifos elegidos son óptimos?
+4. ¿Qué estadísticas debería priorizar?
+5. ¿Hay sinergias no aprovechadas entre mecánicas/habilidades/aspectos?
+6. Sugerencias de aspectos legendarios que complementen el build`
     });
   }
 

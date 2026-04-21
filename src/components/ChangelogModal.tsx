@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">18 de Abril, 2026 (v0.7.1)</p>
+                <p className="text-d4-text font-semibold">20 de Abril, 2026 (v0.7.2)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,355 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.7.2 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.7.2</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-yellow-600/20 to-amber-600/20 text-yellow-300 px-2 py-1 rounded">🔐 Control de Acceso Premium</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                🔐 Restricciones por Tipo de Cuenta
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Cuentas Premium</strong>: Acceso completo a todas las funcionalidades</li>
+                <li><strong>Cuentas Basic</strong>: Bloqueadas las siguientes funciones premium:
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Modal de Captura de Imágenes (requiere Premium)</li>
+                    <li>Sección "Mundo" con progresión del juego</li>
+                    <li>Botón de procesamiento con OpenAI GPT-4o</li>
+                  </ul>
+                </li>
+                <li><strong>Indicador visual</strong>: Icono de corona (👑) en elementos bloqueados</li>
+                <li><strong>Redirección inteligente</strong>: Click en elementos bloqueados lleva a página de Premium</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                📐 Optimización del Menú Lateral
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Diseño más compacto</strong>: Reducción de espaciado y tamaños para evitar scroll innecesario</li>
+                <li><strong>Header reducido</strong>:
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Padding: 24px → 16px</li>
+                    <li>Título: 3xl → 2xl</li>
+                    <li>Subtítulo: sm → xs</li>
+                  </ul>
+                </li>
+                <li><strong>Elementos del menú</strong>:
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Espaciado entre items: 8px → 4px</li>
+                    <li>Padding de botones: py-2.5 → py-2</li>
+                    <li>Tamaño de texto: sm → xs</li>
+                    <li>Iconos: 20px → 16px</li>
+                  </ul>
+                </li>
+                <li><strong>Footer optimizado</strong>:
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Padding: 20px → 12px</li>
+                    <li>Avatar: 40px → 32px</li>
+                    <li>Texto de usuario reducido</li>
+                  </ul>
+                </li>
+                <li><strong>Resultado</strong>: Todos los elementos visibles sin scroll en pantallas estándar (1080p)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                🎨 Mejoras de UX
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Botón de Captura</strong>: Ahora muestra corona en estado bloqueado para usuarios Basic</li>
+                <li><strong>Feedback visual</strong>: Opacidad reducida y borde punteado en elementos premium bloqueados</li>
+                <li><strong>Tooltips informativos</strong>: "Requiere Premium" en hover sobre funciones bloqueadas</li>
+                <li><strong>Consistencia visual</strong>: Todos los bloqueos usan el mismo estilo y comportamiento</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                ⏰ Gestión de Expiración de Suscripción
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Validación de fecha</strong>: El sistema verifica automáticamente la fecha de expiración de la suscripción</li>
+                <li><strong>Acceso hasta expiración</strong>: Los usuarios mantienen su nivel Premium hasta que expire su contrato</li>
+                <li><strong>Downgrade automático</strong>: Después de la fecha de expiración y sin contratos activos, la cuenta vuelve a Basic</li>
+                <li><strong>Verificación en tiempo real</strong>: Se valida en cada llamada a isPremium()</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                💎 Página Premium Mejorada
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Diseño más compacto</strong>: Todo el contenido visible sin scroll en una pantalla</li>
+                <li><strong>Nueva característica destacada</strong>: Sistema de Mundo añadido a la lista de features Premium</li>
+                <li><strong>Grid de 4 columnas</strong>: Mejor organización de características en sección de detalles</li>
+                <li><strong>Iconos y tamaños optimizados</strong>: Reducción de padding y fuentes para mejor visualización</li>
+                <li><strong>Descripción completa</strong>: Información clara sobre progresión, jefes, recursos y rutas del sistema Mundo</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                💳 Gestión de Créditos Mejorada
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Botón de créditos oculto para Basic</strong>: Solo usuarios Premium ven el indicador de créditos</li>
+                <li><strong>Mensaje mejorado sin créditos</strong>: Aviso claro cuando no hay créditos disponibles</li>
+                <li><strong>Guía de recarga</strong>: Indica cómo recargar créditos desde perfil o menú Premium</li>
+                <li><strong>Restricción de OpenAI</strong>: Bloqueo efectivo cuando se agotan los créditos con mensaje informativo</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                📄 Archivos Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">src/components/layout/Sidebar.tsx</code>: Restricciones Premium + diseño compacto</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/premium/PremiumPage.tsx</code>: Diseño optimizado + funcionalidad Mundo</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/context/AuthContext.tsx</code>: Lógica de expiración de suscripción en isPremium()</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/common/ImageCaptureModal.tsx</code>: Mensaje mejorado sin créditos</li>
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión actualizada a 0.7.2</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/ChangelogModal.tsx</code>: Nueva entrada v0.7.2</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.9.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.9.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 px-2 py-1 rounded">🗺️ Progresión del Mundo</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                🗺️ Sistema de Progresión del Mundo
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Modelado de eventos</strong>: Guaridas, Susurros, Eventos de Mapa, Calabozos, Legiones, Reservas</li>
+                <li><strong>Estructura completa</strong>: ID, nombre, tipo, subtipo, boss, objetivo, requisitos, recompensas, tiempo, ubicación, dificultad</li>
+                <li><strong>Sistema de tags</strong>: Filtrado y búsqueda por etiquetas personalizadas</li>
+                <li><strong>Eventos repetibles</strong>: Soporte para farm loops y rutas optimizadas</li>
+                <li><strong>Gestión independiente</strong>: Datos en world_data.json en raíz del workspace (no vinculado a personaje/héroe)</li>
+                <li><strong>Nueva sección "Mundo"</strong>: Accesible desde sidebar con icono MapPin</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                🕸️ Modelado de Grafos de Relaciones
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Detección automática</strong>: Analiza requisitos/recompensas para construir grafo de dependencias</li>
+                <li><strong>Tipos de relación</strong>: requiere, genera, desbloquea, farm, precondición</li>
+                <li><strong>Nodos y aristas</strong>: Cada evento es un nodo, relaciones son aristas con recurso asociado</li>
+                <li><strong>Visualización</strong>: Tab "Grafo" con vista de todas las relaciones detectadas</li>
+                <li><strong>Actualización dinámica</strong>: El grafo se recalcula automáticamente al agregar/editar eventos</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-teal-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-teal-300 mb-2 flex items-center gap-2">
+                🎯 Generación de Rutas Óptimas
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Objetivo por recurso</strong>: "¿Cómo obtengo X recurso?" → genera ruta paso a paso</li>
+                <li><strong>Algoritmo BFS</strong>: Búsqueda de camino más corto en grafo de dependencias</li>
+                <li><strong>Detalles de pasos</strong>: Evento, motivo, recursos consumidos, recursos obtenidos</li>
+                <li><strong>Métricas</strong>: Tiempo estimado, eficiencia calculada, repetibilidad detectada</li>
+                <li><strong>Botón "Generar Ruta"</strong>: Disponible en cada recurso del índice</li>
+                <li><strong>Persistencia</strong>: Rutas se guardan en world_data.json para consulta rápida</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-emerald-300 mb-2 flex items-center gap-2">
+                📊 Análisis de Economía del Mundo
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Detección de cuellos de botella</strong>: Recursos con alta demanda y baja generación</li>
+                <li><strong>Eventos clave</strong>: Identifica eventos críticos para progresión (muchas dependencias)</li>
+                <li><strong>Loops de farm</strong>: Detecta ciclos de eventos para farmeo eficiente</li>
+                <li><strong>Recursos escasos/abundantes</strong>: Clasificación automática por oferta/demanda</li>
+                <li><strong>Recomendaciones</strong>: Sugerencias de optimización basadas en análisis de grafo</li>
+                <li><strong>Tipo de economía</strong>: Clasifica como lineal, circular, mixta, o desbalanceada</li>
+                <li><strong>Botón "Generar Análisis"</strong>: Actualiza análisis con todos los datos actuales</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-violet-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-violet-300 mb-2 flex items-center gap-2">
+                🔍 Índice Inteligente de Recursos
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Normalización automática</strong>: Detecta y unifica recursos con nombres similares</li>
+                <li><strong>Tipo de recurso</strong>: Clasifica como material, moneda, recompensa, acceso, progresión</li>
+                <li><strong>Probabilidad de drop</strong>: alta, media, baja (calculada automáticamente)</li>
+                <li><strong>Generado por</strong>: Lista de eventos que producen el recurso</li>
+                <li><strong>Requerido por</strong>: Lista de eventos que consumen el recurso</li>
+                <li><strong>Tab "Recursos"</strong>: Vista completa del índice con botones de acción</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-pink-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-pink-300 mb-2 flex items-center gap-2">
+                📸 Importación con IA desde Imágenes
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nueva categoría "Eventos del Mundo"</strong>: En modal de captura de imágenes</li>
+                <li><strong>Prompt especializado</strong>: 200+ líneas con instrucciones detalladas para extracción</li>
+                <li><strong>Formato JSON completo</strong>: Genera estructura DatosMundo con eventos, grafo, índice, rutas, análisis</li>
+                <li><strong>Validación integrada</strong>: validateMundoJSON verifica estructura antes de importar</li>
+                <li><strong>Merge inteligente</strong>: WorldService.importFromJSON combina con datos existentes</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-orange-300 mb-2 flex items-center gap-2">
+                🎨 Interfaz de 5 Tabs en WorldManager
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Tab "Eventos"</strong>: Búsqueda, filtros por tipo, cards con requisitos/recompensas/tags</li>
+                <li><strong>Tab "Recursos"</strong>: Índice completo con botón "Generar Ruta" por recurso</li>
+                <li><strong>Tab "Grafo"</strong>: Visualización de todas las relaciones (from → tipo → to)</li>
+                <li><strong>Tab "Rutas"</strong>: Listado de rutas óptimas con pasos detallados y métricas</li>
+                <li><strong>Tab "Análisis"</strong>: Vista completa del análisis de economía con recomendaciones</li>
+                <li><strong>Importar/Exportar JSON</strong>: Botones en header para gestión de datos</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                📄 Archivos Creados/Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">src/types/index.ts</code>: Tipos EventoMundo, GrafoProgresion, RutaOptima, AnalisisEconomia, DatosMundo (130+ líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/services/WorldService.ts</code>: ⭐ NUEVO - Service completo con CRUD + análisis (400+ líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/world/WorldManager.tsx</code>: ⭐ NUEVO - UI de 5 tabs con gestión completa (600+ líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/services/ImageExtractionPromptService.ts</code>: Método generateWorldEventsPrompt() (200+ líneas)</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/utils/jsonValidation.ts</code>: Función validateMundoJSON para validación de estructura</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/common/ImageCaptureModal.tsx</code>: Categoría 'mundo' con importación via WorldService</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/layout/Sidebar.tsx</code>: Botón "Mundo" con icono MapPin en navegación</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/App.tsx</code>: Integración de WorldManager en routing</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/services/ImageService.ts</code>: Tipo 'mundo' agregado a ImageCategory</li>
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión actualizada a 0.9.0</li>
+                <li><code className="bg-d4-surface px-1 rounded">index.html</code>: Título actualizado a v0.9.0</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.0 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-purple-300 px-2 py-1 rounded">⚔️ Mecánicas de Clase</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                ⚔️ Nueva Categoría: Mecánicas de Clase
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Sistema único por clase</strong>: Juramentos (Paladín), Libros de Hechizos (Hechicero), Arsenales (Bárbaro), etc.</li>
+                <li><strong>Selecciones configurables</strong>: Cada mecánica tiene múltiples opciones seleccionables con niveles</li>
+                <li><strong>Campos detallados</strong>:
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>ID, nombre, tipo, clase</li>
+                    <li>Selecciones: categoría, grupo, nivel actual/máximo, activo/inactivo</li>
+                    <li>Efecto principal + detalles adicionales</li>
+                    <li>Tags para búsqueda y filtrado</li>
+                  </ul>
+                </li>
+                <li><strong>Palabras clave</strong>: Glosario de términos específicos de cada mecánica (tag, texto original, significado, categoría)</li>
+                <li><strong>Integración completa</strong>: Componente CharacterClass para visualización en personajes</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-indigo-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-indigo-300 mb-2 flex items-center gap-2">
+                📸 Modal de Captura Ampliado
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Nueva opción</strong>: "Mecánica de Clase" en selector de categoría</li>
+                <li><strong>Importación con IA</strong>: Procesa screenshots de mecánicas de clase con Gemini/OpenAI</li>
+                <li><strong>Formato JSON esperado</strong>: Estructura con mecánica_clase + palabras_clave</li>
+                <li><strong>Destinos</strong>: Importar a héroe (datos maestros) o personaje (referencias)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-violet-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-violet-300 mb-2 flex items-center gap-2">
+                🎯 Gestión en HeroManager
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Tab "Gestionar Datos"</strong>: Nueva sección "Mecánicas" junto a Habilidades/Glifos/Aspectos</li>
+                <li><strong>CRUD completo</strong>: Crear, editar, eliminar mecánicas y selecciones desde la UI</li>
+                <li><strong>Importación JSON</strong>: Desde archivo o texto directo en tab "Importar/Exportar"</li>
+                <li><strong>Nuevo componente</strong>: HeroClassMechanics.tsx con gestión completa</li>
+                <li><strong>Sistema de referencias</strong>: Personajes solo guardan IDs, datos están en héroe</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                ✨ Mejoras Visuales en CharacterClass
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Header mejorado</strong>: Icono Sparkles en contenedor redondeado, jerarquía visual clara</li>
+                <li><strong>Subtítulo dinámico</strong>: Muestra cantidad de mecánicas y selecciones activas</li>
+                <li><strong>Cards con gradiente</strong>: Fondo degradado from-d4-surface to-d4-bg con borde accent</li>
+                <li><strong>Iconos semánticos</strong>: CheckCircle/Circle para estado activo/inactivo de selecciones</li>
+                <li><strong>Estado vacío mejorado</strong>: Mensaje ilustrado con icono y texto guía</li>
+                <li><strong>Hover effects</strong>: Transiciones suaves y estados visuales claros</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-emerald-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-emerald-300 mb-2 flex items-center gap-2">
+                🤖 Prompts de IA Mejorados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>generateDeepAnalysisPrompt</strong>: Incluye mecánicas con tags y selecciones activas</li>
+                <li><strong>generatePoolComparisonPrompt</strong>: Compara selecciones activas vs disponibles</li>
+                <li><strong>generateSynergyPrompt</strong>: Analiza sinergias con mecánicas de clase</li>
+                <li><strong>generateOptimizationPrompt</strong>: Sugiere optimizaciones de selecciones</li>
+                <li><strong>Análisis transversal</strong>: Mecánicas integradas en detección de sinergias por tags</li>
+                <li><strong>Instrucciones actualizadas</strong>: Guías de análisis incluyen mecánicas de clase</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-fuchsia-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-fuchsia-300 mb-2 flex items-center gap-2">
+                📄 Archivos Creados/Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">src/types/index.ts</code>: Tipos MecanicaClase, SeleccionMecanica, PalabraClaveClase</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/characters/CharacterClass.tsx</code>: Visualización con mejoras visuales v0.8.0</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/heroes/HeroClassMechanics.tsx</code>: ⭐ NUEVO - Gestión completa en HeroManager</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/heroes/HeroManager.tsx</code>: Integración tab "Mecánicas" + import/export</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/services/PromptService.ts</code>: Todos los métodos incluyen mecánicas de clase</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/common/ImageCaptureModal.tsx</code>: Nueva categoría "Mecánicas"</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/characters/CharacterDetail.tsx</code>: Integración de CharacterClass</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/prompts/PromptGenerator.tsx</code>: Checkbox incluir_mecanicas</li>
+                <li><code className="bg-d4-surface px-1 rounded">index.html</code>: Título actualizado a v0.8.0</li>
+              </ul>
             </div>
           </div>
         </div>

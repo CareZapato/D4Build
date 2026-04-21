@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, ChevronDown, ChevronUp } from 'lucide-react';
-import { Personaje, Estadisticas, ParagonPersonaje, Build } from '../../types';
+import { Personaje, Estadisticas, ParagonPersonaje, Build, MecanicaClaseReferencia } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
 import CharacterGlyphs from './CharacterGlyphs';
 import CharacterSkills from './CharacterSkills';
+import CharacterClass from './CharacterClass';
 import CharacterPrompts from './CharacterPrompts';
 import CharacterParagon from './CharacterParagon';
 import CharacterRunes from './CharacterRunes';
@@ -38,12 +39,16 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const [pendingParagon, setPendingParagon] = useState<ParagonPersonaje | null>(
     personaje.paragon || null
   );
+  const [pendingMecanicas, setPendingMecanicas] = useState<MecanicaClaseReferencia[]>(
+    personaje.mecanicas_clase_refs || []
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
   // Estados para secciones colapsables
   const [skillsCollapsed, setSkillsCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [glyphsCollapsed, setGlyphsCollapsed] = useState(false);
+  const [mecanicasCollapsed, setMecanicasCollapsed] = useState(false);
   const [runesCollapsed, setRunesCollapsed] = useState(false);
   const [buildCollapsed, setBuildCollapsed] = useState(false);
   const [paragonCollapsed, setParagonCollapsed] = useState(false);
@@ -56,6 +61,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     setPendingGlyphs(personaje.glifos_refs || []);
     setPendingSkills(personaje.habilidades_refs || { activas: [], pasivas: [] });
     setPendingParagon(personaje.paragon || null);
+    setPendingMecanicas(personaje.mecanicas_clase_refs || []);
   }, [personaje]);
 
   const handleSaveBasicInfo = async () => {
@@ -180,6 +186,29 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
     }
   };
 
+  const handleMecanicasChange = async (mecanicasRefs: MecanicaClaseReferencia[]) => {
+    setPendingMecanicas(mecanicasRefs);
+    
+    // Construir personaje actualizado
+    const updatedPersonaje: Personaje = {
+      ...editedPersonaje,
+      mecanicas_clase_refs: mecanicasRefs,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+    
+    // Actualizar estado local
+    setEditedPersonaje(updatedPersonaje);
+    
+    // Guardar automáticamente con merge seguro
+    try {
+      await WorkspaceService.savePersonajeMerge(updatedPersonaje);
+      onUpdate();
+    } catch (error) {
+      console.error('Error guardando mecánicas de clase:', error);
+      modal.showError('Error al guardar las mecánicas de clase');
+    }
+  };
+
   const handleParagonChange = async (paragonData: ParagonPersonaje) => {
     setPendingParagon(paragonData);
     
@@ -198,8 +227,8 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
       await WorkspaceService.savePersonajeMerge(updatedPersonaje);
       onUpdate();
     } catch (error) {
-      console.error('Error guardando Paragon:', error);
-      modal.showError('Error al guardar la configuración Paragon');
+      console.error('Error guardando paragon:', error);
+      modal.showError('Error al guardar el paragon');
     }
   };
 
@@ -609,6 +638,33 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
             {!glyphsCollapsed && (
               <div className="px-4 pb-4">
                 <CharacterGlyphs personaje={editedPersonaje} onChange={handleGlyphsChange} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mecánicas de Clase */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <button
+              onClick={() => setMecanicasCollapsed(!mecanicasCollapsed)}
+              className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
+            >
+              <div>
+                <h3 className="text-lg font-bold text-d4-accent">Mecánicas de Clase</h3>
+                <p className="text-[10px] text-d4-text-dim mt-0.5">
+                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                </p>
+              </div>
+              {mecanicasCollapsed ? (
+                <ChevronDown className="w-5 h-5 text-d4-accent" />
+              ) : (
+                <ChevronUp className="w-5 h-5 text-d4-accent" />
+              )}
+            </button>
+            {!mecanicasCollapsed && (
+              <div className="px-4 pb-4">
+                <CharacterClass personaje={editedPersonaje} onChange={handleMecanicasChange} />
               </div>
             )}
           </div>

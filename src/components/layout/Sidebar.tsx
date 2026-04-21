@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Sparkles, Tag, Camera, Gem, User, LogOut, Crown, DollarSign, FolderOpen, RefreshCw, Plus } from 'lucide-react';
+import { Users, Shield, Sparkles, Tag, Camera, Gem, User, LogOut, Crown, DollarSign, FolderOpen, RefreshCw, Plus, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BillingService } from '../../services/BillingService';
 import { WorkspaceService } from '../../services/WorkspaceService';
@@ -8,7 +8,7 @@ import { ProfileAPIService } from '../../services/ApiService';
 import ChangelogModal from '../ChangelogModal';
 import ImageCaptureModal from '../common/ImageCaptureModal';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems' | 'premium' | 'admin' | 'profile';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems' | 'premium' | 'admin' | 'profile' | 'mundo';
 
 interface Props {
   currentView: View;
@@ -144,6 +144,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   const menuItems = [
     { id: 'characters' as View, icon: Users, label: 'Personajes' },
     { id: 'heroes' as View, icon: Shield, label: 'Héroes' },
+    { id: 'mundo' as View, icon: MapPin, label: 'Mundo', premiumOnly: true },
     { id: 'runes-gems' as View, icon: Gem, label: 'Gemas/Runas' },
     { id: 'tags' as View, icon: Tag, label: 'Tags' },
     { id: 'prompts' as View, icon: Sparkles, label: 'Prompts' },
@@ -153,22 +154,22 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
 
   return (
     <aside className="w-72 h-screen bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl overflow-hidden sticky top-0 z-10">
-      <div className="p-6 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden flex-shrink-0">
+      <div className="p-4 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden flex-shrink-0">
         <div className="absolute top-0 right-0 w-32 h-32 bg-d4-accent/10 rounded-full blur-3xl"></div>
         
         <div className="relative flex items-start justify-between gap-2">
           <div className="flex-1">
-            <h1 className="text-3xl font-black text-d4-accent leading-tight tracking-wide drop-shadow-lg">
+            <h1 className="text-2xl font-black text-d4-accent leading-tight tracking-wide drop-shadow-lg">
               D4 BUILDS
             </h1>
-            <p className="text-sm text-d4-text-dim mt-1 uppercase tracking-widest font-semibold">
+            <p className="text-xs text-d4-text-dim mt-0.5 uppercase tracking-widest font-semibold">
               Build Manager
             </p>
             {user && (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-1.5 flex items-center gap-1.5">
                 <button
                   onClick={() => setShowSubscribeModal(true)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide transition-all hover:scale-105 cursor-pointer ${
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all hover:scale-105 cursor-pointer ${
                   isPremium()
                     ? 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/20 hover:from-yellow-500/30 hover:to-amber-500/30'
                     : 'bg-gradient-to-r from-gray-500/20 to-gray-600/20 text-gray-300 border-2 border-gray-500/50 hover:from-gray-500/30 hover:to-gray-600/30'
@@ -190,7 +191,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                 {isPremium() && creditInfo && (
                   <button
                     onClick={() => setShowAddCreditsModal(true)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-300 border-2 border-green-500/50 hover:from-green-500/30 hover:to-emerald-500/30 transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-300 border-2 border-green-500/50 hover:from-green-500/30 hover:to-emerald-500/30 transition-all cursor-pointer"
                     title="Click para recargar créditos"
                   >
                     <DollarSign className="w-3 h-3" />
@@ -203,10 +204,10 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           </div>
           <button
             onClick={() => setShowChangelog(true)}
-            className="mt-1 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
+            className="mt-0.5 px-2.5 py-1 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.7.1
+            v0.7.2
           </button>
         </div>
       </div>
@@ -214,71 +215,100 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
       <ImageCaptureModal isOpen={showImageCapture} onClose={() => setShowImageCapture(false)} />
 
-      <nav className="flex-1 p-5 overflow-y-auto min-h-0">
-        <ul className="space-y-3">
-          {menuItems.map(item => (
+      <nav className="flex-1 p-3 overflow-y-auto min-h-0">
+        <ul className="space-y-1">
+          {menuItems.map(item => {
+            const isPremiumItem = item.premiumOnly && !isPremium();
+            return (
             <li key={item.id}>
               <button
-                onClick={() => onViewChange(item.id)}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-lg transition-all duration-200 font-bold text-base uppercase tracking-wide ${
+                onClick={() => {
+                  if (isPremiumItem) {
+                    onViewChange('premium');
+                  } else {
+                    onViewChange(item.id);
+                  }
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide relative ${
                   currentView === item.id
                     ? 'bg-gradient-to-r from-d4-accent to-d4-accent-hover text-black shadow-lg shadow-d4-accent/30 scale-105'
+                    : isPremiumItem
+                    ? 'text-d4-text-dim hover:bg-d4-border/40 hover:scale-102 hover:shadow-md opacity-60'
                     : 'text-d4-text hover:bg-d4-border/60 hover:scale-102 hover:shadow-md'
                 }`}
+                title={isPremiumItem ? 'Requiere Premium' : ''}
               >
-                <item.icon className={`w-6 h-6 ${currentView === item.id ? 'drop-shadow-md' : ''}`} />
+                <item.icon className={`w-4 h-4 ${currentView === item.id ? 'drop-shadow-md' : ''}`} />
                 <span>{item.label}</span>
+                {isPremiumItem && (
+                  <Crown className="w-3.5 h-3.5 text-yellow-400 absolute top-1 right-1" />
+                )}
               </button>
             </li>
-          ))}
+            );
+          })}
           
           {isAdmin() && (
-            <li className="pt-3 border-t border-d4-border/50">
+            <li className="pt-1 border-t border-d4-border/50">
               <button
                 onClick={() => onViewChange('admin')}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-lg transition-all duration-200 font-bold text-base uppercase tracking-wide ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide ${
                   currentView === 'admin'
                     ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-500/30 scale-105'
                     : 'bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 border-2 border-red-500/50 hover:from-red-600/30 hover:to-orange-600/30 hover:scale-102'
                 }`}
               >
-                <Shield className={`w-6 h-6 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
+                <Shield className={`w-4 h-4 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
                 <span>Usuarios</span>
               </button>
             </li>
           )}
           
           {showPremiumButton && (
-            <li className="pt-3 border-t border-d4-border/50">
+            <li className="pt-1 border-t border-d4-border/50">
               <button
                 onClick={() => onViewChange('premium')}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-lg transition-all duration-200 font-bold text-base uppercase tracking-wide ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide ${
                   currentView === 'premium'
                     ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black shadow-lg shadow-yellow-500/30 scale-105'
                     : 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-2 border-yellow-500/50 hover:from-yellow-500/30 hover:to-amber-500/30 hover:scale-102'
                 }`}
               >
-                <Crown className={`w-6 h-6 ${currentView === 'premium' ? 'drop-shadow-md' : ''}`} />
-                <span>Actualizar a Premium</span>
+                <Crown className={`w-4 h-4 ${currentView === 'premium' ? 'drop-shadow-md' : ''}`} />
+                <span>Actualizar</span>
               </button>
             </li>
           )}
           
-          <li className="pt-3 border-t border-d4-border/50">
+          <li className="pt-1 border-t border-d4-border/50">
             <button
-              onClick={() => setShowImageCapture(true)}
-              className="w-full flex items-center gap-4 px-5 py-4 rounded-lg transition-all duration-200 font-bold text-base uppercase tracking-wide bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:scale-105"
+              onClick={() => {
+                if (!isPremium()) {
+                  onViewChange('premium');
+                } else {
+                  setShowImageCapture(true);
+                }
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide relative ${
+                isPremium()
+                  ? 'bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:scale-105'
+                  : 'bg-gradient-to-r from-purple-600/30 to-blue-600/30 text-purple-200 border-2 border-purple-500/40 hover:scale-105 opacity-70'
+              }`}
+              title={isPremium() ? '' : 'Requiere Premium'}
             >
-              <Camera className="w-6 h-6 drop-shadow-md" />
+              <Camera className="w-4 h-4 drop-shadow-md" />
               <span>Captura</span>
+              {!isPremium() && (
+                <Crown className="w-3.5 h-3.5 text-yellow-400 absolute top-1 right-1" />
+              )}
             </button>
           </li>
         </ul>
       </nav>
 
-      <div className="p-5 border-t-2 border-d4-accent/40 bg-gradient-to-t from-d4-bg to-transparent flex-shrink-0 space-y-4">
-        <div className="text-sm text-d4-text-dim">
-          <div className="flex items-center justify-between mb-2">
+      <div className="p-3 border-t-2 border-d4-accent/40 bg-gradient-to-t from-d4-bg to-transparent flex-shrink-0 space-y-3">
+        <div className="text-xs text-d4-text-dim">
+          <div className="flex items-center justify-between mb-1.5">
             <p className="uppercase tracking-wide font-semibold text-xs">Workspace</p>
             <button
               onClick={handleChangeWorkspace}
@@ -293,7 +323,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
               )}
             </button>
           </div>
-          <p className="font-mono text-d4-accent truncate text-base font-bold bg-d4-bg/50 px-3 py-2 rounded-md border border-d4-accent/30">
+          <p className="font-mono text-d4-accent truncate text-sm font-bold bg-d4-bg/50 px-2.5 py-1.5 rounded-md border border-d4-accent/30">
             {workspaceName}
           </p>
         </div>
@@ -302,16 +332,16 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-d4-surface border-2 border-d4-border hover:border-d4-accent/50 transition-all group"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-d4-surface border-2 border-d4-border hover:border-d4-accent/50 transition-all group"
             >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-d4-accent to-d4-accent-hover flex items-center justify-center">
-                <User className="w-5 h-5 text-black" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-d4-accent to-d4-accent-hover flex items-center justify-center">
+                <User className="w-4 h-4 text-black" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-bold text-d4-text group-hover:text-d4-accent transition-colors truncate">
+                <p className="text-xs font-bold text-d4-text group-hover:text-d4-accent transition-colors truncate">
                   {user.username}
                 </p>
-                <p className="text-xs text-d4-text-dim truncate">
+                <p className="text-[10px] text-d4-text-dim truncate">
                   {user.email}
                 </p>
               </div>
@@ -324,9 +354,9 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                     onViewChange('profile');
                     setShowProfileMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold border-b border-d4-border"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold border-b border-d4-border"
                 >
-                  <User className="w-4 h-4" />
+                  <User className="w-3.5 h-3.5" />
                   <span>Mi Perfil</span>
                 </button>
                 <button
@@ -334,9 +364,9 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                     logout();
                     setShowProfileMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                   <span>Cerrar Sesión</span>
                 </button>
               </div>

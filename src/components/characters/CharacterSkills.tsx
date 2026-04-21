@@ -363,7 +363,7 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
       await applyImportChanges(pendingImportData);
       
       // Generar mensaje detallado basado en el summary
-      const mensajes = [];
+      const mensajes: string[] = [];
       if (importSummary) {
         const { habilidadesActivas, habilidadesPasivas, palabrasClave } = importSummary;
         

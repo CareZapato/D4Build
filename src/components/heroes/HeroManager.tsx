@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Upload, Download, FileJson, Copy, Check, Database, Package } from 'lucide-react';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagService } from '../../services/TagService';
-import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, Tag, RunasHeroe, GemasHeroe } from '../../types';
+import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, MecanicasClaseHeroe, Tag, RunasHeroe, GemasHeroe } from '../../types';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import HeroSkills from './HeroSkills';
 import HeroGlyphs from './HeroGlyphs';
@@ -10,6 +10,7 @@ import HeroAspects from './HeroAspects';
 import HeroParagon from './HeroParagon';
 import HeroRunes from './HeroRunes';
 import HeroGems from './HeroGems';
+import HeroClassMechanics from './HeroClassMechanics';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 import { useAppContext } from '../../context/AppContext';
@@ -19,7 +20,7 @@ const HeroManager: React.FC = () => {
   const { personajes, availableClasses } = useAppContext();
   const [selectedClass, setSelectedClass] = useState('Paladín');
   const [currentView, setCurrentView] = useState<'import' | 'manage'>('manage');
-  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'paragon' | 'runas' | 'gemas'>('habilidades');
+  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'mecanicas' | 'paragon' | 'runas' | 'gemas'>('habilidades');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -30,6 +31,7 @@ const HeroManager: React.FC = () => {
   const [heroSkills, setHeroSkills] = useState<HabilidadesPersonaje | null>(null);
   const [heroGlyphs, setHeroGlyphs] = useState<GlifosHeroe | null>(null);
   const [heroAspects, setHeroAspects] = useState<AspectosHeroe | null>(null);
+  const [heroClassMechanics, setHeroClassMechanics] = useState<MecanicasClaseHeroe | null>(null);
   const [loading, setLoading] = useState(false);
 
   const clases = ['Paladín', 'Bárbaro', 'Hechicero', 'Pícaro', 'Druida', 'Nigromante', 'Espiritista'];
@@ -44,15 +46,17 @@ const HeroManager: React.FC = () => {
   const loadHeroData = async () => {
     setLoading(true);
     try {
-      const [skills, glyphs, aspects] = await Promise.all([
+      const [skills, glyphs, aspects, mechanics] = await Promise.all([
         WorkspaceService.loadHeroSkills(selectedClass),
         WorkspaceService.loadHeroGlyphs(selectedClass),
-        WorkspaceService.loadHeroAspects(selectedClass)
+        WorkspaceService.loadHeroAspects(selectedClass),
+        WorkspaceService.loadHeroClassMechanics(selectedClass)
       ]);
       
       setHeroSkills(skills);
       setHeroGlyphs(glyphs);
       setHeroAspects(aspects);
+      setHeroClassMechanics(mechanics);
     } catch (error) {
       console.error('Error cargando datos del héroe:', error);
     } finally {
@@ -73,6 +77,11 @@ const HeroManager: React.FC = () => {
   const handleUpdateAspects = async (aspects: AspectosHeroe) => {
     await WorkspaceService.saveHeroAspects(selectedClass, aspects);
     setHeroAspects(aspects);
+  };
+
+  const handleUpdateClassMechanics = async (mechanics: MecanicasClaseHeroe) => {
+    await WorkspaceService.saveHeroClassMechanics(selectedClass, mechanics);
+    setHeroClassMechanics(mechanics);
   };
 
   const handleImportJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,7 +229,7 @@ const HeroManager: React.FC = () => {
       await WorkspaceService.saveHeroSkills(selectedClass, existing);
       setHeroSkills(existing);
       
-      const mensajes = [];
+      const mensajes: string[] = [];
       if (activasActualizadas > 0) mensajes.push(`${activasActualizadas} activas actualizadas`);
       if (activasAgregadas > 0) mensajes.push(`${activasAgregadas} activas nuevas`);
       if (pasivasActualizadas > 0) mensajes.push(`${pasivasActualizadas} pasivas actualizadas`);
@@ -273,7 +282,7 @@ const HeroManager: React.FC = () => {
       await WorkspaceService.saveHeroGlyphs(selectedClass, existing);
       setHeroGlyphs(existing);
       
-      const mensajes = [];
+      const mensajes: string[] = [];
       if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
       if (agregados > 0) mensajes.push(`${agregados} nuevos`);
       
@@ -324,11 +333,63 @@ const HeroManager: React.FC = () => {
       await WorkspaceService.saveHeroAspects(selectedClass, existing);
       setHeroAspects(existing);
       
-      const mensajes = [];
+      const mensajes: string[] = [];
       if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
       if (agregados > 0) mensajes.push(`${agregados} nuevos`);
       
       modal.showSuccess(`Aspectos ${selectedClass}: ${mensajes.join(', ')}`);
+    } else if (importType === 'mecanicas') {
+      // Validar que tenga la estructura correcta
+      if (!data.mecanica_clase) {
+        modal.showError('El archivo no tiene el formato correcto de mecánica de clase');
+        return;
+      }
+
+      const mecanica = data.mecanica_clase;
+
+      // Generar ID único si no lo tiene
+      if (!mecanica.id) {
+        mecanica.id = `mecanica_${selectedClass.toLowerCase()}_${Date.now()}`;
+      }
+
+      // Asegurar que tipo sea 'mecanica_clase' y clase sea la correcta
+      mecanica.tipo = 'mecanica_clase';
+      mecanica.clase = selectedClass;
+
+      // Procesar selecciones para asegurar estructura correcta
+      if (mecanica.selecciones && Array.isArray(mecanica.selecciones)) {
+        mecanica.selecciones = mecanica.selecciones.map((sel: any) => ({
+          id: sel.id || `sel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          nombre: sel.nombre || '',
+          categoria: sel.categoria || 'general',
+          grupo: sel.grupo || 'principal',
+          nivel: sel.nivel || 1,
+          nivel_maximo: sel.nivel_maximo || 1,
+          activo: sel.activo !== undefined ? sel.activo : true,
+          efecto: sel.efecto || '',
+          detalles: Array.isArray(sel.detalles) ? sel.detalles : [],
+          tags: Array.isArray(sel.tags) ? sel.tags : []
+        }));
+      }
+
+      // Cargar datos existentes
+      const existingData = await WorkspaceService.loadHeroClassMechanics(selectedClass);
+      const existing: MecanicasClaseHeroe = existingData || { mecanicas: [] };
+
+      // Buscar si ya existe una mecánica con el mismo nombre
+      const existingIndex = existing.mecanicas.findIndex(m => m.nombre === mecanica.nombre);
+
+      if (existingIndex >= 0) {
+        // Actualizar existente
+        existing.mecanicas[existingIndex] = mecanica;
+        await WorkspaceService.saveHeroClassMechanics(selectedClass, existing);
+        modal.showSuccess(`Mecánica "${mecanica.nombre}" actualizada`);
+      } else {
+        // Agregar nueva
+        existing.mecanicas.push(mecanica);
+        await WorkspaceService.saveHeroClassMechanics(selectedClass, existing);
+        modal.showSuccess(`Mecánica "${mecanica.nombre}" agregada`);
+      }
     } else if (importType === 'runas') {
       if (!data.runas) {
         modal.showError('El archivo no tiene el formato correcto de runas');
@@ -357,7 +418,7 @@ const HeroManager: React.FC = () => {
 
       await WorkspaceService.saveHeroRunes(selectedClass, existing);
 
-      const mensajesR = [];
+      const mensajesR: string[] = [];
       if (actualizados > 0) mensajesR.push(`${actualizados} actualizadas`);
       if (agregados > 0) mensajesR.push(`${agregados} nuevas`);
 
@@ -390,7 +451,7 @@ const HeroManager: React.FC = () => {
 
       await WorkspaceService.saveHeroGems(selectedClass, existing);
 
-      const mensajesG = [];
+      const mensajesG: string[] = [];
       if (actualizados > 0) mensajesG.push(`${actualizados} actualizadas`);
       if (agregados > 0) mensajesG.push(`${agregados} nuevas`);
 
@@ -519,6 +580,8 @@ const HeroManager: React.FC = () => {
       prompt = ImageExtractionPromptService.generateGlyphsPrompt();
     } else if (importType === 'aspectos') {
       prompt = ImageExtractionPromptService.generateAspectsPrompt();
+    } else if (importType === 'mecanicas') {
+      prompt = ImageExtractionPromptService.generateClassMechanicsPrompt();
     }
 
     const success = await ImageExtractionPromptService.copyToClipboard(prompt);
@@ -629,6 +692,17 @@ const HeroManager: React.FC = () => {
                       className="text-d4-accent"
                     />
                     <span className="text-d4-text">Aspectos</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importType"
+                      value="mecanicas"
+                      checked={importType === 'mecanicas'}
+                      onChange={() => setImportType('mecanicas')}
+                      className="text-d4-accent"
+                    />
+                    <span className="text-d4-text">Mecánicas</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -878,6 +952,16 @@ const HeroManager: React.FC = () => {
                   Runas
                 </button>
                 <button
+                  onClick={() => setImportType('mecanicas')}
+                  className={`px-4 py-2 rounded transition-colors ${
+                    importType === 'mecanicas'
+                      ? 'bg-d4-accent text-black font-semibold'
+                      : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                  }`}
+                >
+                  Mecánicas
+                </button>
+                <button
                   onClick={() => setImportType('gemas')}
                   className={`px-4 py-2 rounded transition-colors ${
                     importType === 'gemas'
@@ -924,6 +1008,14 @@ const HeroManager: React.FC = () => {
                 <HeroRunes clase={selectedClass} />
               )}
 
+              {importType === 'mecanicas' && heroClassMechanics && (
+                <HeroClassMechanics
+                  heroClass={selectedClass}
+                  mechanics={heroClassMechanics}
+                  onUpdate={handleUpdateClassMechanics}
+                />
+              )}
+
               {importType === 'gemas' && (
                 <HeroGems clase={selectedClass} />
               )}
@@ -931,7 +1023,8 @@ const HeroManager: React.FC = () => {
               {/* No data message */}
               {((importType === 'habilidades' && !heroSkills) ||
                 (importType === 'glifos' && !heroGlyphs) ||
-                (importType === 'aspectos' && !heroAspects)) && (
+                (importType === 'aspectos' && !heroAspects) ||
+                (importType === 'mecanicas' && !heroClassMechanics)) && (
                 <div className="card text-center py-12">
                   <p className="text-d4-text-dim mb-4">
                     No hay datos de {importType} para {selectedClass}

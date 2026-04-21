@@ -205,7 +205,7 @@ const CharacterAspects: React.FC<Props> = ({ personaje, onChange }) => {
     setAspectsRefs(updatedRefs);
     onChange(updatedRefs);
     
-    const mensajes = [];
+    const mensajes: string[] = [];
     if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
     if (agregados > 0) mensajes.push(`${agregados} nuevos`);
     if (tagsProcessed > 0) mensajes.push(`${tagsProcessed} tags`);

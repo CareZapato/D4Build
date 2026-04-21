@@ -19,6 +19,7 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
   const [includeSkills, setIncludeSkills] = useState(true);
   const [includeGlyphs, setIncludeGlyphs] = useState(true);
   const [includeStats, setIncludeStats] = useState(false);
+  const [includeMechanics, setIncludeMechanics] = useState(true);
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -51,6 +52,7 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
         incluir_habilidades: includeSkills,
         incluir_glifos: includeGlyphs,
         incluir_estadisticas: includeStats,
+        incluir_mecanicas: includeMechanics,
         pregunta_personalizada: customQuestion || undefined
       });
     }
@@ -229,6 +231,15 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
                         className="w-4 h-4"
                       />
                       <span className="text-d4-text">Estadísticas</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeMechanics}
+                        onChange={(e) => setIncludeMechanics(e.target.checked)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-d4-text">Mecánicas de Clase</span>
                     </label>
                   </div>
                 </div>

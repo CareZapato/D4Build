@@ -256,7 +256,7 @@ export function TagsManager() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por tag, texto original, significado o sinónimos..."
-            className="input w-full pl-10"
+            className="input w-full !pl-14"
           />
         </div>
 

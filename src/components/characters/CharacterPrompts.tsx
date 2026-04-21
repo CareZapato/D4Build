@@ -1588,7 +1588,7 @@ Entregar:
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por título, descripción o palabras clave..."
-              className="input w-full pl-10"
+              className="input w-full !pl-14"
             />
           </div>
           <div>

@@ -488,6 +488,40 @@ export class WorkspaceService {
     }
   }
 
+  // Guardar mecánicas de clase (v0.8.0)
+  static async saveHeroClassMechanics(clase: string, mecanicas: import('../types').MecanicasClaseHeroe): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_mecanicas.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(mecanicas, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando mecánicas de clase:', error);
+      throw error;
+    }
+  }
+
+  // Cargar mecánicas de clase (v0.8.0)
+  static async loadHeroClassMechanics(clase: string): Promise<import('../types').MecanicasClaseHeroe | null> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_mecanicas.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      return JSON.parse(content);
+    } catch (error) {
+      if ((error as DOMException)?.name !== 'NotFoundError') {
+        console.error('Error cargando mecánicas de clase:', error);
+      }
+      return null;
+    }
+  }
+
   // Guardar runas (global, todas las clases)
   static async saveHeroRunes(_clase: string, runas: RunasHeroe): Promise<void> {
     if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');

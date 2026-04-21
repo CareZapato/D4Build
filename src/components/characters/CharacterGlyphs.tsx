@@ -226,7 +226,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
     onChange(updatedRefs);
     
     // Mensaje detallado
-    const mensajes = [];
+    const mensajes: string[] = [];
     if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
     if (agregados > 0) mensajes.push(`${agregados} nuevos`);
     

@@ -13,6 +13,7 @@ import CharacterDetail from './components/characters/CharacterDetail';
 import HeroManager from './components/heroes/HeroManager';
 import PromptGenerator from './components/prompts/PromptGenerator';
 import { TagsManager } from './components/tags/TagsManager';
+import WorldManager from './components/world/WorldManager';
 import RunesGemsSection from './components/runes/RunesGemsSection';
 import BillingPanel from './components/common/BillingPanel';
 import LoginPage from './components/auth/LoginPage';
@@ -20,10 +21,10 @@ import PremiumPage from './components/premium/PremiumPage';
 import AdminUsers from './components/admin/AdminUsers';
 import { ProfilePage } from './components/profile/ProfilePage';
 
-type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems' | 'premium' | 'admin' | 'profile';
+type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems' | 'premium' | 'admin' | 'profile' | 'mundo';
 
 function AppContent() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isPremium } = useAuth();
   const [currentView, setCurrentView] = useState<View>('characters');
   const [loading, setLoading] = useState(false);
   const {
@@ -118,6 +119,12 @@ function AppContent() {
         );
       case 'heroes':
         return <HeroManager />;
+      case 'mundo':
+        // Bloquear acceso a usuarios Basic
+        if (!isPremium()) {
+          return <PremiumPage />;
+        }
+        return <WorldManager />;
       case 'prompts':
         return <PromptGenerator personajes={personajes} />;
       case 'tags':

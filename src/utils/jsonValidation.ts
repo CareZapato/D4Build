@@ -323,6 +323,248 @@ export function validateStatsJSON(data: any): JSONValidationResult {
 }
 
 /**
+ * Valida la estructura de JSON para mecánicas de clase
+ */
+export function validateMecanicasJSON(data: any): JSONValidationResult {
+  const errors: ImportValidationError[] = [];
+  const warnings: ImportValidationError[] = [];
+  const detectedFields: string[] = [];
+
+  // Verificar que sea un objeto
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    errors.push({
+      field: 'root',
+      expected: 'object {}',
+      received: Array.isArray(data) ? 'array []' : typeof data,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Verificar que tenga mecanica_clase
+  if (!data.mecanica_clase) {
+    errors.push({
+      field: 'mecanica_clase',
+      expected: 'object con datos de mecánica',
+      received: 'undefined',
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  detectedFields.push('mecanica_clase');
+  const mecanica = data.mecanica_clase;
+
+  // Validar campos requeridos
+  if (!mecanica.nombre) {
+    errors.push({
+      field: 'mecanica_clase.nombre',
+      expected: 'string (requerido)',
+      received: 'undefined o vacío',
+      severity: 'error'
+    });
+  }
+
+  if (!mecanica.clase) {
+    warnings.push({
+      field: 'mecanica_clase.clase',
+      expected: 'string (nombre de clase)',
+      received: 'undefined (se asignará automáticamente)',
+      severity: 'warning'
+    });
+  }
+
+  // Validar selecciones
+  if (!Array.isArray(mecanica.selecciones)) {
+    errors.push({
+      field: 'mecanica_clase.selecciones',
+      expected: 'array de selecciones',
+      received: typeof mecanica.selecciones,
+      severity: 'error'
+    });
+  } else if (mecanica.selecciones.length === 0) {
+    warnings.push({
+      field: 'mecanica_clase.selecciones',
+      expected: 'al menos una selección',
+      received: 'array vacío',
+      severity: 'warning'
+    });
+  } else {
+    // Validar cada selección
+    mecanica.selecciones.forEach((sel: any, idx: number) => {
+      if (!sel.nombre) {
+        errors.push({
+          field: `mecanica_clase.selecciones[${idx}].nombre`,
+          expected: 'string (requerido)',
+          received: 'undefined o vacío',
+          severity: 'error'
+        });
+      }
+      if (!sel.efecto) {
+        warnings.push({
+          field: `mecanica_clase.selecciones[${idx}].efecto`,
+          expected: 'string con descripción del efecto',
+          received: 'undefined o vacío',
+          severity: 'warning'
+        });
+      }
+    });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    detectedFields
+  };
+}
+
+/**
+ * Valida la estructura de JSON para eventos del mundo
+ */
+export function validateMundoJSON(data: any): JSONValidationResult {
+  const errors: ImportValidationError[] = [];
+  const warnings: ImportValidationError[] = [];
+  const detectedFields: string[] = [];
+
+  // Verificar que sea un objeto
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    errors.push({
+      field: 'root',
+      expected: 'object {}',
+      received: Array.isArray(data) ? 'array []' : typeof data,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Verificar eventos (requerido)
+  if (!data.eventos) {
+    errors.push({
+      field: 'eventos',
+      expected: 'array [] (requerido)',
+      received: 'undefined',
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  detectedFields.push('eventos');
+
+  if (!Array.isArray(data.eventos)) {
+    errors.push({
+      field: 'eventos',
+      expected: 'array []',
+      received: typeof data.eventos,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Validar cada evento
+  data.eventos.forEach((evento: any, idx: number) => {
+    if (!evento.id) {
+      errors.push({
+        field: `eventos[${idx}].id`,
+        expected: 'string (requerido)',
+        received: 'undefined o vacío',
+        severity: 'error'
+      });
+    }
+    if (!evento.nombre) {
+      errors.push({
+        field: `eventos[${idx}].nombre`,
+        expected: 'string (requerido)',
+        received: 'undefined o vacío',
+        severity: 'error'
+      });
+    }
+    if (!evento.tipo) {
+      errors.push({
+        field: `eventos[${idx}].tipo`,
+        expected: 'string (guarida, susurro, evento, etc.)',
+        received: 'undefined o vacío',
+        severity: 'error'
+      });
+    }
+    if (!evento.objetivo) {
+      warnings.push({
+        field: `eventos[${idx}].objetivo`,
+        expected: 'object con tipo y descripción',
+        received: 'undefined',
+        severity: 'warning'
+      });
+    }
+    if (!Array.isArray(evento.requisitos)) {
+      warnings.push({
+        field: `eventos[${idx}].requisitos`,
+        expected: 'array []',
+        received: typeof evento.requisitos,
+        severity: 'warning'
+      });
+    }
+    if (!Array.isArray(evento.recompensas)) {
+      warnings.push({
+        field: `eventos[${idx}].recompensas`,
+        expected: 'array []',
+        received: typeof evento.recompensas,
+        severity: 'warning'
+      });
+    }
+  });
+
+  // Validar grafo (opcional pero recomendado)
+  if (data.grafo !== undefined) {
+    detectedFields.push('grafo');
+    if (typeof data.grafo !== 'object' || data.grafo === null) {
+      warnings.push({
+        field: 'grafo',
+        expected: 'object { nodos, relaciones }',
+        received: typeof data.grafo,
+        severity: 'warning'
+      });
+    } else {
+      if (!Array.isArray(data.grafo.nodos)) {
+        warnings.push({
+          field: 'grafo.nodos',
+          expected: 'array []',
+          received: typeof data.grafo.nodos,
+          severity: 'warning'
+        });
+      }
+      if (!Array.isArray(data.grafo.relaciones)) {
+        warnings.push({
+          field: 'grafo.relaciones',
+          expected: 'array []',
+          received: typeof data.grafo.relaciones,
+          severity: 'warning'
+        });
+      }
+    }
+  }
+
+  // Validar indice_recursos (opcional)
+  if (data.indice_recursos !== undefined) {
+    detectedFields.push('indice_recursos');
+    if (!Array.isArray(data.indice_recursos)) {
+      warnings.push({
+        field: 'indice_recursos',
+        expected: 'array []',
+        received: typeof data.indice_recursos,
+        severity: 'warning'
+      });
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    detectedFields
+  };
+}
+
+/**
  * Valida JSON según la categoría
  */
 export function validateJSONByCategory(
@@ -335,7 +577,11 @@ export function validateJSONByCategory(
     case 'glifos':
       return validateGlyphsJSON(data);
     case 'aspectos':
-      return validateAspectsJSON(data);
+      return validateAspectsJSON(data);    case 'mecanicas':
+      return validateMecanicasJSON(data);    case 'mecanicas':
+      return validateMecanicasJSON(data);
+    case 'mundo':
+      return validateMundoJSON(data);
     case 'estadisticas':
       return validateStatsJSON(data);
     case 'runas': {

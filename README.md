@@ -1,6 +1,6 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.7.1-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.8.0-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
@@ -196,6 +196,208 @@ npm run dev           # Servidor en modo desarrollo (nodemon)
 npm start             # Servidor en modo producción
 npm run migrate       # Ejecutar migraciones
 ```
+
+## 🌐 Deployment a Producción
+
+D4Builds está optimizado para deployment en **Render** (o cualquier plataforma similar) con una arquitectura fullstack donde el servidor Express sirve tanto la API como el frontend.
+
+### 📦 Arquitectura Fullstack
+
+```
+┌─────────────────────────────────────┐
+│   https://d4build.onrender.com      │
+│                                     │
+│  ┌──────────────────────────────┐  │
+│  │   Express Server (Node.js)   │  │
+│  │                              │  │
+│  │  📁 Sirve dist/ (frontend)  │  │
+│  │  📡 API Routes (/api/*)     │  │
+│  │  🔗 PostgreSQL Connection   │  │
+│  └──────────────────────────────┘  │
+│                                     │
+│  Frontend: index.html + assets      │
+│  Backend:  /api/auth, /api/users   │
+│  Database: PostgreSQL (Oregon)      │
+└─────────────────────────────────────┘
+```
+
+### 🚀 Deploy en Render (Recomendado)
+
+#### 1. Requisitos Previos
+- Cuenta en [Render](https://render.com)
+- Repositorio GitHub con el código
+- Base de datos PostgreSQL (Render ofrece planes gratuitos)
+
+#### 2. Crear Base de Datos PostgreSQL
+```bash
+# En Render Dashboard:
+New → PostgreSQL
+- Name: d4buildsbd
+- Database: d4buildsbd
+- User: d4builds_admin
+- Region: Oregon (US West)
+- Plan: Free o Starter
+```
+
+Anota las credenciales:
+- `DB_HOST`: External Database URL
+- `DB_PORT`: 5432
+- `DB_NAME`: d4buildsbd
+- `DB_USER`: d4builds_admin
+- `DB_PASSWORD`: [generado automáticamente]
+
+#### 3. Crear Web Service
+
+```bash
+# En Render Dashboard:
+New → Web Service
+- Connect Repository: GitHub (tu repo)
+- Name: d4build
+- Region: Oregon (mismo que DB)
+- Branch: main
+- Root Directory: .
+- Runtime: Node
+- Build Command: npm ci && npm run build && cd server && npm install
+- Start Command: npm start
+```
+
+#### 4. Variables de Entorno
+
+Configura en Render Dashboard → Environment:
+
+```bash
+# Base de Datos (CRÍTICO)
+DB_HOST=<external_database_url>      # Desde PostgreSQL dashboard
+DB_PORT=5432
+DB_NAME=d4buildsbd
+DB_USER=d4builds_admin
+DB_PASSWORD=<tu_password>
+
+# Autenticación (CRÍTICO)
+JWT_SECRET=<genera_string_aleatorio_64_chars>
+JWT_EXPIRES_IN=7d
+
+# Node Environment (CRÍTICO)
+NODE_ENV=production
+NODE_VERSION=20
+
+# Auto-Migración (RECOMENDADO)
+AUTO_MIGRATE=true                    # Crea tablas automáticamente
+
+# APIs de IA (OPCIONAL)
+VITE_OPENAI_API_KEY=sk-proj-...     # OpenAI GPT-4o
+VITE_GEMINI_API_KEY=...             # Google Gemini
+
+# Billing Panel (OPCIONAL)
+VITE_ENABLE_BILLING_PANEL=false     # true=mostrar | false=ocultar
+
+# CORS (NO NECESARIO)
+# CORS_ORIGIN no se configura en fullstack - se permite same-origin automáticamente
+```
+
+#### 5. Deploy
+
+1. Click **"Manual Deploy"** o espera auto-deploy desde Git
+2. Render ejecutará:
+   - **Build**: `npm ci && npm run build && cd server && npm install`
+   - **Start**: `npm start` → `cd server && node index.js`
+3. Verifica logs:
+   ```
+   ✅ Conectado a PostgreSQL
+   ✅ Migraciones automáticas completadas
+   ✅ SERVIDOR INICIADO
+   🌐 URLs de acceso:
+      • Local:    http://localhost:10000
+      • API:      http://localhost:10000/api
+      • Health:   http://localhost:10000/health
+   ```
+
+#### 6. Verificar Deployment
+
+```bash
+# Health check
+curl https://d4build.onrender.com/health
+
+# Login test
+curl -X POST https://d4build.onrender.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@d4builds.com","password":"admin123"}'
+```
+
+### 🔧 Configuración Avanzada
+
+#### PostgreSQL con SSL
+
+El servidor detecta automáticamente producción y habilita SSL:
+
+```javascript
+// server/config/database.js
+ssl: process.env.NODE_ENV === 'production' 
+  ? { rejectUnauthorized: false } 
+  : false
+```
+
+#### CORS Dinámico
+
+En producción (fullstack), CORS permite same-origin automáticamente:
+
+```javascript
+// No necesitas configurar CORS_ORIGIN si frontend y backend están en el mismo dominio
+// Render sirve todo desde https://d4build.onrender.com
+```
+
+#### Middleware Ordering
+
+El servidor sigue este orden crítico:
+
+1. **CORS** + express.json
+2. **Logging** (solo producción)
+3. **API Routes** (/api/*)
+4. **404 Handler** para API
+5. **Static Files** (dist/)
+6. **Catch-All** (index.html para SPA)
+
+### 📊 Monitoreo y Logs
+
+#### Render Dashboard
+- **Logs**: Ver en tiempo real todas las requests
+- **Metrics**: CPU, memoria, requests/sec
+- **Events**: Deploy history, crashes, restarts
+
+#### Logs Exhaustivos
+
+El servidor loggea automáticamente en producción:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📡 [2026-04-19T14:07:38.123Z] POST /api/auth/login
+   Origin: https://d4build.onrender.com
+   Host: d4build.onrender.com
+   Content-Type: application/json
+   User-Agent: Mozilla/5.0...
+   Body: {"email":"admin@d4builds.com","password":"***"}
+   ✅ Response: 200 OK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 🐛 Troubleshooting
+
+#### Error: "SSL/TLS required"
+✅ **Solución**: Ya configurado automáticamente en `server/config/database.js`
+
+#### Error: "relation 'users' does not exist"
+✅ **Solución**: Configura `AUTO_MIGRATE=true` en variables de entorno
+
+#### Error: "404 Not Found" en API
+✅ **Solución**: Verifica que Start Command sea `npm start` (NO `npm run preview`)
+
+#### Error: "vite: not found" en build
+✅ **Solución**: Ya resuelto - vite está en `dependencies` (no devDependencies)
+
+Para más detalles, consulta:
+- 📘 **[DEPLOYMENT.md](DEPLOYMENT.md)** - Guía completa de deployment
+- 📘 **[BUILD_GUIDE.md](BUILD_GUIDE.md)** - Guía de build y troubleshooting
+- 📘 **[PRODUCTION_TEST.md](PRODUCTION_TEST.md)** - Checklist de testing en producción
 
 ## 🔧 Requisitos Previos
 

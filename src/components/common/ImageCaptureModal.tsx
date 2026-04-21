@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock, MapPin } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
@@ -39,10 +39,12 @@ const CATEGORIES: {
   { value: 'skills', label: 'Habilidades', icon: Swords },
   { value: 'glifos', label: 'Glifos', icon: Hexagon },
   { value: 'aspectos', label: 'Aspectos', icon: Gem },
+  { value: 'mecanicas', label: 'Mecánicas de Clase', icon: Shield },
   { value: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
   { value: 'paragon', label: 'Paragon', icon: Grid3x3 },
   { value: 'runas', label: 'Runas/Gemas', icon: Sparkles },
   { value: 'build', label: 'Equipo', icon: Shield },
+  { value: 'mundo', label: 'Eventos del Mundo', icon: MapPin },
   { value: 'otros', label: 'Otros', icon: FileText },
 ];
 const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -581,12 +583,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       case 'skills': return 4;  // Reducido de 6 a 4 (recomendación óptima)
       case 'glifos': return 6;  // Reducido de 8 a 6 (recomendación óptima)
       case 'aspectos': return 5;  // Reducido de 7 a 5 (recomendación óptima)
+      case 'mecanicas': return 3;  // 3 capturas para mecánicas de clase
       case 'estadisticas': return 5; // 5 capturas ideales (secciones distintas)
       case 'paragon': return 8;  // 8 capturas (tableros, nodos, configuración)
       case 'otros': return 6;  // Reducido de 8 a 6 (recomendación óptima)
       case 'runas': return 4;   // 4 capturas para runas (pantalla de inventario)
       case 'gemas': return 4;   // 4 capturas para gemas
       case 'build': return 6;   // 6 capturas para el equipamiento completo
+      case 'mundo': return 5;   // 5 capturas para eventos del mundo
+      default: return 5;
     }
   };
 
@@ -742,6 +747,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         } else {
           basePrompt = ImageExtractionPromptService.generateAspectsPrompt();
         }
+        break;
+      case 'mecanicas':
+        basePrompt = ImageExtractionPromptService.generateClassMechanicsPrompt();
+        break;
+      case 'mundo':
+        basePrompt = ImageExtractionPromptService.generateWorldEventsPrompt();
         break;
       case 'estadisticas':
         basePrompt = ImageExtractionPromptService.generateStatsPrompt();
@@ -1636,6 +1647,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         return data?.glifos?.length || 0;
       case 'aspectos':
         return (data?.aspectos?.length || 0) + (data?.aspectos_equipados?.length || 0);
+      case 'mecanicas':
+        return data?.mecanica_clase?.selecciones?.length || 0;
+      case 'mundo':
+        return data?.eventos?.length || 0;
       case 'runas':
         return data?.runas?.length || 0;
       case 'gemas':
@@ -1827,12 +1842,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       skills: 'Habilidades',
       glifos: 'Glifos',
       aspectos: 'Aspectos',
+      mecanicas: 'Mecánicas de Clase',
       estadisticas: 'Estadísticas',
       paragon: 'Paragón',
       otros: 'Otros',
       runas: 'Runas',
       gemas: 'Gemas',
-      build: 'Equipo'
+      build: 'Equipo',
+      mundo: 'Eventos del Mundo'
     };
     return labels[category] || category;
   };
@@ -1964,6 +1981,239 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const updatedItemsList: string[] = [];
       const repeatedItems: string[] = [];
       
+      // =============== CATEGORÍAS GLOBALES (Mundo, Runas/Gemas) ===============
+      // Estas categorías no requieren héroe ni personaje, pero SÍ requieren workspace
+      if (effectiveCategory === 'mundo') {
+        // Importar eventos del mundo (guarda en workspace físico como world_data.json)
+        if (data.eventos || data.grafo || data.indice_recursos) {
+          try {
+            // Verificar workspace antes de importar
+            const WorkspaceService = (await import('../../services/WorkspaceService')).WorkspaceService;
+            
+            if (!WorkspaceService.isWorkspaceLoaded()) {
+              showToast('⚠️ Debes abrir/crear un workspace primero. Ve a la sección Mundo → botón "Abrir/Crear Workspace"', 'error');
+              const errorResult: ImportResultDetails = {
+                success: false,
+                category: 'mundo',
+                promptType: 'heroe',
+                targetName: 'Sistema Global',
+                validationErrors: [],
+                rawJSON: jsonPayload,
+                parsedJSON: parsedData,
+                errorMessage: 'No hay workspace configurado. Abre la sección Mundo y selecciona un workspace.'
+              };
+              setImporting(false);
+              return errorResult;
+            }
+            
+            // Utilizar WorldService que ahora guarda en workspace físico
+            const WorldService = (await import('../../services/WorldService')).WorldService;
+            await WorldService.importFromJSON(data);
+            itemsImported = data.eventos?.length || 0;
+            showToast(`✅ ${itemsImported} eventos importados al sistema de progresión del mundo`, 'success');
+            shouldReload = true;
+            
+            // Auto-guardar JSON + imagen en galería
+            if (!skipAutoSave && itemsImported > 0) {
+              await autoSaveJSONAfterImport(jsonPayload);
+            }
+            
+            const mundoResult: ImportResultDetails = {
+              success: true,
+              category: 'mundo',
+              promptType: 'heroe',
+              targetName: 'Sistema Global',
+              jsonInputsProcessed: 1,
+              itemsImported,
+              itemsUpdated: 0,
+              itemsSkipped: 0,
+              addedItems: data.eventos?.map((e: any) => e.nombre) || [],
+              updatedItemsList: [],
+              repeatedItems: [],
+              fieldsAdded: data.eventos?.map((e: any) => e.id) || [],
+              validationErrors: validation.warnings,
+              rawJSON: jsonPayload,
+              totalInputItems,
+              parsedJSON: parsedData
+            };
+            
+            setJsonText('');
+            setImporting(false);
+            return mundoResult;
+            
+          } catch (error: any) {
+            console.error('❌ Error guardando datos del mundo:', error);
+            const errorMsg = error.message?.includes('workspace')
+              ? 'No hay workspace configurado. Ve a la sección Mundo y abre/crea un workspace primero.'
+              : `Error importando eventos: ${error.message}`;
+            showToast(`❌ ${errorMsg}`, 'error');
+            
+            const errorResult: ImportResultDetails = {
+              success: false,
+              category: 'mundo',
+              promptType: 'heroe',
+              targetName: 'Sistema Global',
+              validationErrors: [],
+              rawJSON: jsonPayload,
+              parsedJSON: parsedData,
+              errorMessage: errorMsg
+            };
+            setImporting(false);
+            return errorResult;
+          }
+        } else {
+          showToast('⚠️ El JSON debe contener al menos el campo "eventos" con un array de eventos', 'error');
+          const errorResult: ImportResultDetails = {
+            success: false,
+            category: 'mundo',
+            promptType: 'heroe',
+            targetName: 'Sistema Global',
+            validationErrors: [],
+            rawJSON: jsonPayload,
+            parsedJSON: parsedData,
+            errorMessage: 'JSON sin campo "eventos"'
+          };
+          setImporting(false);
+          return errorResult;
+        }
+      }
+      
+      if (effectiveCategory === 'runas') {
+        // Runas/Gemas globales (no requieren héroe ni personaje)
+        if (runaGemaEffectiveCategory === 'gemas') {
+          if (Array.isArray(data.gemas) && data.gemas.length > 0) {
+            const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
+            (data.gemas as any[]).forEach((gema: any) => {
+              const gemName = String(gema?.nombre || gema?.id || '').trim();
+              if (!gemName) return;
+
+              const gemCandidate = {
+                id: gema?.id,
+                tipo_objeto: 'gema',
+                nombre: gemName,
+                tipo: gema?.tipo || inferGemTypeFromName(gemName),
+                calidad: gema?.calidad,
+                rango_calidad: gema?.rango_calidad,
+                requerimientos: gema?.requerimientos && typeof gema.requerimientos === 'object'
+                  ? gema.requerimientos
+                  : (gema?.nivel_requerido !== undefined ? { nivel: gema.nivel_requerido } : undefined),
+                efectos: gema?.efectos && typeof gema.efectos === 'object' ? gema.efectos : {},
+                efectos_por_slot: gema?.efectos_por_slot && typeof gema.efectos_por_slot === 'object'
+                  ? gema.efectos_por_slot
+                  : undefined,
+                descripcion_lore: gema?.descripcion_lore,
+                descripcion: gema?.descripcion,
+                nivel_requerido: gema?.nivel_requerido,
+                valor_venta: gema?.valor_venta,
+                en_bolsas: gema?.en_bolsas,
+                clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
+                  ? gema.clasificacion
+                  : undefined,
+                tags: Array.isArray(gema?.tags) ? gema.tags : undefined
+              };
+
+              const result = upsertCatalogEntity(globalGems.gemas as any[], gemCandidate, 'gema');
+              if (result.status === 'added') {
+                itemsImported++;
+                addedItems.push(gemName);
+              } else if (result.status === 'updated') {
+                itemsUpdated++;
+                updatedItemsList.push(gemName);
+              } else {
+                itemsRepeated++;
+                repeatedItems.push(gemName);
+              }
+              fieldsAdded.push(gemName);
+            });
+
+            await WorkspaceService.saveHeroGems('global', globalGems);
+            const totalGems = itemsImported + itemsUpdated;
+            const accumulatedMsg = itemsUpdated > 0 ? ` (${itemsUpdated} acumuladas)` : '';
+            showToast(`✅ ${totalGems} gemas procesadas${accumulatedMsg}`, 'success');
+            shouldReload = true;
+            
+            // Auto-guardar JSON + imagen
+            if (!skipAutoSave && totalGems > 0) {
+              await autoSaveJSONAfterImport(jsonPayload);
+            }
+          }
+        } else {
+          if (Array.isArray(data.runas) && data.runas.length > 0) {
+            const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
+            (data.runas as any[]).forEach((runa: any) => {
+              const runeName = String(runa?.nombre || runa?.id || '').trim();
+              if (!runeName) return;
+
+              const runeCandidate = {
+                id: runa?.id,
+                nombre: runeName,
+                rareza: runa?.rareza || 'magico',
+                tipo: normalizeRuneType(runa?.tipo || runa?.subtipo || runa?.calidad_runa),
+                efecto: runa?.efecto || runa?.descripcion || '',
+                descripcion: runa?.descripcion,
+                requerimiento: runa?.requerimiento,
+                puede_desguazar: runa?.puede_desguazar,
+                objeto_origen: runa?.objeto_origen,
+                valor_venta: runa?.valor_venta,
+                en_bolsas: runa?.en_bolsas,
+                tags: Array.isArray(runa?.tags) ? runa.tags : undefined
+              };
+
+              const result = upsertCatalogEntity(globalRunes.runas as any[], runeCandidate, 'runa');
+              if (result.status === 'added') {
+                itemsImported++;
+                addedItems.push(runeName);
+              } else if (result.status === 'updated') {
+                itemsUpdated++;
+                updatedItemsList.push(runeName);
+              } else {
+                itemsRepeated++;
+                repeatedItems.push(runeName);
+              }
+              fieldsAdded.push(runeName);
+            });
+
+            await WorkspaceService.saveHeroRunes('global', globalRunes);
+            const totalRunes = itemsImported + itemsUpdated;
+            const accumulatedMsg = itemsUpdated > 0 ? ` (${itemsUpdated} acumuladas)` : '';
+            showToast(`✅ ${totalRunes} runas procesadas${accumulatedMsg}`, 'success');
+            shouldReload = true;
+            
+            // Auto-guardar JSON + imagen
+            if (!skipAutoSave && totalRunes > 0) {
+              await autoSaveJSONAfterImport(jsonPayload);
+            }
+          }
+        }
+        
+        const runasResult: ImportResultDetails = {
+          success: true,
+          category: runaGemaEffectiveCategory,
+          promptType: 'heroe',
+          targetName: 'Catálogo Global',
+          jsonInputsProcessed: 1,
+          itemsImported,
+          itemsUpdated,
+          itemsSkipped: itemsRepeated,
+          addedItems,
+          updatedItemsList,
+          repeatedItems,
+          fieldsAdded,
+          validationErrors: validation.warnings,
+          rawJSON: jsonPayload,
+          totalInputItems,
+          parsedJSON: parsedData
+        };
+        
+        setJsonText('');
+        if (shouldReload) {
+          await refreshPersonajes();
+        }
+        setImporting(false);
+        return runasResult;
+      }
+      
+      // =============== CATEGORÍAS DE HÉROE Y PERSONAJE ===============
       if (effectivePromptType === 'heroe') {
         // =============== GUARDAR EN HÉROE ===============
         
@@ -2120,101 +2370,56 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             }
             break;
 
-          case 'runas':
-            if (runaGemaEffectiveCategory === 'gemas') {
-              if (Array.isArray(data.gemas) && data.gemas.length > 0) {
-                const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
-                (data.gemas as any[]).forEach((gema: any) => {
-                  const gemName = String(gema?.nombre || gema?.id || '').trim();
-                  if (!gemName) return;
-
-                  const gemCandidate = {
-                    id: gema?.id,
-                    tipo_objeto: 'gema',
-                    nombre: gemName,
-                    tipo: gema?.tipo || inferGemTypeFromName(gemName),
-                    calidad: gema?.calidad,
-                    rango_calidad: gema?.rango_calidad,
-                    requerimientos: gema?.requerimientos && typeof gema.requerimientos === 'object'
-                      ? gema.requerimientos
-                      : (gema?.nivel_requerido !== undefined ? { nivel: gema.nivel_requerido } : undefined),
-                    efectos: gema?.efectos && typeof gema.efectos === 'object' ? gema.efectos : {},
-                    efectos_por_slot: gema?.efectos_por_slot && typeof gema.efectos_por_slot === 'object'
-                      ? gema.efectos_por_slot
-                      : undefined,
-                    descripcion_lore: gema?.descripcion_lore,
-                    descripcion: gema?.descripcion,
-                    nivel_requerido: gema?.nivel_requerido,
-                    valor_venta: gema?.valor_venta,
-                    en_bolsas: gema?.en_bolsas,
-                    clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
-                      ? gema.clasificacion
-                      : undefined,
-                    tags: Array.isArray(gema?.tags) ? gema.tags : undefined
-                  };
-
-                  const result = upsertCatalogEntity(globalGems.gemas as any[], gemCandidate, 'gema');
-                  if (result.status === 'added') {
-                    itemsImported++;
-                    addedItems.push(gemName);
-                  } else if (result.status === 'updated') {
-                    itemsUpdated++;
-                    updatedItemsList.push(gemName);
-                  } else {
-                    itemsRepeated++;
-                    repeatedItems.push(gemName);
-                  }
-                  fieldsAdded.push(gemName);
-                });
-
-                await WorkspaceService.saveHeroGems('global', globalGems);
-                const totalGems = itemsImported + itemsUpdated;
-                const accumulatedMsg = itemsUpdated > 0 ? ` (${itemsUpdated} acumuladas)` : '';
-                showToast(`✅ ${totalGems} gemas procesadas${accumulatedMsg}`, 'success');
-                shouldReload = true;
+          case 'mecanicas':
+            if (data.mecanica_clase) {
+              const mecanica = data.mecanica_clase;
+              
+              // Asegurar estructura correcta
+              mecanica.id = mecanica.id || `mecanica_${clase.toLowerCase()}_${Date.now()}`;
+              mecanica.tipo = 'mecanica_clase';
+              mecanica.clase = clase;
+              
+              // Procesar selecciones
+              if (mecanica.selecciones && Array.isArray(mecanica.selecciones)) {
+                mecanica.selecciones = mecanica.selecciones.map((sel: any) => ({
+                  id: sel.id || `sel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  nombre: sel.nombre || '',
+                  categoria: sel.categoria || 'general',
+                  grupo: sel.grupo || 'principal',
+                  nivel: sel.nivel || 1,
+                  nivel_maximo: sel.nivel_maximo || 1,
+                  activo: sel.activo !== undefined ? sel.activo : true,
+                  efecto: sel.efecto || '',
+                  detalles: Array.isArray(sel.detalles) ? sel.detalles : [],
+                  tags: Array.isArray(sel.tags) ? sel.tags : []
+                }));
               }
-            } else {
-              if (Array.isArray(data.runas) && data.runas.length > 0) {
-                const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
-                (data.runas as any[]).forEach((runa: any) => {
-                  const runeName = String(runa?.nombre || runa?.id || '').trim();
-                  if (!runeName) return;
-
-                  const runeCandidate = {
-                    id: runa?.id,
-                    nombre: runeName,
-                    rareza: runa?.rareza || 'magico',
-                    tipo: normalizeRuneType(runa?.tipo || runa?.subtipo || runa?.calidad_runa),
-                    efecto: runa?.efecto || runa?.descripcion || '',
-                    descripcion: runa?.descripcion,
-                    requerimiento: runa?.requerimiento,
-                    puede_desguazar: runa?.puede_desguazar,
-                    objeto_origen: runa?.objeto_origen,
-                    valor_venta: runa?.valor_venta,
-                    en_bolsas: runa?.en_bolsas,
-                    tags: Array.isArray(runa?.tags) ? runa.tags : undefined
-                  };
-
-                  const result = upsertCatalogEntity(globalRunes.runas as any[], runeCandidate, 'runa');
-                  if (result.status === 'added') {
-                    itemsImported++;
-                    addedItems.push(runeName);
-                  } else if (result.status === 'updated') {
-                    itemsUpdated++;
-                    updatedItemsList.push(runeName);
-                  } else {
-                    itemsRepeated++;
-                    repeatedItems.push(runeName);
-                  }
-                  fieldsAdded.push(runeName);
-                });
-
-                await WorkspaceService.saveHeroRunes('global', globalRunes);
-                const totalRunes = itemsImported + itemsUpdated;
-                const accumulatedMsg = itemsUpdated > 0 ? ` (${itemsUpdated} acumuladas)` : '';
-                showToast(`✅ ${totalRunes} runas procesadas${accumulatedMsg}`, 'success');
-                shouldReload = true;
+              
+              // Cargar mecánicas existentes del héroe
+              const heroMechanics = await WorkspaceService.loadHeroClassMechanics(clase) || { mecanicas: [] };
+              
+              // Buscar si ya existe
+              const idx = heroMechanics.mecanicas.findIndex((m: any) => m.nombre === mecanica.nombre);
+              
+              if (idx >= 0) {
+                if (areEquivalentContent(heroMechanics.mecanicas[idx], mecanica)) {
+                  itemsRepeated++;
+                  repeatedItems.push(mecanica.nombre);
+                } else {
+                  heroMechanics.mecanicas[idx] = mecanica;
+                  itemsUpdated++;
+                  updatedItemsList.push(mecanica.nombre);
+                }
+              } else {
+                heroMechanics.mecanicas.push(mecanica);
+                itemsImported++;
+                addedItems.push(mecanica.nombre);
               }
+              fieldsAdded.push(mecanica.nombre);
+              
+              await WorkspaceService.saveHeroClassMechanics(clase, heroMechanics);
+              showToast(`✅ Mecánica "${mecanica.nombre}" procesada en ${clase}`, 'success');
+              shouldReload = true;
             }
             break;
 
@@ -2832,126 +3037,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               syncUpdatedPersonajeInContext(updatedPersonaje);
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
-            }
-            break;
-          }
-          case 'runas': {
-            if (runaGemaEffectiveCategory === 'gemas') {
-              const gemasData: any[] = data.gemas || [];
-              if (gemasData.length > 0) {
-                const globalGems = await WorkspaceService.loadHeroGems('global') || { gemas: [] };
-
-                gemasData.forEach((gema: any) => {
-                  const gemName = String(gema?.nombre || gema?.id || '').trim();
-                  if (!gemName) return;
-
-                  const gemCandidate = {
-                    id: gema?.id,
-                    tipo_objeto: 'gema',
-                    nombre: gemName,
-                    tipo: gema?.tipo || inferGemTypeFromName(gemName),
-                    calidad: gema?.calidad,
-                    rango_calidad: gema?.rango_calidad,
-                    requerimientos: gema?.requerimientos && typeof gema.requerimientos === 'object'
-                      ? gema.requerimientos
-                      : (gema?.nivel_requerido !== undefined ? { nivel: gema.nivel_requerido } : undefined),
-                    efectos: gema?.efectos && typeof gema.efectos === 'object' ? gema.efectos : {},
-                    efectos_por_slot: gema?.efectos_por_slot && typeof gema.efectos_por_slot === 'object'
-                      ? gema.efectos_por_slot
-                      : undefined,
-                    descripcion_lore: gema?.descripcion_lore,
-                    descripcion: gema?.descripcion,
-                    nivel_requerido: gema?.nivel_requerido,
-                    valor_venta: gema?.valor_venta,
-                    en_bolsas: gema?.en_bolsas,
-                    clasificacion: gema?.clasificacion && typeof gema.clasificacion === 'object'
-                      ? gema.clasificacion
-                      : undefined,
-                    tags: Array.isArray(gema?.tags) ? gema.tags : undefined
-                  };
-
-                  const result = upsertCatalogEntity(globalGems.gemas as any[], gemCandidate, 'gema');
-                  if (result.status === 'added') {
-                    itemsImported++;
-                    addedItems.push(gemName);
-                  } else if (result.status === 'updated') {
-                    itemsUpdated++;
-                    updatedItemsList.push(gemName);
-                  } else {
-                    itemsRepeated++;
-                    repeatedItems.push(gemName);
-                  }
-                  fieldsAdded.push(gemName);
-                });
-
-                await WorkspaceService.saveHeroGems('global', globalGems);
-                showToast(`✅ ${itemsImported + itemsUpdated} gemas procesadas`, 'success');
-                shouldReload = true;
-              }
-            } else {
-              const runasData: any[] = data.runas || [];
-              if (runasData.length > 0) {
-                const globalRunes = await WorkspaceService.loadHeroRunes('global') || { runas: [] };
-
-                runasData.forEach((runa: any) => {
-                  const runeName = String(runa?.nombre || runa?.id || '').trim();
-                  if (!runeName) return;
-
-                  const runeCandidate = {
-                    id: runa?.id,
-                    nombre: runeName,
-                    rareza: runa?.rareza || 'magico',
-                    tipo: normalizeRuneType(runa?.tipo || runa?.subtipo || runa?.calidad_runa),
-                    efecto: runa?.efecto || runa?.descripcion || '',
-                    descripcion: runa?.descripcion,
-                    requerimiento: runa?.requerimiento,
-                    puede_desguazar: runa?.puede_desguazar,
-                    objeto_origen: runa?.objeto_origen,
-                    valor_venta: runa?.valor_venta,
-                    en_bolsas: runa?.en_bolsas,
-                    tags: Array.isArray(runa?.tags) ? runa.tags : undefined
-                  };
-
-                  const result = upsertCatalogEntity(globalRunes.runas as any[], runeCandidate, 'runa');
-                  if (result.status === 'added') {
-                    itemsImported++;
-                    addedItems.push(runeName);
-                  } else if (result.status === 'updated') {
-                    itemsUpdated++;
-                    updatedItemsList.push(runeName);
-                  } else {
-                    itemsRepeated++;
-                    repeatedItems.push(runeName);
-                  }
-                  fieldsAdded.push(runeName);
-                });
-
-                await WorkspaceService.saveHeroRunes('global', globalRunes);
-
-                const refs: Array<{ runa_id: string; vinculada_a?: 'arma' | 'escudo' }> = [];
-                runasData.forEach((runa: any) => {
-                  const heroRune = globalRunes.runas.find((r: any) => r.nombre === runa.nombre || r.id === runa.id);
-                  if (!heroRune?.id) return;
-                  refs.push({
-                    runa_id: heroRune.id,
-                    vinculada_a: runa.vinculada_a === 'escudo' ? 'escudo' : 'arma'
-                  });
-                });
-
-                const refsLimited = refs.slice(0, 4);
-
-                const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
-                const updatedPersonaje = {
-                  ...(personajeFromDisk || personaje),
-                  runas_refs: refsLimited,
-                  fecha_actualizacion: new Date().toISOString()
-                };
-
-                await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-                syncUpdatedPersonajeInContext(updatedPersonaje);
-                showToast(`✅ ${refsLimited.length} runas vinculadas en ${personaje.nombre}`, 'success');
-                shouldReload = true;
-              }
             }
             break;
           }
@@ -4146,9 +4231,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const creditCheck = await BillingService.hasAvailableCredit();
     if (!creditCheck.hasCredit) {
       showToast(
-        `⚠️ Crédito agotado. Usado: $${creditCheck.used.toFixed(4)} de $${creditCheck.limit.toFixed(2)}`,
+        `⚠️ Sin créditos disponibles. Has usado $${creditCheck.used.toFixed(4)} de $${creditCheck.limit.toFixed(2)}. Recarga créditos desde tu perfil o menú Premium.`,
         'error'
       );
+      // El usuario puede hacer click en el badge de créditos o ir a Premium para recargar
       return;
     }
 
@@ -4978,7 +5064,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   )}
 
                   {/* Selector de destino (SEGUNDO - condicionado) */}
-                  {selectedCategory !== 'runas' && selectedCategory !== 'build' && (
+                  {selectedCategory !== 'runas' && selectedCategory !== 'build' && selectedCategory !== 'mundo' && (
                   <div className="mb-1.5 lg:mb-2">
                     <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                       Destino:
@@ -5015,6 +5101,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     </p>
                   )}
 
+                  {/* Mundo siempre global */}
+                  {selectedCategory === 'mundo' && (
+                    <p className="text-[9px] lg:text-[10px] text-d4-text-dim -mt-1 mb-1.5">
+                      🗺️ Sistema de Progresión del Mundo (global, no vinculado a personaje/héroe)
+                    </p>
+                  )}
+
                   {/* Equipo siempre personaje */}
                   {selectedCategory === 'build' && (
                     <p className="text-[9px] lg:text-[10px] text-d4-text-dim -mt-1 mb-1.5">
@@ -5023,7 +5116,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   )}
 
                   {/* Selector de clase (solo si tipo = heroe y no es categoría global) */}
-                  {promptType === 'heroe' && selectedCategory !== 'runas' && (
+                  {promptType === 'heroe' && selectedCategory !== 'runas' && selectedCategory !== 'mundo' && (
                     <div className="mb-1.5 lg:mb-2">
                       <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
                         Clase:
@@ -5138,13 +5231,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           <span className="hidden md:inline">
                             {selectedCategory === 'runas'
                               ? 'Guardar en catálogo global (Runas/Gemas)'
-                              : promptType === 'heroe'
-                                ? effectiveClaseForActions
-                                  ? `Guardar en Héroe (${effectiveClaseForActions})`
-                                  : 'Guardar en Héroe (Selecciona clase)'
-                                : effectivePersonajeIdForActions
-                                  ? `Guardar en ${personajes.find(p => p.id === effectivePersonajeIdForActions)?.nombre || 'Personaje'}`
-                                  : 'Selecciona un personaje primero'}
+                              : selectedCategory === 'mundo'
+                                ? 'Guardar en Mundo (Sistema Global)'
+                                : selectedCategory === 'mecanicas'
+                                  ? `Guardar en Mecánicas (${effectiveClaseForActions || 'Selecciona clase'})`
+                                  : promptType === 'heroe'
+                                    ? effectiveClaseForActions
+                                      ? `Guardar en Héroe (${effectiveClaseForActions})`
+                                      : 'Guardar en Héroe (Selecciona clase)'
+                                    : effectivePersonajeIdForActions
+                                      ? `Guardar en ${personajes.find(p => p.id === effectivePersonajeIdForActions)?.nombre || 'Personaje'}`
+                                      : 'Selecciona un personaje primero'}
                           </span>
                           <span className="md:hidden">Guardar</span>
                         </>
@@ -5262,7 +5359,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         Prompt para {CATEGORIES.find(c => c.value === selectedCategory)?.label}
                       </h3>
                       
-                      {selectedCategory !== 'runas' && selectedCategory !== 'build' ? (
+                      {selectedCategory !== 'runas' && selectedCategory !== 'build' && selectedCategory !== 'mundo' ? (
                         <div className="mb-2">
                           <label className="block text-xs font-semibold text-d4-text mb-1">
                             Tipo:
@@ -5292,12 +5389,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         <p className="text-xs text-d4-text-dim mb-2">
                           {selectedCategory === 'runas'
                             ? '✅ Runas/Gemas siempre se procesa como catálogo global'
+                            : selectedCategory === 'mundo'
+                            ? '🗺️ Sistema de Progresión del Mundo (global)'
                             : '✅ Equipo siempre se procesa en modo Personaje'}
                         </p>
                       )}
 
                       {/* Selector de clase (solo si tipo = heroe y no es categoría global) */}
-                      {promptType === 'heroe' && selectedCategory !== 'runas' && (
+                      {promptType === 'heroe' && selectedCategory !== 'runas' && selectedCategory !== 'mundo' && (
                         <div className="mb-2">
                           <label className="block text-xs font-semibold text-d4-text mb-1">
                             Clase:
@@ -5755,7 +5854,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               )}
 
               {/* Selector de destino (Héroe/Personaje) */}
-              {selectedCategory !== 'runas' && selectedCategory !== 'build' && (
+              {selectedCategory !== 'runas' && selectedCategory !== 'build' && selectedCategory !== 'mundo' && (
                 <div>
                   <label className="block text-sm font-semibold text-d4-text mb-2">
                     🎯 Destino de la importación: <span className="text-red-400">*</span>
@@ -5808,6 +5907,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               )}
               
+              {selectedCategory === 'mundo' && (
+                <div className="p-3 bg-blue-600/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    🗺️ Sistema de Progresión del Mundo - Datos globales independientes
+                  </p>
+                </div>
+              )}
+              
               {selectedCategory === 'build' && (
                 <div className="p-3 bg-blue-600/10 border border-blue-500/30 rounded-lg">
                   <p className="text-sm text-blue-300">
@@ -5817,7 +5924,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               )}
 
               {/* Selector de clase (si modo héroe) */}
-              {aiConfigPromptType === 'heroe' && selectedCategory !== 'runas' && (
+              {aiConfigPromptType === 'heroe' && selectedCategory !== 'runas' && selectedCategory !== 'mundo' && (
                 <div>
                   <label className="block text-sm font-semibold text-d4-text mb-2">
                     ⚔️ Clase del héroe: <span className="text-red-400">*</span>

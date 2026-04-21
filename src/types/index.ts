@@ -202,6 +202,55 @@ export interface AspectosHeroe {
 }
 
 // ============================================================================
+// TIPOS PARA MECÁNICAS DE CLASE (v0.8.0)
+// ============================================================================
+
+// Palabra clave específica de mecánica de clase
+export interface PalabraClaveClase {
+  tag: string;                    // "sagrado"
+  texto_original: string;         // "sagradas"
+  significado: string;            // "Habilidades o efectos de daño divino o bendito."
+  categoria: string;              // "tipo_daño" | "atributo" | "efecto" | etc.
+  fuente: 'mecanica_clase';       // Siempre 'mecanica_clase' para este tipo
+}
+
+// Selección individual de mecánica (ej: un juramento específico)
+export interface SeleccionMecanica {
+  id: string;                     // "juramento_disciple"
+  nombre: string;                 // "Disciple"
+  categoria: string;              // "juramento" | "libro_hechizo" | "arsenal" | etc.
+  grupo: string;                  // "juramento_principal" | "juramento_secundario" | etc.
+  nivel: number;                  // Nivel actual de la selección
+  nivel_maximo: number;           // Nivel máximo permitido
+  activo: boolean;                // Si está actualmente activo/seleccionado
+  efecto: string;                 // Descripción principal del efecto
+  detalles: string[];             // Array de detalles/descripciones adicionales
+  tags: string[];                 // Tags para búsqueda y filtrado
+}
+
+// Mecánica de clase completa
+export interface MecanicaClase {
+  id: string;                     // "mecanica_paladin_juramentos"
+  nombre: string;                 // "Juramentos"
+  tipo: 'mecanica_clase';         // Tipo fijo para identificación
+  clase: string;                  // "Paladín" | "Bárbaro" | "Hechicero" | etc.
+  selecciones: SeleccionMecanica[]; // Array de opciones seleccionables
+  palabras_clave?: PalabraClaveClase[]; // Glosario de términos (opcional en personaje)
+}
+
+// Datos de mecánicas a nivel de héroe (múltiples mecánicas por clase)
+export interface MecanicasClaseHeroe {
+  mecanicas: MecanicaClase[];
+}
+
+// Referencia a mecánica de clase en personaje (solo IDs y estado)
+export interface MecanicaClaseReferencia {
+  id: string;                     // ID de la mecánica en el héroe
+  selecciones_activas: string[];  // IDs de las selecciones activas
+  notas?: string;                 // Notas adicionales del jugador
+}
+
+// ============================================================================
 // TIPOS PARA SISTEMA PARAGON (v0.4.15)
 // ============================================================================
 
@@ -453,6 +502,121 @@ export interface DetalleEstadistica {
   tags?: string[];             // IDs de tags globales (v0.3.7)
 }
 
+// ==========================================
+// Tipos para Sistema de Progresión del Mundo (v0.9.0)
+// ==========================================
+
+export interface ObjetivoEvento {
+  tipo: 'kill' | 'completar' | 'recolectar' | 'explorar' | 'defender';
+  descripcion: string;
+  progreso?: {
+    actual: number | null;
+    max: number | null;
+  };
+}
+
+export interface RequisitoEvento {
+  tipo: 'material' | 'llave' | 'nivel' | 'quest' | 'currency';
+  nombre: string;
+  cantidad: number;
+  id_recurso?: string; // ID del nodo que genera este recurso (para linking)
+}
+
+export interface RecompensaEvento {
+  tipo: 'material' | 'loot' | 'currency' | 'acceso' | 'experiencia' | 'fragmento';
+  nombre: string;
+  cantidad: number | null;
+  probabilidad?: 'alta' | 'media' | 'baja' | null;
+  garantizado: boolean;
+  id_recurso?: string; // ID único del recurso generado (para linking)
+}
+
+export interface TiempoEvento {
+  expira_en?: string | null; // "3 días", "24h", ISO timestamp, etc.
+  tiempo_completar?: string | null; // Tiempo estimado: "5 min", "15 min"
+  cooldown?: string | null; // Tiempo de recarga si es repetible
+}
+
+export interface EventoMundo {
+  id: string; // Único identificador
+  nombre: string;
+  tipo: 'guarida' | 'susurro' | 'evento' | 'calabozo' | 'legion' | 'reserva';
+  subtipo?: 'boss' | 'tarea' | 'ritual' | 'mapa' | 'elite' | 'evento_mundial';
+  boss?: string | null; // Nombre del boss si aplica
+  objetivo: ObjetivoEvento;
+  requisitos: RequisitoEvento[];
+  recompensas: RecompensaEvento[];
+  tiempo?: TiempoEvento;
+  ubicacion?: string; // Región/zona del mapa
+  dificultad?: 'normal' | 'pesadilla' | 'tortura' | 'otro';
+  repetible: boolean;
+  descripcion: string;
+  tags: string[]; // Tags: "boss", "farm", "endgame", "time_limited", etc.
+  notas?: string; // Notas adicionales del usuario
+}
+
+export interface RelacionEvento {
+  from: string; // ID del evento origen
+  to: string; // ID del evento destino
+  tipo: 'requiere' | 'genera' | 'desbloquea' | 'farm' | 'precondicion';
+  recurso?: string | null; // Recurso involucrado en la relación
+  descripcion?: string; // Descripción de la relación
+  cantidad?: number | null; // Cantidad del recurso si aplica
+}
+
+export interface GrafoProgresion {
+  nodos: string[]; // Lista de IDs de eventos
+  relaciones: RelacionEvento[];
+}
+
+export interface PasoRuta {
+  paso: number;
+  evento_id: string;
+  evento_nombre: string;
+  tipo: string;
+  motivo: string; // Explicación de por qué está en la ruta
+  recursos_obtenidos?: string[]; // Qué recursos se obtienen
+  recursos_consumidos?: string[]; // Qué recursos se consumen
+}
+
+export interface RutaOptima {
+  objetivo: string; // Descripción del objetivo
+  objetivo_recurso?: string; // Recurso específico que se busca
+  pasos: PasoRuta[];
+  eficiencia?: string; // Evaluación de la ruta
+  tiempo_estimado?: string;
+  repetible: boolean;
+}
+
+export interface IndiceRecurso {
+  recurso: string; // Nombre del recurso
+  tipo: 'material' | 'llave' | 'currency' | 'loot' | 'acceso';
+  generado_por: string[]; // IDs de eventos que lo generan
+  requerido_por: string[]; // IDs de eventos que lo requieren
+  probabilidad_drop?: 'alta' | 'media' | 'baja' | null;
+}
+
+export interface AnalisisEconomia {
+  tipo_economia: 'lineal' | 'circular' | 'mixta' | 'jerarquica';
+  cuellos_botella: string[]; // Recursos difíciles de conseguir
+  eventos_clave: string[]; // IDs de eventos críticos para progresión
+  loops_farm: string[][]; // Arrays de IDs de eventos que forman loops
+  recursos_escasos: string[]; // Recursos con pocos generadores
+  recursos_abundantes: string[]; // Recursos con muchos generadores
+  recomendaciones: string[]; // Sugerencias para optimizar
+}
+
+export interface DatosMundo {
+  eventos: EventoMundo[];
+  grafo: GrafoProgresion;
+  indice_recursos: IndiceRecurso[];
+  rutas_sugeridas?: RutaOptima[];
+  analisis?: AnalisisEconomia;
+  version: string;
+  ultima_actualizacion: string; // ISO timestamp
+  temporada?: string; // Temporada del juego si aplica
+}
+
 // Tipos para Personajes
 export interface Personaje {
   id: string;
@@ -506,6 +670,8 @@ export interface Personaje {
   }>;
   // Build completa del personaje (v0.5.4)
   build?: Build;                        // Equipamiento completo del personaje
+  // Referencias a mecánicas de clase (v0.8.0)
+  mecanicas_clase_refs?: MecanicaClaseReferencia[];
   notas?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
@@ -668,6 +834,7 @@ export interface PromptConfig {
   incluir_habilidades: boolean;
   incluir_glifos: boolean;
   incluir_estadisticas: boolean;
+  incluir_mecanicas?: boolean;
   pregunta_personalizada?: string;
 }
 

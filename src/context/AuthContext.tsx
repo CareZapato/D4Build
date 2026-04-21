@@ -76,7 +76,24 @@ export const AuthProvider: React.FC<Props> = ({ children }) => {
   };
 
   const isPremium = () => {
-    return user?.account_type === 'Premium';
+    if (!user) return false;
+    
+    // Verificar si es Premium en la base de datos
+    if (user.account_type !== 'Premium') return false;
+    
+    // Verificar fecha de expiración si existe
+    if (user.subscription_expires_at) {
+      const expirationDate = new Date(user.subscription_expires_at);
+      const now = new Date();
+      
+      // Si ya expiró, retornar false
+      if (now > expirationDate) {
+        return false;
+      }
+    }
+    
+    // Es Premium y no ha expirado (o no tiene fecha de expiración)
+    return true;
   };
 
   const isAdmin = () => {

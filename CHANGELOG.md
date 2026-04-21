@@ -7,147 +7,136 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.8.0] - 2026-04-19
+
+### ✨ Added (Agregado)
+
+#### Mecánicas de Clase
+- **Nueva categoría**: Gestión de mecánicas únicas por clase (Juramentos, Libros de Hechizos, Arsenales, etc.)
+- **Estructura de datos**: Similar a glifos/habilidades con selecciones configurables
+- **Campos**:
+  - `id`, `nombre`, `tipo`, `clase`
+  - `selecciones[]`: Array de opciones seleccionables
+  - Cada selección: `id`, `nombre`, `categoria`, `grupo`, `nivel`, `activo`, `efecto`, `detalles`, `tags`
+  - `palabras_clave[]`: Glosario de términos específicos de la mecánica
+- **Integración**:
+  - Componente `CharacterClass` para visualización en personajes
+  - Nueva opción en modal de captura (PromptGenerator)
+  - Importación JSON en HeroManager (datos maestros)
+  - Referencias en personajes (solo IDs)
+- **Ubicación**: `src/components/characters/CharacterClass.tsx`, tipos en `src/types/index.ts`
+
+---
+
 ## [0.7.1] - 2026-04-19
 
 ### ✨ Added (Agregado)
 
-#### Deployment: Logging exhaustivo para debugging de APIs
-- **Objetivo**: Facilitar debugging de errores 404 y otros problemas en producción
-- **Implementación**:
-  - Middleware de logging GLOBAL (captura TODAS las requests)
-  - Log de método, URL, origin, host, content-type, user-agent
-  - Log de request body (con passwords ocultos)
-  - Log de response status code
-  - Logging específico en ruta `/api/auth/login` (cada paso del proceso)
-  - Logging exhaustivo en handler 404 de API (método, path, body, headers)
+#### Sistema de Suscripciones
+- **Tabla `subscriptions`**: Nueva tabla para gestionar suscripciones con 9 columnas
+  - `id`, `user_id`, `plan_type`, `start_date`, `end_date`, `is_active`, `payment_amount`, `credits_granted`, `created_at`
+- **Planes disponibles**: 
+  - 1 mes: $5 → 4 créditos (80% conversión)
+  - 6 meses: $25 → 20 créditos
+  - 1 año: $45 → 36 créditos
+- **Funcionalidades**:
+  - Contratar nueva suscripción
+  - Extender suscripción activa
+  - Agregar créditos adicionales
+  - Control de expiración automático
+- **UI**: Nueva tab "Suscripción" en página de perfil
+
+#### Página de Perfil Completa
+- **4 tabs**: Perfil, Uso, Historial, Suscripción
+- **Tab Perfil**: Editar username, email, cambiar contraseña
+- **Tab Uso**: Estadísticas de consumo (semana, mes, año)
+- **Tab Historial**: Tabla paginada de consultas de IA con costos
+- **Tab Suscripción**: Info de plan, fechas, renovación, contratar/extender
+- **Balance de créditos**: Indicador en Sidebar + modal de recarga
+- **Ubicación**: `src/components/layout/Sidebar.tsx`, `src/components/Profile.tsx`
+
+#### Logging Exhaustivo para Production
+- **Middleware global**: Captura TODAS las requests en producción
+- **Logs detallados**:
+  - Timestamp, método, URL, origin, host, content-type, user-agent
+  - Request body (con passwords ocultos)
+  - Response status code
+- **Separadores visuales**: Fácil lectura en logs de Render
+- **Logging específico**: Paso a paso en `/api/auth/login`
 - **Ubicación**: `server/index.js`, `server/routes/auth.js`
-- **Formato de logs**: Separadores visuales para fácil lectura
-- **Beneficios**: Ver exactamente qué requests llegan, qué respuestas se envían, dónde fallan
+
+#### Documentación
+- **DEPLOYMENT.md**: Guía completa de deployment en Render
+  - Diagrama de arquitectura fullstack
+  - Configuración de PostgreSQL con SSL
+  - Variables de entorno para producción
+  - Troubleshooting de errores comunes
+- **BUILD_GUIDE.md**: Resolución de errores de TypeScript
+- **PRODUCTION_TEST.md**: Checklist de testing en producción
+- **README.md**: Nueva sección "Deployment a Producción" completa
 
 ### 🔧 Fixed (Arreglado)
 
-#### Deployment: PostgreSQL requiere SSL en producción
-- **Problema**: Error "SSL/TLS required" al conectar a PostgreSQL en Render
-- **Causa**: PostgreSQL en Render requiere conexión SSL, pero pool no tenía configuración SSL
-- **Solución**: Agregado `ssl: { rejectUnauthorized: false }` al pool en producción
+#### Deployment: PostgreSQL requiere SSL
+- **Problema**: Error "SSL/TLS required" en Render
+- **Solución**: Agregado `ssl: { rejectUnauthorized: false }` al pool de PostgreSQL en producción
 - **Afectado**: `server/config/database.js`
 
-#### Deployment: Render ejecutando comando incorrecto (FIX CRÍTICO)
-- **Problema identificado**: Render ejecutaba `npm run preview` en lugar del servidor Express
-- **Causa raíz**: Faltaba script "start" en package.json, Render usa "preview" por defecto
-- **Síntoma**: Frontend carga pero API retorna 404 (porque vite preview solo sirve estáticos)
-- **Logs mostraban**:
-  ```
-  ==> Running 'npm run preview -- --host 0.0.0.0 --port $PORT'
-  > vite preview --host 0.0.0.0 --port 3001
-  ```
-- **Solución definitiva**:
-  - Agregado script `"start": "cd server && node index.js"` a package.json
-  - Actualizado Start Command en Render a `npm start`
-  - Actualizado render.yaml y DEPLOYMENT.md
-  - Ahora Render ejecutará el servidor Express correctamente
+#### Deployment: Render ejecutaba comando incorrecto
+- **Problema**: Render ejecutaba `npm run preview` (Vite) en lugar del servidor Express
+- **Causa**: Faltaba script `"start"` en `package.json`
+- **Solución**: Agregado `"start": "cd server && node index.js"`
+- **Resultado**: API funciona correctamente en producción
 
-#### Deployment: 404 en rutas de API (v3 - fix definitivo)
-- **Problema persistente**: API sigue devolviendo 404 a pesar de fixes anteriores
-- **Nuevo diagnóstico**:
-  1. Faltaba middleware para manejar rutas API no encontradas específicamente
-  2. Catch-all del frontend podía estar interfiriendo
-  3. Falta de logging en producción dificultaba debugging
-- **Soluciones definitivas aplicadas**:
-  - **Logging middleware**: Agregado en producción para ver todas las requests (`📡 METHOD /path`)
-  - **Middleware /api/* 404**: Nuevo handler específico para rutas API inexistentes (antes del frontend)
-  - **Catch-all simplificado**: Ya no necesita lógica de exclusión, solo sirve index.html
-  - **Logging mejorado**: Muestra rutas registradas al iniciar + modo (DEV/PROD) + __dirname
-  - **Build command actualizado**: Usa `npm ci` en lugar de `npm install` para CI/CD
-- **Orden final de middlewares**:
-  1. CORS + express.json
-  2. Logging (solo producción)
-  3. Rutas /api/*
-  4. Health check
-  5. Middleware 404 para /api/* no encontradas
-  6. express.static (archivos del frontend)
-  7. Catch-all GET * (SPA routing)
-  8. Error handler
+#### Deployment: Tablas no existían en producción
+- **Problema**: Error "relation 'users' does not exist"
+- **Solución**: Variable de entorno `AUTO_MIGRATE=true` ejecuta migraciones al iniciar
+- **Tablas creadas**: `users`, `subscriptions`, `billing_usage`
 
-#### Documentación
-- **PRODUCTION_TEST.md**: Guía para probar configuración de producción localmente
-- **DEPLOYMENT.md**: Nueva sección troubleshooting con pasos específicos para error 404
-- **server/index.js**: Logging extensivo para debugging en producción
+#### Deployment: "vite: not found" en Build
+- **Problema**: `npm ci` no instala devDependencies en producción
+- **Solución**: Movidas herramientas de build a `dependencies`:
+  - `vite`, `@vitejs/plugin-react`, `tailwindcss`, `postcss`, `autoprefixer`
 
-#### Deployment: API URL incorrecta en producción
-- **Problema**: Frontend intentaba acceder a `https://d4build.onrender.com:3001/api` (puerto explícito en producción)
-- **Causa**: Lógica de detección de API URL agregaba `:3001` para todas las URLs no-localhost
-- **Solución**: 
-  - Actualizado `ApiService.ts` para NO agregar puerto en producción
-  - En producción: `https://dominio.com/api` (sin puerto)
-  - En desarrollo: `http://localhost:3001/api` (con puerto)
-  - Soporte para `VITE_API_URL` env var si se necesita backend separado
-
-#### Deployment: Backend no servía frontend
-- **Problema**: En producción, backend solo tenía API, frontend debía desplegarse por separado
-- **Solución**: 
-  - Agregado middleware `express.static` para servir archivos desde `dist/`
-  - Agregada ruta catch-all `app.get('*')` para SPA routing
-  - Ahora un solo servicio sirve frontend + backend (más económico)
-  - Imports de `path` y `fileURLToPath` para ES6 modules
-
-#### Deployment: "vite: not found" Error
-- **Problema**: Build falla en Render/Netlify con `sh: 1: vite: not found`
-- **Causa**: `npm ci` en producción no instala `devDependencies`, donde estaba `vite`
-- **Solución**: Movidas herramientas de build de `devDependencies` a `dependencies`:
-  - `vite` (build tool)
-  - `@vitejs/plugin-react` (Vite plugin)
-  - `tailwindcss` (CSS framework)
-  - `postcss` (CSS processor)
-  - `autoprefixer` (CSS vendor prefixes)
-- **Resultado**: Deployment exitoso en servicios de hosting
+#### Deployment: API URL incorrecta
+- **Problema**: Frontend intentaba acceder a `https://d4build.onrender.com:3001/api`
+- **Solución**: Eliminado puerto en producción (`ApiService.ts`)
+- **Resultado**: URL correcta `https://d4build.onrender.com/api`
 
 #### TypeScript Build Errors
-- **Problema**: Errores de compilación en producción por tipos implícitos `any`
-- **Archivos afectados**: AdminUsers.tsx, CharacterParagon.tsx, CharacterSkills.tsx, BillingPanel.tsx, ImportResultsModal.tsx, Modal.tsx, HeroSkills.tsx, PromptGenerator.tsx
+- **Problema**: 130+ errores de tipos implícitos `any` en producción
 - **Solución**: 
-  - Ajustado `tsconfig.json` para permitir tipos implícitos (`strict: false`, `noImplicitAny: false`)
-  - Modificado script de build de `tsc && vite build` a solo `vite build`
-  - Agregado script `build:check` para verificación completa de tipos en desarrollo
-  - Mantiene verificaciones importantes (strictNullChecks, strictFunctionTypes, etc.)
-
-### 📚 Added (Agregado)
-
-#### Documentación
-- **BUILD_GUIDE.md**: Guía completa para resolver errores de TypeScript en build
-  - Explicación del problema y solución
-  - Comandos de build para desarrollo vs producción
-  - Troubleshooting de errores comunes (incluyendo "vite: not found")
-  - Configuración para diferentes plataformas (Render, Vercel, Netlify)
-  - Verificación post-build
-  - Mejoras futuras opcionales para mantener strict mode en desarrollo
-
-#### Referencias cruzadas
-- Actualizado README.md con link a BUILD_GUIDE.md
-- Actualizado DEPLOYMENT.md con:
-  - Diagrama de arquitectura fullstack en un solo servicio
-  - Instrucciones específicas para Render (build + start commands)
-  - Variables de entorno actualizadas (sin CORS_ORIGIN)
-  - Pasos de verificación con URLs correctas
-  - Eliminada configuración de frontend separado
-- Sección de soporte mejorada con BUILD_GUIDE como primer punto
+  - Ajustado `tsconfig.json`: `strict: false`, `noImplicitAny: false`
+  - Cambiado build script: `vite build` (sin `tsc`)
+  - Nuevo script `build:check` para desarrollo
+- **Afectado**: AdminUsers.tsx, CharacterParagon.tsx, BillingPanel.tsx, etc.
 
 ### 🔄 Changed (Cambiado)
 
-#### Backend (server/index.js)
-- **Arquitectura fullstack**: Backend ahora sirve frontend en producción
-  - Imports agregados: `path`, `fileURLToPath` para ES6 modules
-  - Middleware `express.static(dist/)` para archivos estáticos
-  - Ruta catch-all `app.get('*')` que sirve `index.html` (SPA routing)
-  - Solo se activa en producción (`NODE_ENV=production`)
-- **Elimina necesidad de**: 
-  - Servicio separado para frontend
-  - Configuración de CORS compleja
-  - Múltiples dominios/servicios
+#### Arquitectura Fullstack
+- **Backend sirve frontend**: Express ahora sirve archivos de `dist/` en producción
+- **Middleware agregado**: `express.static(dist/)` + catch-all `GET *`
+- **Beneficios**:
+  - Un solo servicio (frontend + backend)
+  - Sin necesidad de CORS complejo
+  - Más económico en hosting
+  - Deployment unificado
 
-#### Frontend (src/services/ApiService.ts)
-- **Detección de API URL mejorada**:
-  - Desarrollo: `http://localhost:3001/api` (con puerto)
+#### CORS Dinámico
+- **Producción**: Permite same-origin automáticamente (fullstack)
+- **Desarrollo**: Permite localhost:* y redes locales
+- **Variable `CORS_ORIGIN`**: Opcional (solo si backend separado)
+
+#### Orden de Middlewares
+Reorganizado para máxima compatibilidad:
+1. CORS + express.json
+2. Logging (solo producción)
+3. API Routes (/api/*)
+4. Health check
+5. 404 handler para API no encontradas
+6. Static files (dist/)
+7. Catch-all SPA routing
+8. Error handler
   - Producción: `${protocol}//${hostname}/api` (sin puerto)
   - Soporte para override via `VITE_API_URL` env var
   - Log mejorado con info de override

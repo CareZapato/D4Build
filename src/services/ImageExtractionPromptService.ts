@@ -2636,4 +2636,334 @@ No se trata de extraer datos, sino de analizar la efectividad y coherencia del b
 
 **IMPORTANTE:** Sé específico y constructivo. El objetivo es ayudar al jugador a mejorar su build de manera concreta.`;
   }
+
+  // ============================================================================
+  // PROMPTS PARA MECÁNICAS DE CLASE (v0.8.0)
+  // ============================================================================
+
+  static generateClassMechanicsPrompt(): string {
+    return `Analiza la imagen y extrae la información de las mecánicas únicas de clase de Diablo 4.
+
+**⚠️ IMPORTANTE - MECÁNICAS DE CLASE:**
+
+Cada clase tiene mecánicas únicas:
+- **Paladín**: Juramentos (Disciple, Arbiter, etc.)
+- **Hechicero**: Libros de hechizos
+- **Nigromante**: Libros de los muertos
+- **Bárbaro**: Arsenal (dominio de armas)
+- **Pícaro**: Especialización (Combo, Momentum, Inner Sight)
+- **Druida**: Espíritus animales
+- **Espiritista**: Espíritus ancestrales
+
+**Formato JSON esperado:**
+
+\`\`\`json
+{
+  "mecanica_clase": {
+    "id": "mecanica_paladin_juramentos",
+    "nombre": "Juramentos",
+    "tipo": "mecanica_clase",
+    "clase": "Paladín",
+    "selecciones": [
+      {
+        "id": "juramento_disciple",
+        "nombre": "Disciple",
+        "categoria": "juramento",
+        "grupo": "juramento_principal",
+        "nivel": 1,
+        "nivel_maximo": 1,
+        "activo": true,
+        "efecto": "Tus habilidades sagradas e invocaciones reciben beneficios según este Juramento.",
+        "detalles": [
+          "Juramento orientado a habilidades sagradas.",
+          "Mejora sinergias con invocaciones celestiales."
+        ],
+        "tags": ["sagrado", "invocacion", "juramento"]
+      },
+      {
+        "id": "juramento_arbiter",
+        "nombre": "Arbiter",
+        "categoria": "juramento",
+        "grupo": "juramento_principal",
+        "nivel": 1,
+        "nivel_maximo": 1,
+        "activo": false,
+        "efecto": "Aumenta tu daño crítico y velocidad de ataque cuando usas habilidades de Justicia.",
+        "detalles": [
+          "Juramento enfocado en daño crítico.",
+          "Beneficia habilidades de categoría Justicia."
+        ],
+        "tags": ["critico", "velocidad_ataque", "justicia"]
+      }
+    ]
+  },
+  "palabras_clave": [
+    {
+      "tag": "sagrado",
+      "texto_original": "sagradas",
+      "significado": "Habilidades o efectos de daño divino o bendito.",
+      "categoria": "tipo_daño",
+      "fuente": "mecanica_clase"
+    },
+    {
+      "tag": "invocacion",
+      "texto_original": "invocaciones",
+      "significado": "Habilidades que invocan entidades celestiales para ayudar en combate.",
+      "categoria": "tipo_habilidad",
+      "fuente": "mecanica_clase"
+    }
+  ]
+}
+\`\`\`
+
+**INSTRUCCIONES:**
+
+1. **Identificar la clase**: Determina qué clase es (Paladín, Hechicero, etc.)
+2. **Nombre de la mecánica**: Nombre general del sistema (ej: "Juramentos", "Libros de hechizos")
+3. **Selecciones individuales**: Cada opción dentro de la mecánica
+   - **id**: Identificador único
+   - **nombre**: Nombre de la selección
+   - **categoria**: Tipo de selección (juramento, libro, espíritu, etc.)
+   - **grupo**: Grupo al que pertenece (principal, secundario, etc.)
+   - **nivel**: Nivel actual (si aplica)
+   - **nivel_maximo**: Nivel máximo posible
+   - **activo**: Si está seleccionado/activo actualmente (true/false)
+   - **efecto**: Descripción del efecto principal
+   - **detalles**: Lista de detalles adicionales
+   - **tags**: Palabras clave relacionadas
+
+4. **Palabras clave**: Extrae conceptos importantes mencionados en los efectos
+
+**IMPORTANTE:**
+- Solo la(s) selección(es) que estén **visiblemente activadas/seleccionadas** deben tener \`"activo": true\`
+- Las demás opciones disponibles pero no seleccionadas tienen \`"activo": false\`
+- Algunas mecánicas permiten múltiples selecciones activas (ej: Nigromante puede tener varios libros activos)
+- Captura TODAS las opciones visibles, no solo las activas
+
+**NOTA CONTEXTUAL:**
+Si el jugador ya tiene esta mecánica en su catálogo de héroe, los nombres deben coincidir exactamente para permitir la sincronización automática.`;
+  }
+
+  // ============================================================================
+  // PROMPTS PARA EVENTOS DEL MUNDO / PROGRESIÓN (v0.9.0)
+  // ============================================================================
+
+  static generateWorldEventsPrompt(): string {
+    return `🎯 **ROL**: Experto en sistemas de progresión de videojuegos tipo RPG (Diablo 4).
+
+**OBJETIVO**: Analiza la imagen y extrae **PASO A PASO** la información de eventos del mundo (Guaridas, Susurros, Eventos, Calabozos, Legiones, Reservas).
+
+---
+
+## 🔍 INSTRUCCIONES PASO A PASO
+
+### PASO 1: IDENTIFICAR EVENTOS VISIBLES
+
+Para cada evento en la imagen, extrae:
+
+- **id**: Identificador único (ej: \`guarida_duriel\`, \`susurro_legion_salvaje\`)
+- **nombre**: Nombre completo como aparece
+- **tipo**: \`guarida\`, \`susurro\`, \`evento\`, \`calabozo\`, \`legion\`, \`reserva\`
+- **boss**: Nombre del jefe si aplica (null si no)
+- **ubicacion**: Zona/región del mapa si es visible
+
+### PASO 2: EXTRAER OBJETIVO Y PROGRESO
+
+Para cada evento:
+
+- **objetivo.tipo**: \`kill\`, \`completar\`, \`recolectar\`, \`explorar\`, \`defender\`
+- **objetivo.descripcion**: Texto descriptivo del objetivo
+- **objetivo.progreso**: Si es visible, captura actual/max (ej: {"actual": 2, "max": 5})
+
+### PASO 3: IDENTIFICAR REQUISITOS (MUY IMPORTANTE)
+
+Lista **TODO** lo que se necesita para acceder al evento:
+
+- **tipo**: \`material\`, \`llave\`, \`currency\`, \`nivel\`, \`acceso\`
+- **nombre**: Nombre del recurso requerido
+- **cantidad**: Número exacto (ej: 2)
+- **id_recurso**: Identificador único (ej: \`recurso_fragmentos_agonia\`)
+
+⚠️ **CRÍTICO**: El \`id_recurso\` debe ser consistente entre requisitos y recompensas para detectar relaciones.
+
+### PASO 4: IDENTIFICAR RECOMPENSAS (MUY IMPORTANTE)
+
+Lista **TODO** lo que se obtiene al completar:
+
+- **tipo**: \`loot\`, \`material\`, \`currency\`, \`experiencia\`, \`acceso\`
+- **nombre**: Nombre del recurso obtenido
+- **cantidad**: Número si es visible (null si variable)
+- **probabilidad**: \`alta\`, \`media\`, \`baja\` (deduce del contexto)
+- **garantizado**: true si siempre se obtiene, false si es RNG
+- **id_recurso**: Identificador único (ej: \`recurso_fragmentos_agonia\`)
+
+⚠️ **CRÍTICO**: Usa el mismo \`id_recurso\` si este recurso también aparece como requisito en otro evento.
+
+### PASO 5: CAPTURAR INFORMACIÓN DE TIEMPO
+
+Si es visible:
+
+- **tiempo.expira_en**: "X días Y horas" si tiene timer
+- **tiempo.tiempo_completar**: Estimación de duración ("10-15 min")
+- **tiempo.cooldown**: Tiempo entre repeticiones si aplica
+
+### PASO 6: METADATOS Y TAGS
+
+- **dificultad**: \`normal\`, \`pesadilla\`, \`tortura\`, \`otro\`
+- **repetible**: true/false si se puede hacer múltiples veces
+- **tags**: Array de etiquetas útiles:
+  - \`boss\`, \`endgame\`, \`farm\`, \`material_farm\`, \`currency_farm\`
+  - \`time_limited\`, \`uber_boss\`, \`evento_mundial\`, \`elite\`
+
+---
+
+## 📊 FORMATO JSON ESPERADO
+
+\`\`\`json
+{
+  "eventos": [
+    {
+      "id": "guarida_duriel",
+      "nombre": "Guarida de Duriel",
+      "tipo": "guarida",
+      "subtipo": "boss",
+      "boss": "Duriel, Señor del Dolor",
+      "objetivo": {
+        "tipo": "kill",
+        "descripcion": "Derrotar a Duriel",
+        "progreso": {"actual": null, "max": 1}
+      },
+      "requisitos": [
+        {
+          "tipo": "material",
+          "nombre": "Fragmentos de Agonía",
+          "cantidad": 2,
+          "id_recurso": "recurso_fragmentos_agonia"
+        }
+      ],
+      "recompensas": [
+        {
+          "tipo": "loot",
+          "nombre": "Loot único de Duriel",
+          "cantidad": null,
+          "probabilidad": "alta",
+          "garantizado": true,
+          "id_recurso": "loot_duriel"
+        }
+      ],
+      "tiempo": {
+        "expira_en": null,
+        "tiempo_completar": "10-15 min",
+        "cooldown": null
+      },
+      "ubicacion": "Kehjistan - Cavernas del Odio",
+      "dificultad": "tortura",
+      "repetible": true,
+      "descripcion": "Invoca y derrota a Duriel para obtener loot único.",
+      "tags": ["boss", "endgame", "farm", "uber_boss"]
+    }
+  ]
+}
+\`\`\`
+
+---
+
+## ⚙️ REGLAS CRÍTICAS
+
+1. **IDs únicos consistentes**:
+   - \`id_recurso\` DEBE ser el mismo si el recurso aparece en múltiples eventos
+   - Ejemplo: Si "Fragmentos de Agonía" se requiere en A y se obtiene en B, ambos usan \`recurso_fragmentos_agonia\`
+
+2. **Probabilidades realistas**:
+   - \`alta\`: >70% drop rate (materiales comunes)
+   - \`media\`: 30-70% (ítems raros)
+   - \`baja\`: <30% (ítems muy raros, Chispas, Únicas específicas)
+
+3. **Tipos de recursos**:
+   - \`material\`: Materiales de crafteo (Fragmentos, Polvos)
+   - \`currency\`: Monedas del juego (Favores Lúgubres, Oro)
+   - \`llave\`: Objetos de acceso (Invocaciones)
+   - \`loot\`: Equipo/ítems equipables
+   - \`acceso\`: Desbloqueo de contenido
+
+4. **Repetibilidad**:
+   - \`repetible: true\`: Se puede farmear (bosses, calabozos)
+   - \`repetible: false\`: Una vez por timer/temporada (susurros únicos)
+
+5. **Si falta información**:
+   - Usa \`null\` para campos desconocidos
+   - NO inventes datos que no estén en la imagen
+   - Deduce probabilidades solo del contexto visual (ej: "garantizado" si dice "siempre")
+
+---
+
+## 🔗 EJEMPLO DE DETECCIÓN DE RELACIONES
+
+Si en la imagen ves:
+
+**Evento A (Susurro)**:
+- Requiere: 10 Favores Lúgubres
+- Recompensa: 5 Invocaciones Lúgubres (\`id_recurso: "recurso_invocaciones_lugubres"\`)
+
+**Evento B (Guarida)**:
+- Requiere: 2 Invocaciones Lúgubres (\`id_recurso: "recurso_invocaciones_lugubres"\`)
+- Recompensa: Fragmentos de Agonía
+
+El sistema detectará automáticamente: **Evento A → genera → Evento B**
+
+---
+
+## ✅ OUTPUT FINAL
+
+Devuelve **SOLO** un objeto JSON con esta estructura exacta:
+
+{
+  "eventos": [
+    {
+      "id": "guarida_duriel",
+      "nombre": "Guarida de Duriel",
+      "tipo": "guarida",
+      "boss": "Duriel, Señor del Dolor",
+      "ubicacion": "Santuario Helado",
+      "objetivo": {
+        "tipo": "kill",
+        "descripcion": "Derrotar a Duriel",
+        "progreso": null
+      },
+      "requisitos": [
+        {
+          "tipo": "material",
+          "nombre": "Fragmentos de Agonía",
+          "cantidad": 2,
+          "id_recurso": "recurso_fragmentos_agonia"
+        }
+      ],
+      "recompensas": [
+        {
+          "tipo": "loot",
+          "nombre": "Loot Único/Épico",
+          "cantidad": null,
+          "probabilidad": "alta",
+          "garantizado": true,
+          "id_recurso": "recurso_loot_unico"
+        }
+      ],
+      "nivel_recomendado": null,
+      "dificultad": null,
+      "tiempo_estimado": null,
+      "tags": ["boss", "endgame"],
+      "notas": ""
+    }
+  ]
+}
+
+**CRÍTICO**: 
+- El objeto raíz DEBE tener la clave "eventos" con un array dentro
+- NO devuelvas solo un array [...], sino un objeto con eventos adentro
+- El sistema generará automáticamente: grafo, indice_recursos, rutas_sugeridas, analisis
+- NO incluyas manualmente esos campos
+- ENFÓCATE en extraer SOLO los eventos con la mayor precisión posible
+
+**Devuelve ÚNICAMENTE el JSON, sin texto adicional antes o después.**`;
+  }
 }

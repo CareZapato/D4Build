@@ -67,6 +67,7 @@ const ImportResultsModal: React.FC<ImportResultsModalProps> = ({
       skills: 'Habilidades',
       glifos: 'Glifos',
       aspectos: 'Aspectos',
+      mecanicas: 'Mecánicas de Clase',
       estadisticas: 'Estadísticas',
       paragon: 'Paragón',
       runas: 'Runas',

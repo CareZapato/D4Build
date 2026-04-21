@@ -170,7 +170,7 @@ const RunesGemsSection: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={activeTab === 'runas' ? 'Buscar runas por nombre, efecto, tags...' : 'Buscar gemas por nombre, calidad, efectos...'}
-            className="input w-full pl-10"
+            className="input w-full !pl-14"
           />
         </div>
       </div>

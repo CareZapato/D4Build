@@ -252,7 +252,7 @@ export const AdminUsers = () => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-10 pr-4 py-2 bg-d4-card border border-d4-border rounded-lg text-d4-text placeholder-d4-text-secondary focus:outline-none focus:border-d4-accent"
+            className="w-full !pl-14 pr-4 py-2 bg-d4-card border border-d4-border rounded-lg text-d4-text placeholder-d4-text-secondary focus:outline-none focus:border-d4-accent"
           />
         </div>
         <button

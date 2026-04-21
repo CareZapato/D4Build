@@ -329,7 +329,7 @@ const HeroGems: React.FC<Props> = ({ clase }) => {
               placeholder="Buscar gemas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input w-full pl-10"
+              className="input w-full !pl-14"
             />
           </div>
         </div>

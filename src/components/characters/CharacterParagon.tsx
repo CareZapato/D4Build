@@ -377,7 +377,7 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
                 placeholder="Buscar por nombre o ID..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-d4-bg border border-d4-border rounded-lg text-d4-text focus:outline-none focus:ring-2 focus:ring-d4-accent"
+                className="w-full !pl-14 pr-4 py-2 bg-d4-bg border border-d4-border rounded-lg text-d4-text focus:outline-none focus:ring-2 focus:ring-d4-accent"
               />
             </div>
 
@@ -609,7 +609,7 @@ const CharacterParagon: React.FC<Props> = ({ personaje }) => {
                     placeholder="Buscar nodos..."
                     value={busquedaModal}
                     onChange={(e) => setBusquedaModal(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-d4-bg border border-d4-border rounded-lg text-d4-text focus:outline-none focus:ring-2 focus:ring-d4-accent"
+                    className="w-full !pl-14 pr-4 py-2 bg-d4-bg border border-d4-border rounded-lg text-d4-text focus:outline-none focus:ring-2 focus:ring-d4-accent"
                   />
                 </div>
                 <select
