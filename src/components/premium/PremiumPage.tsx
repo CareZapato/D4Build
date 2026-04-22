@@ -125,15 +125,19 @@ const PremiumPage: React.FC = () => {
           <ul className="space-y-2.5">
             <li className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-              <span className="text-d4-text-dim text-sm">Gestión de personajes y builds</span>
+              <span className="text-d4-text-dim text-sm">Gestión completa de personajes y builds</span>
             </li>
             <li className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-              <span className="text-d4-text-dim text-sm">Habilidades, glifos y aspectos</span>
+              <span className="text-d4-text-dim text-sm">Habilidades, Glifos, Aspectos y Paragon</span>
             </li>
             <li className="flex items-start gap-2.5">
               <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-              <span className="text-d4-text-dim text-sm">Prompts básicos de IA</span>
+              <span className="text-d4-text-dim text-sm">Mecánicas de Clase</span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+              <span className="text-d4-text-dim text-sm">Prompts de diagnóstico (análisis de build actual)</span>
             </li>
             <li className="flex items-start gap-2.5 opacity-50">
               <Lock className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -145,7 +149,7 @@ const PremiumPage: React.FC = () => {
             </li>
             <li className="flex items-start gap-2.5 opacity-50">
               <Lock className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <span className="text-d4-text-dim text-sm line-through">Prompts avanzados (comparativas)</span>
+              <span className="text-d4-text-dim text-sm line-through">Prompts comparativos (vs pool del héroe)</span>
             </li>
             <li className="flex items-start gap-2.5 opacity-50">
               <Lock className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />

@@ -771,6 +771,143 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
 **NO uses**: "palabras_clave" ni "keywords" dentro de objetos de aspecto, solo "tags"`;
   }
 
+  // Generar prompt para extraer aspectos de mazmorras/calabozos de Diablo 4
+  static generateDungeonAspectsPrompt(): string {
+    return `Analiza la imagen de la mazmorra/calabozo de Diablo 4 que te voy a proporcionar y extrae la información del aspecto que se obtiene al completarla por primera vez.
+
+**⚠️ IMPORTANTE - CONTEXTO:**
+
+- Las mazmorras/calabozos otorgan UN SOLO ASPECTO como recompensa de primera vez
+- La imagen muestra el nombre de la mazmorra y el aspecto obtenido
+- **IDENTIFICACIÓN DEL HÉROE**: Al final de la imagen verás texto "Solo" seguido de un ICONO de clase de héroe
+- Los iconos de clase son:
+  - 🗡️ Bárbaro (guerrero con armadura pesada)
+  - 🐺 Druida (rostro con cuernos/naturaleza)
+  - 🏹 Pícaro (encapuchado/sombras)
+  - 🔮 Hechicera (maga con personal)
+  - 💀 Nigromante (calavera/oscuro)
+  - ⚔️ Paladín/Cruzado (caballero sagrado/cruz)
+  - 🌪️ Espiritista (espíritus/chamanismo)
+
+**INSTRUCCIONES:**
+
+1. Identifica el **nombre de la mazmorra** en la parte superior
+2. Localiza el texto "Solo" y el **icono de clase** que aparece junto a él
+3. Extrae toda la información del **aspecto recompensa**:
+   - Nombre completo del aspecto
+   - Efecto exacto con todos los valores numéricos
+   - Categoría según el COLOR del icono del aspecto
+   - Tags (palabras en BLANCO/SUBRAYADAS)
+4. El nivel siempre será "1/21" para aspectos de mazmorra
+
+**CATEGORÍAS POR COLOR:**
+- 🔵 **AZUL** = defensivo
+- 🔴 **ROJO** = ofensivo  
+- 🟢 **VERDE** = recurso
+- 🟣 **MORADO** = utilidad
+- 🟡 **AMARILLO** = movilidad
+
+**⚠️ TAGS ESTRUCTURADOS:**
+- Solo captura palabras que aparezcan en BLANCO/SUBRAYADAS en la descripción del aspecto
+- Cada tag debe tener: tag (normalizado), texto_original, significado, categoría
+
+**Formato JSON esperado:**
+
+**IMPORTANTE**: El JSON debe ser un OBJETO con una propiedad "mazmorras" que contiene un ARRAY de mazmorras.
+
+Ejemplo de estructura JSON:
+{
+  "mazmorras": [
+    {
+      "mazmorra": {
+        "nombre": "Madriguera Aullante",
+        "clase_requerida": "Paladín",
+        "descripcion": "Una guarida de lobos y huargos corruptos, hambrientos de carne humana."
+      },
+      "aspecto": {
+        "id": "aspecto_tormentas_flechas",
+        "name": "Aspecto de Tormentas de Flechas",
+        "shortName": "de Tormentas de Flechas",
+        "effect": "Golpe afortunado: Tus habilidades de Tirador y Degollador tienen hasta un 25% de probabilidad de crear una Tormenta de Flechas en la ubicación del enemigo, lo que inflige 310 de daño físico durante 3 segundos. Tus Tormentas de Flechas infligen un 45% más de daño.",
+        "level": "1/21",
+        "category": "ofensivo",
+        "tags": ["golpe_afortunado", "tirador", "degollador", "tormenta_flechas", "daño_fisico"],
+        "aspecto_id": "aspecto_tormentas_flechas",
+        "detalles": [],
+        "ubicacion_mazmorra": "Madriguera Aullante"
+      },
+      "palabras_clave": [
+        {
+          "tag": "golpe_afortunado",
+          "texto_original": "Golpe afortunado",
+          "significado": "Tus ataques y habilidades tienen una probabilidad de activar efectos especiales.",
+          "categoria": "mecanica",
+          "fuente": "tooltip"
+        },
+        {
+          "tag": "tirador",
+          "texto_original": "Tirador",
+          "significado": "Categoría de habilidades del Pícaro que usan armas a distancia.",
+          "categoria": "tipo_habilidad",
+          "fuente": "tooltip"
+        },
+        {
+          "tag": "degollador",
+          "texto_original": "Degollador",
+          "significado": "Categoría de habilidades del Pícaro de combate cuerpo a cuerpo.",
+          "categoria": "tipo_habilidad",
+          "fuente": "tooltip"
+        },
+        {
+          "tag": "tormenta_flechas",
+          "texto_original": "Tormenta de Flechas",
+          "significado": "Habilidad del Pícaro que dispara múltiples flechas en un área.",
+          "categoria": "habilidad",
+          "fuente": "tooltip"
+        },
+        {
+          "tag": "daño_fisico",
+          "texto_original": "daño físico",
+          "significado": "Tipo de daño que no es elemental (fuego, hielo, rayo, veneno, etc).",
+          "categoria": "tipo_daño",
+          "fuente": "tooltip"
+        }
+      ]
+    }
+  ]
+}
+
+**REGLAS CRÍTICAS:**
+
+1. **clase_requerida**: Identifica correctamente el héroe por el icono junto a "Solo":
+   - Bárbaro, Druida, Pícaro, Hechicera, Nigromante, Paladín, Espiritista
+
+2. **level**: Siempre "1/21" para aspectos de mazmorra
+
+3. **ubicacion_mazmorra**: Debe coincidir exactamente con el nombre de la mazmorra
+
+4. **shortName**: NUNCA incluye la palabra "Aspecto"
+
+5. **category**: Debe ser minúsculas: ofensivo, defensivo, recurso, utilidad, movilidad
+
+6. **effect**: Copia EXACTAMENTE el texto con todos los valores numéricos y símbolos %
+
+7. **aspecto_id**: Debe ser idéntico al valor de "id"
+
+8. **detalles**: Siempre un array vacío []
+
+9. **Tags solo palabras blancas/subrayadas**: Si no hay palabras destacadas, usa array vacío []
+
+**EJEMPLOS DE ERRORES COMUNES:**
+
+❌ clase_requerida: "Todos" → ✅ clase_requerida: "Pícaro" (identificar por icono)
+❌ level: "5/21" → ✅ level: "1/21" (siempre nivel 1 en mazmorras)
+❌ ubicacion_mazmorra: null → ✅ ubicacion_mazmorra: "Nombre de la Mazmorra"
+❌ category: "Ofensivo" → ✅ category: "ofensivo"
+
+**IMPORTANTE**: El icono de clase junto a "Solo" es CRÍTICO para determinar a qué héroe pertenece el aspecto. Identifícalo cuidadosamente.`;
+  }
+
   // Generar prompt para habilidades completas (activas + pasivas)
   static generateFullSkillsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae la información completa de las habilidades (activas y pasivas) de Diablo 4.

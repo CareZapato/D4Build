@@ -31,6 +31,9 @@ type CaptureMode = 'new' | 'continue';
 // Estructura jerárquica para Paragon
 type ParagonType = 'tablero' | 'nodo' | 'atributos';
 
+// Estructura jerárquica para Mundo
+type MundoType = 'eventos' | 'mazmorras_aspectos';
+
 const CATEGORIES: { 
   value: ImageCategory; 
   label: string; 
@@ -53,6 +56,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState<ImageCategory>('skills');
   const [paragonType, setParagonType] = useState<ParagonType>('tablero');
   const [runaGemaType, setRunaGemaType] = useState<'runas' | 'gemas'>('runas');
+  const [mundoType, setMundoType] = useState<MundoType>('eventos');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
@@ -67,10 +71,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [aiConfigClase, setAiConfigClase] = useState('');
   const [aiConfigPersonajeId, setAiConfigPersonajeId] = useState<string | null>(null);
   const [aiConfigParagonType, setAiConfigParagonType] = useState<ParagonType>('tablero');
+  const [aiConfigMundoType, setAiConfigMundoType] = useState<MundoType>('eventos');
   const [aiConfigRunaGemaType, setAiConfigRunaGemaType] = useState<'runas' | 'gemas'>('runas');
   const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [embedPromptInImage, setEmbedPromptInImage] = useState(false);
+  const [embedLeyendaInImage, setEmbedLeyendaInImage] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('new');
   const [lastSavedImageUrl, setLastSavedImageUrl] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -149,6 +155,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (newCategory === 'build') {
       setPromptType('personaje');
     }
+
+    // Mundo: seleccionar tipo por defecto
+    if (newCategory === 'mundo') {
+      setMundoType('eventos');
+      setPromptType('heroe'); // Eventos y mazmorras siempre van al héroe
+    }
   };
 
   // Manejar cambio de tipo Paragon
@@ -160,6 +172,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setPromptType('personaje');
     }
     // Para tablero y nodo, permitir ambos destinos (mantener selección actual)
+  };
+
+  // Manejar cambio de tipo Mundo
+  const handleMundoTypeChange = (type: MundoType) => {
+    setMundoType(type);
+    // Mundo siempre va a héroe
+    setPromptType('heroe');
   };
 
   // Cargar contadores de categorías al abrir
@@ -392,7 +411,201 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       promptHeight = (lines.length * lineHeight) + (padding * 2) + (PROMPT_MARGIN * 2);
     }
 
-    // Configurar canvas (con espacio extra para prompt si está activado)
+    // Calcular espacio para la leyenda si está activado (solo mazmorras de aspectos)
+    const shouldEmbedLeyenda = embedLeyendaInImage && selectedCategory === 'mundo' && mundoType === 'mazmorras_aspectos';
+    
+    if (shouldEmbedLeyenda) {
+      // Cargar la leyenda PRIMERO para conocer sus dimensiones reales
+      const leyendaImg = new Image();
+      leyendaImg.crossOrigin = 'anonymous';
+      leyendaImg.onload = () => {
+        const LEYENDA_MARGIN = 15;
+        const LEYENDA_MAX_WIDTH = totalWidth * 0.8;
+        
+        // Calcular dimensiones reales manteniendo proporción
+        const scale = Math.min(LEYENDA_MAX_WIDTH / leyendaImg.width, 1);
+        const scaledWidth = leyendaImg.width * scale;
+        const scaledHeight = leyendaImg.height * scale;
+        const leyendaHeight = scaledHeight + (LEYENDA_MARGIN * 2);
+        
+        console.log('🖼️ [composeImages] Leyenda cargada:', {
+          originalWidth: leyendaImg.width,
+          originalHeight: leyendaImg.height,
+          scaledWidth,
+          scaledHeight,
+          leyendaHeight,
+          totalWidth,
+          totalHeight
+        });
+
+        // Configurar canvas con espacio real para leyenda
+        canvas.width = totalWidth + (2 * OUTER_MARGIN);
+        canvas.height = totalHeight + promptHeight + leyendaHeight + (2 * OUTER_MARGIN);
+
+        // Fondo blanco
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Dibujar texto del prompt ARRIBA si está activado
+        if (embedPromptInImage && promptHeight > 0) {
+          const fontSize = 14;
+          const lineHeight = fontSize * 1.5;
+          const padding = 20;
+          
+          // Marco/borde alrededor del texto
+          const frameX = PROMPT_MARGIN + OUTER_MARGIN;
+          const frameY = PROMPT_MARGIN + OUTER_MARGIN;
+          const frameWidth = canvas.width - (PROMPT_MARGIN * 2) - (OUTER_MARGIN * 2);
+          const frameHeight = promptHeight - (PROMPT_MARGIN * 2);
+          
+          // Fondo gris claro para el cuadro del texto
+          ctx.fillStyle = '#F5F5F5';
+          ctx.fillRect(frameX, frameY, frameWidth, frameHeight);
+          
+          // Borde del marco (negro)
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(frameX, frameY, frameWidth, frameHeight);
+          
+          // Dibujar texto dentro del marco
+          ctx.fillStyle = '#000000';
+          ctx.font = `bold ${fontSize}px Arial`;
+          ctx.textBaseline = 'top';
+          
+          const words = promptText.split(' ');
+          const lines: string[] = [];
+          let currentLine = '';
+          const maxPromptWidth = frameWidth - (padding * 2);
+          
+          for (const word of words) {
+            const testLine = currentLine + word + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxPromptWidth && currentLine !== '') {
+              lines.push(currentLine.trim());
+              currentLine = word + ' ';
+            } else {
+              currentLine = testLine;
+            }
+          }
+          if (currentLine) lines.push(currentLine.trim());
+          
+          lines.forEach((line, i) => {
+            ctx.fillText(line, frameX + padding, frameY + padding + (i * lineHeight));
+          });
+        }
+
+        // Dibujar imágenes con layout inteligente (desplazadas hacia abajo si hay prompt)
+        const imageOffsetY = embedPromptInImage && promptHeight > 0 ? promptHeight : 0;
+        
+        if (totalCompleteGroups <= MAX_HORIZONTAL) {
+          // Layout horizontal (hasta 4 elementos)
+          let xOffset = OUTER_MARGIN;
+          completeGroups.forEach((group, groupIndex) => {
+            if (groupIndex > 0) xOffset += SPACING;
+            
+            let groupStartX = xOffset;
+            let yOffset = imageOffsetY + OUTER_MARGIN;
+            let maxGroupWidth = 0;
+            
+            group.forEach(item => {
+              ctx.drawImage(item.img, groupStartX, yOffset);
+              yOffset += item.img.height + VERTICAL_OFFSET;
+              maxGroupWidth = Math.max(maxGroupWidth, item.img.width);
+            });
+            
+            xOffset += maxGroupWidth;
+          });
+        } else {
+          // Layout vertical con filas de MAX_HORIZONTAL elementos
+          let currentRowY = imageOffsetY + OUTER_MARGIN;
+          
+          completeGroups.forEach((group, groupIndex) => {
+            const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
+            const colIndex = groupIndex % MAX_HORIZONTAL;
+            
+            if (colIndex === 0 && rowIndex > 0) {
+              // Calcular altura de fila anterior
+              let maxRowHeight = 0;
+              for (let i = (rowIndex - 1) * MAX_HORIZONTAL; i < Math.min(rowIndex * MAX_HORIZONTAL, totalCompleteGroups); i++) {
+                const prevGroup = completeGroups[i];
+                let groupHeight = 0;
+                prevGroup.forEach(item => {
+                  groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+                });
+                maxRowHeight = Math.max(maxRowHeight, groupHeight);
+              }
+              currentRowY += maxRowHeight + SPACING;
+            }
+            
+            // Calcular X offset para esta columna
+            let xOffset = OUTER_MARGIN;
+            for (let i = rowIndex * MAX_HORIZONTAL; i < groupIndex; i++) {
+              const prevGroup = completeGroups[i];
+              let groupWidth = 0;
+              prevGroup.forEach(item => {
+                groupWidth = Math.max(groupWidth, item.img.width);
+              });
+              xOffset += groupWidth + SPACING;
+            }
+            
+            // Dibujar grupo actual
+            let yOffset = currentRowY;
+            let groupStartX = xOffset;
+            group.forEach(item => {
+              ctx.drawImage(item.img, groupStartX, yOffset);
+              yOffset += item.img.height + VERTICAL_OFFSET;
+            });
+          });
+        }
+
+        // Dibujar leyenda ABAJO
+        const leyendaX = OUTER_MARGIN + (totalWidth - scaledWidth) / 2;
+        const leyendaY = totalHeight + promptHeight + OUTER_MARGIN + LEYENDA_MARGIN;
+        
+        console.log('🖼️ [composeImages] Dibujando leyenda en posición:', {
+          x: leyendaX,
+          y: leyendaY,
+          width: scaledWidth,
+          height: scaledHeight,
+          canvasHeight: canvas.height
+        });
+        
+        // Marco/borde alrededor de la leyenda
+        ctx.strokeStyle = '#7C3AED'; // Color púrpura para diferenciar
+        ctx.lineWidth = 3;
+        ctx.strokeRect(leyendaX - 5, leyendaY - 5, scaledWidth + 10, scaledHeight + 10);
+        
+        // Dibujar la leyenda
+        ctx.drawImage(leyendaImg, leyendaX, leyendaY, scaledWidth, scaledHeight);
+        
+        // Recrear el blob con la leyenda incluida
+        canvas.toBlob((blob) => {
+          if (blob) {
+            if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
+            const url = URL.createObjectURL(blob);
+            setComposedImageUrl(url);
+            console.log('✅ [composeImages] Imagen compuesta creada con leyenda');
+          }
+        }, 'image/png');
+      };
+      
+      leyendaImg.onerror = () => {
+        console.error('❌ No se pudo cargar la imagen de leyenda, continuando sin ella');
+        // Configurar canvas sin leyenda y continuar normalmente
+        canvas.width = totalWidth + (2 * OUTER_MARGIN);
+        canvas.height = totalHeight + promptHeight + (2 * OUTER_MARGIN);
+        
+        // El código siguiente dibujará sin leyenda automáticamente
+        // ya que shouldEmbedLeyenda solo controla la carga inicial
+      };
+      
+      console.log('🖼️ [composeImages] Cargando leyenda desde: /src/img/utils/leyenda.png');
+      leyendaImg.src = '/src/img/utils/leyenda.png';
+      return; // Esperar a que cargue la leyenda
+    }
+
+    // Si no hay leyenda, dibujar directamente sin ella
+    // Configurar canvas sin leyenda
     canvas.width = totalWidth + (2 * OUTER_MARGIN);
     canvas.height = totalHeight + promptHeight + (2 * OUTER_MARGIN);
 
@@ -514,12 +727,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
     }
 
-    // Crear blob
+    // Crear blob (si no hay leyenda para cargar)
     canvas.toBlob((blob) => {
       if (blob) {
         if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
         const url = URL.createObjectURL(blob);
         setComposedImageUrl(url);
+        console.log('✅ [composeImages] Imagen compuesta creada sin leyenda');
       }
     }, 'image/png');
   };
@@ -530,7 +744,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     } else {
       setComposedImageUrl(null);
     }
-  }, [capturedImages, embedPromptInImage]);
+  }, [capturedImages, embedPromptInImage, embedLeyendaInImage]);
 
   // Funciones helper
   const loadCategoryCounts = async () => {
@@ -705,7 +919,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   // Obtener prompt con parámetros opcionales para override
-  const getPromptForCategory = (overrideParagonType?: ParagonType, overrideRunaGemaType?: 'runas' | 'gemas'): string => {
+  const getPromptForCategory = (overrideParagonType?: ParagonType, overrideRunaGemaType?: 'runas' | 'gemas', overrideMundoType?: MundoType): string => {
     let basePrompt = '';
     const manualCount = parseInt(promptElementCount, 10);
     const parsedManualCount = Number.isFinite(manualCount) ? manualCount : undefined;
@@ -713,6 +927,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     // Usar valores override o valores del estado
     const effectiveParagonType = overrideParagonType ?? paragonType;
     const effectiveRunaGemaType = overrideRunaGemaType ?? runaGemaType;
+    const effectiveMundoType = overrideMundoType ?? mundoType;
 
     const buildSummaryForPrompt = (personaje?: any): string => {
       if (!personaje?.build || typeof personaje.build !== 'object') return '';
@@ -752,7 +967,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         basePrompt = ImageExtractionPromptService.generateClassMechanicsPrompt();
         break;
       case 'mundo':
-        basePrompt = ImageExtractionPromptService.generateWorldEventsPrompt();
+        // Usar prompt específico según tipo
+        if (effectiveMundoType === 'mazmorras_aspectos') {
+          basePrompt = ImageExtractionPromptService.generateDungeonAspectsPrompt();
+        } else {
+          basePrompt = ImageExtractionPromptService.generateWorldEventsPrompt();
+        }
         break;
       case 'estadisticas':
         basePrompt = ImageExtractionPromptService.generateStatsPrompt();
@@ -1900,7 +2120,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const skipAutoSave = options?.skipAutoSave ?? false;
     const effectiveCategory = selectedCategory;
     const runaGemaEffectiveCategory: 'runas' | 'gemas' = runaGemaType;
-    const validationCategory = effectiveCategory === 'runas' ? runaGemaEffectiveCategory : effectiveCategory;
+    
+    // Determinar categoría de validación (puede incluir 'mazmorras' que no está en ImageCategory)
+    let validationCategory: string = effectiveCategory;
+    if (effectiveCategory === 'runas') {
+      validationCategory = runaGemaEffectiveCategory;
+    } else if (effectiveCategory === 'mundo' && mundoType === 'mazmorras_aspectos') {
+      validationCategory = 'mazmorras';
+    }
+    
     const effectivePromptType: 'heroe' | 'personaje' =
       effectiveCategory === 'estadisticas'
         ? 'personaje'
@@ -1984,6 +2212,224 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // =============== CATEGORÍAS GLOBALES (Mundo, Runas/Gemas) ===============
       // Estas categorías no requieren héroe ni personaje, pero SÍ requieren workspace
       if (effectiveCategory === 'mundo') {
+        // Determinar si son eventos del mundo o mazmorras de aspectos
+        const effectiveMundoType = mundoType;
+        
+        if (effectiveMundoType === 'mazmorras_aspectos') {
+          console.log('🎰 [IMPORTACIÓN MAZMORRAS] Iniciando importación de mazmorras de aspectos');
+          console.log('📄 [IMPORTACIÓN MAZMORRAS] JSON recibido:', JSON.stringify(data, null, 2));
+          
+          // =============== MAZMORRAS DE ASPECTOS ===============
+          // El JSON debe tener una propiedad "mazmorras" con un array
+          if (!data.mazmorras || !Array.isArray(data.mazmorras)) {
+            console.error('❌ [IMPORTACIÓN MAZMORRAS] Error: JSON sin propiedad "mazmorras" o no es array');
+            console.error('📄 [IMPORTACIÓN MAZMORRAS] Estructura recibida:', { mazmorras: data.mazmorras, tipo: typeof data.mazmorras });
+            showToast('⚠️ El JSON debe contener una propiedad "mazmorras" con un array', 'error');
+            const errorResult: ImportResultDetails = {
+              success: false,
+              category: 'mundo',
+              promptType: 'heroe',
+              targetName: 'Mazmorras de Aspectos',
+              validationErrors: [{ field: 'mazmorras', expected: 'Array de objetos {mazmorra, aspecto, palabras_clave}', received: typeof data.mazmorras, severity: 'error' }],
+              rawJSON: jsonPayload,
+              parsedJSON: parsedData,
+              errorMessage: 'JSON sin propiedad "mazmorras" o no es un array'
+            };
+            setImporting(false);
+            return errorResult;
+          }
+
+          const mazmorrasArray = data.mazmorras;
+          console.log(`📋 [IMPORTACIÓN MAZMORRAS] Total de mazmorras en el array: ${mazmorrasArray.length}`);
+          
+          // Validar estructura básica de cada mazmorra
+          const invalidMazmorras = mazmorrasArray.filter((m: any) => !m.mazmorra || !m.aspecto || !m.mazmorra.clase_requerida);
+          if (invalidMazmorras.length > 0) {
+            console.error(`❌ [IMPORTACIÓN MAZMORRAS] ${invalidMazmorras.length} mazmorras con estructura inválida:`, invalidMazmorras);
+            showToast('⚠️ Cada mazmorra debe tener "mazmorra" con "clase_requerida" y "aspecto"', 'error');
+            const errorResult: ImportResultDetails = {
+              success: false,
+              category: 'mundo',
+              promptType: 'heroe',
+              targetName: 'Mazmorras de Aspectos',
+              validationErrors: [{ field: 'estructura', expected: 'JSON con {mazmorra: {clase_requerida}, aspecto}', received: 'JSON sin estructura correcta', severity: 'error' }],
+              rawJSON: jsonPayload,
+              parsedJSON: parsedData,
+              errorMessage: 'JSON sin estructura correcta para mazmorra de aspectos'
+            };
+            setImporting(false);
+            return errorResult;
+          }
+
+          try {
+            console.log('💾 [IMPORTACIÓN MAZMORRAS] Cargando archivo mazmorras_data.json...');
+            // Cargar archivo de mazmorras global
+            const mazmorrasData = await WorkspaceService.loadWorldData('mazmorras') || { mazmorras: [] };
+            const mazmorrasGuardadas: any[] = mazmorrasData.mazmorras || [];
+            console.log(`💾 [IMPORTACIÓN MAZMORRAS] Mazmorras existentes en archivo: ${mazmorrasGuardadas.length}`);
+
+            let totalMazmorrasImportadas = 0;
+            let totalMazmorrasActualizadas = 0;
+            const clasesAfectadas = new Set<string>();
+
+            // Procesar cada mazmorra
+            for (const mazmorraData of mazmorrasArray) {
+              const { mazmorra, aspecto, palabras_clave } = mazmorraData;
+              console.log(`🎰 [IMPORTACIÓN MAZMORRAS] Procesando mazmorra: "${mazmorra.nombre}"`);
+              
+              // Extraer clase del héroe
+              const claseHeroe = mazmorra.clase_requerida;
+              console.log(`🧙 [IMPORTACIÓN MAZMORRAS] Clase requerida: ${claseHeroe}`);
+              
+              // Verificar que la clase sea válida
+              if (!availableClasses.includes(claseHeroe)) {
+                console.warn(`⚠️ [IMPORTACIÓN MAZMORRAS] Clase "${claseHeroe}" no reconocida, saltando...`);
+                continue;
+              }
+
+              clasesAfectadas.add(claseHeroe);
+
+              // Generar ID único para la mazmorra si no existe
+              const mazmorraId = `mazmorra_${mazmorra.nombre.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+              console.log(`🎯 [IMPORTACIÓN MAZMORRAS] ID generado: ${mazmorraId}`);
+
+              // ====== PASO 1: Guardar/Actualizar aspecto en archivo del héroe ======
+              const aspectoId = aspecto.id || aspecto.aspecto_id || `aspecto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              console.log(`🎨 [IMPORTACIÓN MAZMORRAS] Guardando aspecto "${aspecto.name}" en archivo del héroe ${claseHeroe}...`);
+              
+              // Cargar aspectos del héroe
+              const heroeData = await WorkspaceService.loadHeroAspects(claseHeroe) || { aspectos: [] };
+              const aspectosHeroe = heroeData.aspectos || [];
+              
+              // Preparar aspecto completo con formato correcto
+              const aspectoCompleto = {
+                id: aspectoId,
+                name: aspecto.name,
+                shortName: aspecto.shortName,
+                effect: aspecto.effect,
+                level: aspecto.level || "1/21",
+                category: aspecto.category,
+                tags: aspecto.tags || [],
+                aspecto_id: aspectoId,  // Duplicado del ID (formato héroe)
+                detalles: aspecto.detalles || []  // Array vacío por defecto
+              };
+              
+              // Verificar si el aspecto ya existe en el héroe
+              const aspectoExistenteIndex = aspectosHeroe.findIndex((a: any) => a.id === aspectoId || a.aspecto_id === aspectoId);
+              
+              if (aspectoExistenteIndex >= 0) {
+                console.log(`🔄 [IMPORTACIÓN MAZMORRAS] Aspecto ya existe en ${claseHeroe}, actualizando...`);
+                aspectosHeroe[aspectoExistenteIndex] = {
+                  ...aspectosHeroe[aspectoExistenteIndex],
+                  ...aspectoCompleto
+                };
+              } else {
+                console.log(`➕ [IMPORTACIÓN MAZMORRAS] Agregando nuevo aspecto a ${claseHeroe}`);
+                aspectosHeroe.push(aspectoCompleto);
+              }
+              
+              // Guardar aspectos actualizados del héroe
+              heroeData.aspectos = aspectosHeroe;
+              await WorkspaceService.saveHeroAspects(claseHeroe, heroeData);
+              console.log(`✅ [IMPORTACIÓN MAZMORRAS] Aspecto guardado en ${claseHeroe}_aspectos.json`);
+
+              // ====== PASO 2: Guardar solo ID del aspecto en mazmorras_data.json ======
+              const mazmorraRegistro = {
+                id: mazmorraId,
+                nombre: mazmorra.nombre,
+                descripcion: mazmorra.descripcion || '',
+                clase_requerida: claseHeroe,
+                aspecto_id: aspectoId,  // Solo el ID, no el objeto completo
+                palabras_clave: palabras_clave || [],
+                fecha_registro: new Date().toISOString(),
+                fecha_actualizacion: new Date().toISOString()
+              };
+
+              // Verificar si ya existe por nombre de mazmorra
+              const existingIndex = mazmorrasGuardadas.findIndex(m => m.nombre === mazmorra.nombre);
+              console.log(`🔍 [IMPORTACIÓN MAZMORRAS] ¿Mazmorra "${mazmorra.nombre}" ya existe? ${existingIndex >= 0 ? 'Sí (actualizar)' : 'No (crear nueva)'}`);
+              
+              if (existingIndex >= 0) {
+                // Actualizar existente manteniendo el ID y fecha de registro
+                mazmorraRegistro.id = mazmorrasGuardadas[existingIndex].id || mazmorraId;
+                mazmorraRegistro.fecha_registro = mazmorrasGuardadas[existingIndex].fecha_registro || mazmorraRegistro.fecha_registro;
+                mazmorrasGuardadas[existingIndex] = mazmorraRegistro;
+                totalMazmorrasActualizadas++;
+                updatedItemsList.push(`${mazmorra.nombre} (${claseHeroe})`);
+              } else {
+                // Agregar nueva
+                mazmorrasGuardadas.push(mazmorraRegistro);
+                totalMazmorrasImportadas++;
+                addedItems.push(`${mazmorra.nombre} (${claseHeroe})`);
+              }
+            }
+
+            // Guardar archivo de mazmorras global
+            mazmorrasData.mazmorras = mazmorrasGuardadas;
+            console.log(`💾 [IMPORTACIÓN MAZMORRAS] Guardando en mazmorras_data.json (raiz del workspace)...`);
+            console.log(`💾 [IMPORTACIÓN MAZMORRAS] Total de mazmorras en archivo: ${mazmorrasGuardadas.length}`);
+            await WorkspaceService.saveWorldData('mazmorras', mazmorrasData);
+            console.log(`✅ [IMPORTACIÓN MAZMORRAS] Archivo mazmorras_data.json guardado exitosamente`);
+
+            itemsImported = totalMazmorrasImportadas;
+            itemsUpdated = totalMazmorrasActualizadas;
+            shouldReload = true;
+
+            const resumenClases = Array.from(clasesAfectadas).join(', ');
+            console.log(`✅ [IMPORTACIÓN MAZMORRAS] Resumen final:`);
+            console.log(`   - Nuevas: ${totalMazmorrasImportadas}`);
+            console.log(`   - Actualizadas: ${totalMazmorrasActualizadas}`);
+            console.log(`   - Clases afectadas: ${resumenClases}`);
+            console.log(`   - Archivo: mazmorras_data.json (GLOBAL, en raíz del workspace)`);
+            showToast(`✅ ${totalMazmorrasImportadas + totalMazmorrasActualizadas} mazmorra(s) guardadas en archivo GLOBAL (clases: ${resumenClases})`, 'success');
+
+            // Auto-guardar JSON + imagen en galería
+            if (!skipAutoSave) {
+              await autoSaveJSONAfterImport(jsonPayload);
+            }
+
+            const mazmorraDungeonResult: ImportResultDetails = {
+              success: true,
+              category: 'mundo',
+              promptType: 'heroe',
+              targetName: `Mundo → Mazmorras de Aspectos (archivo global: mazmorras_data.json)`,
+              jsonInputsProcessed: mazmorrasArray.length,
+              itemsImported,
+              itemsUpdated,
+              itemsSkipped: 0,
+              addedItems,
+              updatedItemsList,
+              repeatedItems: [],
+              fieldsAdded: addedItems,
+              validationErrors: validation.warnings,
+              rawJSON: jsonPayload,
+              totalInputItems: mazmorrasArray.length,
+              parsedJSON: parsedData
+            };
+
+            setJsonText('');
+            setImporting(false);
+            return mazmorraDungeonResult;
+
+          } catch (error: any) {
+            console.error('❌ Error guardando aspectos de mazmorra:', error);
+            showToast(`❌ ${error.message}`, 'error');
+            
+            const errorResult: ImportResultDetails = {
+              success: false,
+              category: 'mundo',
+              promptType: 'heroe',
+              targetName: 'Mazmorras de Aspectos',
+              validationErrors: [],
+              rawJSON: jsonPayload,
+              parsedJSON: parsedData,
+              errorMessage: error.message
+            };
+            setImporting(false);
+            return errorResult;
+          }
+        } else {
+          // =============== EVENTOS DEL MUNDO ===============
         // Importar eventos del mundo (guarda en workspace físico como world_data.json)
         if (data.eventos || data.grafo || data.indice_recursos) {
           try {
@@ -2077,6 +2523,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           return errorResult;
         }
       }
+      } // Fin del if effectiveCategory === 'mundo'
       
       if (effectiveCategory === 'runas') {
         // Runas/Gemas globales (no requieren héroe ni personaje)
@@ -4072,6 +4519,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const processWithAI = async (config?: {
     paragonType?: ParagonType;
     runaGemaType?: 'runas' | 'gemas';
+    mundoType?: MundoType;
   }) => {
     
     // Determinar qué imagen usar (galería seleccionada o compuesta)
@@ -4098,7 +4546,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // 1. Input entregado, procesando con IA
       showToast('🤖 Enviando imagen y prompt a Gemini...', 'info');
 
-      // Obtener el blob de la imagen (galería o compuesta)
+      // Obtener el blob de la imagen principal (galería o compuesta)
       let imageBlob: Blob;
       if (selectedGalleryImageBlob) {
         imageBlob = selectedGalleryImageBlob;
@@ -4107,8 +4555,27 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         imageBlob = await response.blob();
       }
 
+      // Preparar imágenes adicionales (leyenda para mazmorras de aspectos)
+      const additionalImages: Blob[] = [];
+      const effectiveMundoType = config?.mundoType ?? mundoType;
+      
+      if (selectedCategory === 'mundo' && effectiveMundoType === 'mazmorras_aspectos') {
+        try {
+          // Cargar imagen de leyenda de iconos de clases
+          const leyendaPath = '/src/img/utils/leyenda.png';
+          const leyendaResponse = await fetch(leyendaPath);
+          if (leyendaResponse.ok) {
+            const leyendaBlob = await leyendaResponse.blob();
+            additionalImages.push(leyendaBlob);
+            console.log('📎 [processWithAI] Leyenda de iconos adjunta');
+          }
+        } catch (error) {
+          console.warn('⚠️ No se pudo cargar la leyenda de iconos:', error);
+        }
+      }
+
       // Obtener el prompt
-      const prompt = getPromptForCategory(config?.paragonType, config?.runaGemaType);
+      const prompt = getPromptForCategory(config?.paragonType, config?.runaGemaType, config?.mundoType);
 
       // 2. Procesando con IA
       setAiProgress('processing');
@@ -4225,6 +4692,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const processWithOpenAI = async (config?: {
     paragonType?: ParagonType;
     runaGemaType?: 'runas' | 'gemas';
+    mundoType?: MundoType;
   }) => {
     
     // Verificar crédito disponible antes de procesar
@@ -4262,13 +4730,32 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // 1. Input entregado, procesando con IA
       showToast('🤖 Enviando imagen y prompt a OpenAI...', 'info');
 
-      // Obtener el blob de la imagen (galería o compuesta)
+      // Obtener el blob de la imagen principal (galería o compuesta)
       let imageBlob: Blob;
       if (selectedGalleryImageBlob) {
         imageBlob = selectedGalleryImageBlob;
       } else {
         const response = await fetch(imageToProcess);
         imageBlob = await response.blob();
+      }
+
+      // Preparar imágenes adicionales (leyenda para mazmorras de aspectos)
+      const additionalImages: Blob[] = [];
+      const effectiveMundoType = config?.mundoType ?? mundoType;
+      
+      if (selectedCategory === 'mundo' && effectiveMundoType === 'mazmorras_aspectos') {
+        try {
+          // Cargar imagen de leyenda de iconos de clases
+          const leyendaPath = '/src/img/utils/leyenda.png';
+          const leyendaResponse = await fetch(leyendaPath);
+          if (leyendaResponse.ok) {
+            const leyendaBlob = await leyendaResponse.blob();
+            additionalImages.push(leyendaBlob);
+            console.log('📎 [processWithOpenAI] Leyenda de iconos adjunta');
+          }
+        } catch (error) {
+          console.warn('⚠️ No se pudo cargar la leyenda de iconos:', error);
+        }
       }
 
       // Obtener el prompt (usando versión simplificada para OpenAI si es nodos de Paragon)
@@ -4280,7 +4767,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         prompt = ImageExtractionPromptService.generateParagonNodesPromptForOpenAI();
       } else {
         // Usar prompt normal
-        prompt = getPromptForCategory(config?.paragonType, config?.runaGemaType);
+        prompt = getPromptForCategory(config?.paragonType, config?.runaGemaType, config?.mundoType);
       }
 
       // 2. Procesando con IA
@@ -4296,7 +4783,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           maxTokens: 4096,
           billingMetadata: {
             category: selectedCategory,
-            tipo: selectedCategory === 'paragon' ? effectiveParagonType : (selectedCategory === 'runas' ? runaGemaType : undefined),
+            tipo: selectedCategory === 'paragon' ? effectiveParagonType : (selectedCategory === 'runas' ? runaGemaType : (selectedCategory === 'mundo' ? effectiveMundoType : undefined)),
             destination: promptType,
             clase: effectiveClaseForActions,
             personaje: effectivePersonajeIdForActions ? personajes.find(p => p.id === effectivePersonajeIdForActions)?.nombre : undefined
@@ -4651,17 +5138,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       >
                         <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
-                      <button
-                        onClick={() => setEmbedPromptInImage(!embedPromptInImage)}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
-                          embedPromptInImage
-                            ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white scale-105'
-                            : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
-                        }`}
-                        title={embedPromptInImage ? 'Prompt embebido en imagen (activo)' : 'Embeber prompt en imagen (inactivo)'}
-                      >
-                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </button>
+                      {selectedCategory === 'mundo' && mundoType === 'mazmorras_aspectos' && (
+                        <button
+                          onClick={() => setEmbedLeyendaInImage(!embedLeyendaInImage)}
+                          className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                            embedLeyendaInImage
+                              ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
+                              : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
+                          }`}
+                          title={embedLeyendaInImage ? 'Leyenda embebida en imagen (activo)' : 'Embeber leyenda en imagen (inactivo)'}
+                        >
+                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </button>
+                      )}
                     </div>
                     
                     <img src={composedImageUrl} alt="Composed" className="w-full h-auto object-contain" style={{ maxWidth: '100%', transform: 'scale(0.85)' }} />
@@ -4704,17 +5193,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       >
                         <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
-                      <button
-                        onClick={() => setEmbedPromptInImage(!embedPromptInImage)}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
-                          embedPromptInImage
-                            ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white scale-105'
-                            : 'bg-d4-surface text-d4-text hover:bg-d4-border'
-                        }`}
-                        title={embedPromptInImage ? 'Prompt embebido en imagen (activo)' : 'Embeber prompt en imagen (inactivo)'}
-                      >
-                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </button>
+                      {selectedCategory === 'mundo' && mundoType === 'mazmorras_aspectos' && (
+                        <button
+                          onClick={() => setEmbedLeyendaInImage(!embedLeyendaInImage)}
+                          className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                            embedLeyendaInImage
+                              ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
+                              : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                          }`}
+                          title={embedLeyendaInImage ? 'Leyenda embebida en imagen (activo)' : 'Embeber leyenda en imagen (inactivo)'}
+                        >
+                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </button>
+                      )}
                     </div>
                     
                     <ImageIcon className="w-16 h-16 text-d4-text-dim mb-3" />
@@ -5039,6 +5530,27 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         {paragonType === 'tablero' && 'Disponible para Héroe y Personaje'}
                         {paragonType === 'nodo' && 'Disponible para Héroe y Personaje'}
                         {paragonType === 'atributos' && 'Solo disponible para Personaje'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Selector de tipo de dato Mundo */}
+                  {selectedCategory === 'mundo' && (
+                    <div className="mb-1.5 lg:mb-2">
+                      <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
+                        Tipo de Dato del Mundo:
+                      </label>
+                      <select
+                        value={mundoType}
+                        onChange={(e) => handleMundoTypeChange(e.target.value as MundoType)}
+                        className="w-full p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] lg:text-sm"
+                      >
+                        <option value="eventos">📅 Eventos del Mundo</option>
+                        <option value="mazmorras_aspectos">🏰 Mazmorras de Aspectos</option>
+                      </select>
+                      <p className="text-[9px] lg:text-[10px] text-d4-text-dim mt-0.5">
+                        {mundoType === 'eventos' && 'Progresión, jefes, recursos y rutas del mundo'}
+                        {mundoType === 'mazmorras_aspectos' && 'Aspectos obtenidos de calabozos/mazmorras'}
                       </p>
                     </div>
                   )}
@@ -5853,6 +6365,27 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               )}
 
+              {/* Selector de tipo Mundo (si aplica) */}
+              {selectedCategory === 'mundo' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    🗺️ Tipo de dato del mundo: <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={aiConfigMundoType}
+                    onChange={(e) => setAiConfigMundoType(e.target.value as MundoType)}
+                    className="w-full p-3 bg-d4-surface border border-d4-border rounded-lg text-d4-text"
+                  >
+                    <option value="eventos">📅 Eventos del Mundo</option>
+                    <option value="mazmorras_aspectos">🏰 Mazmorras de Aspectos</option>
+                  </select>
+                  <p className="text-xs text-d4-text-dim mt-1">
+                    {aiConfigMundoType === 'eventos' && '✓ Progresión, jefes, recursos y rutas del mundo'}
+                    {aiConfigMundoType === 'mazmorras_aspectos' && '✓ Aspectos obtenidos al completar calabozos. Se guarda en el héroe correspondiente'}
+                  </p>
+                </div>
+              )}
+
               {/* Selector de destino (Héroe/Personaje) */}
               {selectedCategory !== 'runas' && selectedCategory !== 'build' && selectedCategory !== 'mundo' && (
                 <div>
@@ -6012,8 +6545,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     validationErrors.push('Selecciona Runas o Gemas');
                   }
 
+                  // Validar tipo de mundo
+                  if (selectedCategory === 'mundo' && !aiConfigMundoType) {
+                    validationErrors.push('Selecciona el tipo de dato del mundo');
+                  }
+
                   // Validar destino (excepto categorías globales)
-                  if (selectedCategory !== 'runas') {
+                  if (selectedCategory !== 'runas' && selectedCategory !== 'mundo') {
                     // Determinar tipo efectivo
                     const effectiveType = 
                       selectedCategory === 'estadisticas' ? 'personaje' :
@@ -6040,6 +6578,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   setSelectedPersonajeId(aiConfigPersonajeId);
                   setParagonType(aiConfigParagonType);
                   setRunaGemaType(aiConfigRunaGemaType);
+                  setMundoType(aiConfigMundoType);
 
                   // Cerrar modal
                   setShowAIConfigModal(false);
@@ -6047,7 +6586,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   // Ejecutar el servicio correspondiente CON LA CONFIGURACIÓN
                   const aiConfig = {
                     paragonType: aiConfigParagonType,
-                    runaGemaType: aiConfigRunaGemaType
+                    runaGemaType: aiConfigRunaGemaType,
+                    mundoType: aiConfigMundoType
                   };
                   
                   if (aiServiceToUse === 'gemini') {
@@ -6060,8 +6600,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   // Lógica de validación para deshabilitar botón
                   if (selectedCategory === 'paragon' && !aiConfigParagonType) return true;
                   if (selectedCategory === 'runas' && !aiConfigRunaGemaType) return true;
+                  if (selectedCategory === 'mundo' && !aiConfigMundoType) return true;
                   
-                  if (selectedCategory !== 'runas') {
+                  if (selectedCategory !== 'runas' && selectedCategory !== 'mundo') {
                     const effectiveType = 
                       selectedCategory === 'estadisticas' ? 'personaje' :
                       selectedCategory === 'build' ? 'personaje' :
@@ -6077,8 +6618,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   (() => {
                     if (selectedCategory === 'paragon' && !aiConfigParagonType) return true;
                     if (selectedCategory === 'runas' && !aiConfigRunaGemaType) return true;
+                    if (selectedCategory === 'mundo' && !aiConfigMundoType) return true;
                     
-                    if (selectedCategory !== 'runas') {
+                    if (selectedCategory !== 'runas' && selectedCategory !== 'mundo') {
                       const effectiveType = 
                         selectedCategory === 'estadisticas' ? 'personaje' :
                         selectedCategory === 'build' ? 'personaje' :

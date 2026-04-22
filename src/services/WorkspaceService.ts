@@ -220,6 +220,42 @@ export class WorkspaceService {
     }
   }
 
+  /**
+   * Cargar datos de mundo (mazmorras, eventos, etc.)
+   * @param type - Tipo de archivo: 'mazmorras', 'world', etc.
+   */
+  static async loadWorldData(type: string): Promise<any> {
+    try {
+      const fileName = type === 'world' ? 'world_data.json' : `${type}_data.json`;
+      const content = await this.readFile(fileName);
+      if (!content) return null;
+      return JSON.parse(content);
+    } catch (error) {
+      if ((error as any).name === 'NotFoundError') {
+        console.log(`📁 Archivo ${type}_data.json no existe aún`);
+        return null;
+      }
+      console.error(`Error cargando ${type}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Guardar datos de mundo
+   * @param type - Tipo de archivo: 'mazmorras', 'world', etc.
+   * @param data - Datos a guardar
+   */
+  static async saveWorldData(type: string, data: any): Promise<void> {
+    try {
+      const fileName = type === 'world' ? 'world_data.json' : `${type}_data.json`;
+      await this.saveFile(fileName, JSON.stringify(data, null, 2));
+      console.log(`✅ ${type}_data.json guardado correctamente`);
+    } catch (error) {
+      console.error(`Error guardando ${type}:`, error);
+      throw error;
+    }
+  }
+
   // Guardar personaje con merge seguro (lee el archivo actual primero)
   static async savePersonajeMerge(personaje: Personaje): Promise<void> {
     if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');

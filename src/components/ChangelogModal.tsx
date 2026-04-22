@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">20 de Abril, 2026 (v0.7.2)</p>
+                <p className="text-d4-text font-semibold">22 de Abril, 2026 (v0.7.6)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,233 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.7.6 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.7.6</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">🎨 Mejoras Visuales</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-bold text-purple-300 mb-2 flex items-center gap-2">
+                <span>🎨</span>
+                <span>Mejoras de Interfaz y Usabilidad</span>
+              </h4>
+              <ul className="text-sm text-d4-text-dim space-y-1 list-disc list-inside">
+                <li><strong>Botones más grandes y legibles</strong>: Todos los botones de navegación aumentados en tamaño para mejor visibilidad</li>
+                <li><strong>Espaciados mejorados</strong>: Mayor espacio entre elementos para una interfaz más cómoda</li>
+                <li><strong>Iconos más visibles</strong>: Tamaño de iconos incrementado de 16px a 20px</li>
+                <li><strong>Texto más legible</strong>: Tamaño de fuente aumentado en todos los menús</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-bold text-red-300 mb-2 flex items-center gap-2">
+                <span>⚡</span>
+                <span>Rediseño del Indicador de Temporada</span>
+              </h4>
+              <ul className="text-sm text-d4-text-dim space-y-1 list-disc list-inside">
+                <li><strong>Nuevo tamaño</strong>: Texto "Temporada 13" más grande y prominente</li>
+                <li><strong>Animación mejorada</strong>: Transición de colores de dorado → naranja → rojo sangre</li>
+                <li><strong>Efecto de brillo</strong>: Animación de sombras sincronizada con cambio de color</li>
+                <li><strong>Diseño limpio</strong>: Removido el badge wrapper para un look más moderno</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-bold text-green-300 mb-2 flex items-center gap-2">
+                <span>📐</span>
+                <span>Ajustes de Layout</span>
+              </h4>
+              <ul className="text-sm text-d4-text-dim space-y-1 list-disc list-inside">
+                <li>Padding del sidebar aumentado para mejor respiración visual</li>
+                <li>Separadores entre secciones más espaciados</li>
+                <li>Hover effects más suaves y naturales</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-d4-border/20 rounded-lg">
+            <p className="text-xs text-d4-text-dim">
+              <strong className="text-d4-accent">Archivos modificados:</strong> Sidebar.tsx, index.css, package.json, ChangelogModal.tsx
+            </p>
+          </div>
+        </div>
+
+        {/* Version 0.7.5 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.7.5</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-amber-600/20 to-orange-600/20 text-amber-300 px-2 py-1 rounded">⚡ Temporada 13 + Mazmorras</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="text-sm font-bold text-amber-300 mb-2 flex items-center gap-2">
+                <span>⚡</span>
+                <span>Nueva Funcionalidad: Indicador de Temporada</span>
+              </h4>
+              <ul className="text-sm text-d4-text-dim space-y-1 list-disc list-inside">
+                <li>Agregado badge de "Temporada 13" en el encabezado principal con animación de brillo elegante</li>
+                <li>Efecto visual con gradiente dorado/naranja y animación suave</li>
+                <li>Hover effect interactivo para mejor experiencia de usuario</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-bold text-purple-300 mb-2 flex items-center gap-2">
+                <span>🏰</span>
+                <span>Mejora: Sistema de Mazmorras de Aspectos</span>
+              </h4>
+              <ul className="text-sm text-d4-text-dim space-y-1 list-disc list-inside">
+                <li><strong>Almacenamiento optimizado</strong>: Los aspectos ahora se guardan en los archivos de héroe correspondientes</li>
+                <li><strong>Referencia por ID</strong>: mazmorras_data.json solo guarda el ID del aspecto, no el objeto completo</li>
+                <li><strong>Formato correcto</strong>: Aspectos con campos <code>aspecto_id</code> y <code>detalles[]</code> según estándar de héroe</li>
+                <li><strong>Carga dinámica</strong>: La UI carga los aspectos completos desde los archivos de héroe</li>
+                <li><strong>Sin duplicación</strong>: Un solo lugar de verdad para cada aspecto</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-bold text-green-300 mb-2 flex items-center gap-2">
+                <span>🔧</span>
+                <span>Correcciones</span>
+              </h4>
+              <ul className="text-sm text-d4-text-dim space-y-1 list-disc list-inside">
+                <li>Corregidos errores de compilación con métodos de WorkspaceService</li>
+                <li>Actualizado prompt de IA para generar aspectos con formato correcto</li>
+                <li>Mejorada validación de JSON para mazmorras</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-d4-border p-3 rounded">
+              <p className="text-xs text-d4-text-dim mb-2 font-semibold">📝 Archivos modificados:</p>
+              <div className="grid grid-cols-1 gap-1 text-xs text-d4-text-dim">
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión 0.7.5</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/layout/Sidebar.tsx</code>: Badge v0.7.5 + Temporada 13</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/index.css</code>: Animación seasonGlow</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/common/ImageCaptureModal.tsx</code>: Fix importación mazmorras</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/world/WorldDungeons.tsx</code>: Carga aspectos desde héroe</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/ChangelogModal.tsx</code>: Nueva entrada v0.7.5</li>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.7.4 */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.7.4</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-indigo-600/20 text-purple-300 px-2 py-1 rounded">⚙️ Mecánicas de Clase + Prompts Premium</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                👑 Sistema de Prompts con Restricción Premium
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Prompts de Diagnóstico (9)</strong>: Disponibles para usuarios Basic
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Diagnóstico Completo de Build</li>
+                    <li>Análisis Matemático (Daño y Supervivencia)</li>
+                    <li>Rotación de Combate Avanzada</li>
+                    <li>Reporte Endgame Completo</li>
+                    <li>Análisis de Paragon, Build y Mecánicas</li>
+                  </ul>
+                </li>
+                <li><strong>Prompts Comparativos (9)</strong>: Requieren cuenta Premium
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Comparativos Multi-Stage: Skills, Glifos, Aspectos (6 prompts)</li>
+                    <li>Optimización de Nodos Paragon (2 prompts)</li>
+                    <li>Build vs Pool de Aspectos del Héroe</li>
+                  </ul>
+                </li>
+                <li><strong>Indicador Premium</strong>: Icono 👑 y mensaje "Requiere cuenta Premium"</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-indigo-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-indigo-300 mb-2 flex items-center gap-2">
+                ⚙️ Mecánicas de Clase en Prompts
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Inclusión automática</strong>: Todas las mecánicas de clase se incluyen en prompts de diagnóstico</li>
+                <li><strong>Contexto enriquecido</strong>: Skills, Glifos, Aspectos, Paragon + Mecánicas de Clase</li>
+                <li><strong>Análisis integral</strong>: Impacto de mecánicas en daño, supervivencia y sinergias</li>
+                <li><strong>Recomendaciones precisas</strong>: Qué combinar (skills, glifos, aspectos, nodos) considerando mecánicas</li>
+                <li><strong>Cálculos matemáticos</strong>: Multiplicadores y coherencia con mecánicas de clase</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                ✨ Nuevos Prompts Creados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>🔬 Diagnóstico Completo Integral</strong>: Análisis exhaustivo incluyendo TODO sin dejar nada fuera
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>Skills, Glifos, Aspectos, Build, Paragon, Stats, Mecánicas</li>
+                    <li>Análisis de daño completo con multiplicadores</li>
+                    <li>Análisis defensivo (EHP, mitigación, sustain)</li>
+                    <li>Sinergias y coherencia total</li>
+                    <li>Optimización matemática y ROI por stat</li>
+                    <li>Viabilidad endgame (Pit, T4, Bosses)</li>
+                    <li>Roadmap de optimización por fases</li>
+                  </ul>
+                </li>
+                <li><strong>⚙️ Análisis de Mecánicas de Clase</strong> (Basic): Análisis profundo del impacto de mecánicas</li>
+                <li><strong>🔄 Comparativo Mecánicas de Clase</strong> (Premium): Compara equipadas vs todas disponibles</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-green-300 mb-2 flex items-center gap-2">
+                📝 Mejoras en Claridad de Prompts
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Qué combinar</strong>: Indicaciones claras sobre skills/glifos/aspectos/paragon a combinar</li>
+                <li><strong>Información completa</strong>: Toda la data necesaria para cálculos matemáticos incluida</li>
+                <li><strong>Sinergias explícitas</strong>: Detalle de tags compartidos y elementos que se potencian</li>
+                <li><strong>Mecánicas centrales</strong>: Recordatorio de su importancia en cada análisis</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-yellow-300 mb-2 flex items-center gap-2">
+                💎 Actualización Página Premium
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><strong>Plan Basic actualizado</strong>: Indica claramente lo incluido:
+                  <ul className="ml-4 list-circle space-y-1 mt-1">
+                    <li>✅ Gestión completa de personajes y builds</li>
+                    <li>✅ Habilidades, Glifos, Aspectos y Paragon</li>
+                    <li>✅ Mecánicas de Clase</li>
+                    <li>✅ Prompts de diagnóstico (análisis de build actual)</li>
+                    <li>🔒 Prompts comparativos (vs pool del héroe) - Premium</li>
+                  </ul>
+                </li>
+                <li><strong>Claridad mejorada</strong>: Distinción clara entre diagnóstico (Basic) y comparativo (Premium)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                📄 Archivos Modificados
+              </h4>
+              <ul className="text-sm text-d4-text space-y-1 ml-4 list-disc">
+                <li><code className="bg-d4-surface px-1 rounded">src/components/characters/CharacterPrompts.tsx</code>: Sistema completo de restricciones Premium + mecánicas</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/premium/PremiumPage.tsx</code>: Actualización lista de features Basic</li>
+                <li><code className="bg-d4-surface px-1 rounded">package.json</code>: Versión 0.7.4</li>
+                <li><code className="bg-d4-surface px-1 rounded">index.html</code>: Título actualizado</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/layout/Sidebar.tsx</code>: Badge v0.7.4</li>
+                <li><code className="bg-d4-surface px-1 rounded">src/components/ChangelogModal.tsx</code>: Nueva entrada v0.7.4</li>
+              </ul>
             </div>
           </div>
         </div>

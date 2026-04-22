@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Copy, Check, Sparkles, Shield, Target, TrendingUp, Calculator, BarChart3, GitCompare, AlertCircle, Lock, Search, Filter } from 'lucide-react';
-import { Personaje, HabilidadActiva, HabilidadPasiva, Glifo, Aspecto, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe } from '../../types';
+import { Personaje, HabilidadActiva, HabilidadPasiva, Glifo, Aspecto, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, MecanicasClaseHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
+import { useAuth } from '../../context/AuthContext';
 
 interface CharacterPromptsProps {
   personaje: Personaje;
 }
 
 const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
+  const { isPremium } = useAuth();
   const [copied, setCopied] = useState<string | null>(null);
   const [activeSkills, setActiveSkills] = useState<HabilidadActiva[]>([]);
   const [passiveSkills, setPassiveSkills] = useState<HabilidadPasiva[]>([]);
@@ -18,6 +20,7 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
   const [allHeroSkills, setAllHeroSkills] = useState<HabilidadesPersonaje | null>(null);
   const [allHeroGlyphs, setAllHeroGlyphs] = useState<GlifosHeroe | null>(null);
   const [allHeroAspects, setAllHeroAspects] = useState<AspectosHeroe | null>(null);
+  const [allHeroClassMechanics, setAllHeroClassMechanics] = useState<MecanicasClaseHeroe | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPromptCategory, setSelectedPromptCategory] = useState<string>('all');
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
@@ -29,16 +32,18 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
   const loadCharacterData = async () => {
     try {
       // Cargar datos del héroe
-      const [heroSkills, heroGlyphs, heroAspects] = await Promise.all([
+      const [heroSkills, heroGlyphs, heroAspects, heroMechanics] = await Promise.all([
         WorkspaceService.loadHeroSkills(personaje.clase),
         WorkspaceService.loadHeroGlyphs(personaje.clase),
-        WorkspaceService.loadHeroAspects(personaje.clase)
+        WorkspaceService.loadHeroAspects(personaje.clase),
+        WorkspaceService.loadHeroClassMechanics(personaje.clase)
       ]);
 
       // Guardar todas las opciones disponibles
       setAllHeroSkills(heroSkills);
       setAllHeroGlyphs(heroGlyphs);
       setAllHeroAspects(heroAspects);
+      setAllHeroClassMechanics(heroMechanics);
 
       // Resolver habilidades activas del personaje
       if (personaje.habilidades_refs?.activas && heroSkills) {
@@ -593,6 +598,83 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     return Object.values(build.piezas).some(Boolean);
   };
 
+  // Obtener contexto de mecánicas de clase equipadas en el personaje
+  const getClassMechanicsContext = () => {
+    if (!personaje.mecanicas_clase_refs || personaje.mecanicas_clase_refs.length === 0) {
+      return 'No hay mecánicas de clase configuradas';
+    }
+
+    if (!allHeroClassMechanics || !allHeroClassMechanics.mecanicas) {
+      return 'Datos de mecánicas de clase no disponibles';
+    }
+
+    let context = `**Mecánicas de Clase (${personaje.mecanicas_clase_refs.length}):**\n`;
+    
+    personaje.mecanicas_clase_refs.forEach(ref => {
+      const mecanica = allHeroClassMechanics.mecanicas.find(m => m.id === ref.id);
+      if (!mecanica) return;
+
+      context += `\n- **${mecanica.nombre}** (${mecanica.clase})\n`;
+      
+      // Mostrar solo selecciones activas
+      if (ref.selecciones_activas && ref.selecciones_activas.length > 0) {
+        const seleccionesActivas = mecanica.selecciones.filter(s => 
+          ref.selecciones_activas.includes(s.id)
+        );
+        
+        seleccionesActivas.forEach(sel => {
+          context += `  • **${sel.nombre}** (Nivel ${sel.nivel}/${sel.nivel_maximo})\n`;
+          context += `    ${sel.efecto}\n`;
+          if (sel.tags && sel.tags.length > 0) {
+            context += `    Tags: ${sel.tags.join(', ')}\n`;
+          }
+        });
+      }
+
+      if (ref.notas) {
+        context += `  📝 Notas: ${ref.notas}\n`;
+      }
+    });
+
+    return context;
+  };
+
+  // Obtener todas las mecánicas de clase disponibles del héroe
+  const getAllClassMechanicsContext = () => {
+    if (!allHeroClassMechanics || !allHeroClassMechanics.mecanicas || allHeroClassMechanics.mecanicas.length === 0) {
+      return 'No hay mecánicas de clase disponibles para esta clase';
+    }
+
+    let context = `**Todas las Mecánicas de Clase disponibles para ${personaje.clase}:**\n`;
+
+    allHeroClassMechanics.mecanicas.forEach(mecanica => {
+      context += `\n- **${mecanica.nombre}**\n`;
+      context += `  Total de opciones: ${mecanica.selecciones.length}\n`;
+      
+      mecanica.selecciones.forEach(sel => {
+        context += `\n  • **${sel.nombre}** (${sel.categoria} - ${sel.grupo})\n`;
+        context += `    Nivel máximo: ${sel.nivel_maximo}\n`;
+        context += `    ${sel.efecto}\n`;
+        if (sel.detalles && sel.detalles.length > 0) {
+          sel.detalles.forEach(d => context += `    - ${d}\n`);
+        }
+        if (sel.tags && sel.tags.length > 0) {
+          context += `    Tags: ${sel.tags.join(', ')}\n`;
+        }
+      });
+
+      // Palabras clave si existen
+      if (mecanica.palabras_clave && mecanica.palabras_clave.length > 0) {
+        context += `\n  **Palabras Clave de esta mecánica:**\n`;
+        mecanica.palabras_clave.slice(0, 5).forEach(pk => {
+          context += `  - ${pk.tag}: ${pk.significado}\n`;
+        });
+      }
+    });
+
+    return context;
+  };
+
   // ============================================
   // DEFINICIÓN DE PROMPTS
   // ============================================
@@ -608,6 +690,7 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
     border: string;
     description: string;
     requiresHeroData?: boolean;
+    requiresPremium?: boolean; // <-- NUEVO: Requiere cuenta Premium
     requiredData: {
       skills?: boolean;
       glyphs?: boolean;
@@ -647,20 +730,24 @@ ${getParagonContext()}
 
 ${getStatsContext()}
 
+${getClassMechanicsContext()}
+
 **🎯 ANÁLISIS SOLICITADO:**
 
 1. **✅ PUNTOS FUERTES**
    - ¿Cuáles son las fortalezas clave de esta configuración?
-   - ¿Qué sinergias están funcionando excepcionalmente bien?
+   - ¿Qué sinergias están funcionando excepcionalmente bien (incluyendo mecánicas de clase)?
    - ¿Qué elementos debo MANTENER sin cambios?
 
 2. **⚠️ PUNTOS DÉBILES**
    - ¿Cuáles son las debilidades críticas?
    - ¿Qué aspectos comprometen la efectividad?
+   - ¿Las mecánicas de clase están bien aprovechadas?
    - ¿Dónde estoy siendo menos eficiente?
 
 3. **🔄 QUÉ CAMBIAR**
-   - ¿Qué elementos debo reemplazar prioritariamente?
+   - ¿Qué habilidades, glifos o aspectos debo reemplazar?
+   - ¿Qué nodos Paragon serían más efectivos?
    - ¿Qué cambios tendrían el mayor impacto positivo?
    - Prioriza los cambios por importancia (crítico > alto > medio)
 
@@ -670,14 +757,25 @@ ${getStatsContext()}
    - ¿Cómo optimizar lo que ya tengo?
 
 5. **🏷️ ANÁLISIS DE TAGS Y SINERGIAS**
-   - Examina los tags presentes en habilidades/glifos/aspectos
+   - Examina los tags presentes en habilidades/glifos/aspectos/mecánicas
    - Identifica tags que se repiten (sinergias potenciales)
    - Detecta tags ausentes que serían valiosos
+   - **¿Qué combinar?**: Skills que potencien mecánicas, glifos que escalen con stats, aspectos que amplifiquen todo
 
 6. **🎮 ESTILO DE JUEGO**
    - ¿Esta build es ofensiva, defensiva o balanceada?
    - ¿Para qué tipo de contenido es óptima?
    - ¿Qué estilo de combate favorece?
+
+**⚙️ IMPORTANTE: MECÁNICAS DE CLASE**
+Las mecánicas de clase son FUNDAMENTALES para:
+- Cálculos matemáticos de daño y supervivencia
+- Sinergias con habilidades activas y pasivas
+- Coherencia general del build y multiplicadores
+- Aprovechamiento de aspectos y glifos
+- Optimización de nodos Paragon
+
+Considera las mecánicas de clase en TODOS tus análisis y recomendaciones.
 
 **💾 INSTRUCCIÓN PARA LA IA:**
 Por favor, GUARDA en tu memoria de conversación:
@@ -830,6 +928,7 @@ Guarda en memoria:
       border: 'border-green-600',
       description: 'Generación de resumen de todas las opciones disponibles vs equipadas',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { skills: true },
       generate: () => `Genera un **RESUMEN COMPARATIVO** de habilidades para mi ${personaje.clase}.
 
@@ -875,6 +974,7 @@ Lo usaremos en el siguiente análisis (Stage 2) para recomendaciones profundas.`
       border: 'border-green-600',
       description: 'Análisis profundo con el resumen previo + recomendaciones específicas',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { skills: true },
       generate: () => `Basándote en el **resumen que guardaste** en Stage 1, realiza un análisis profundo y proporciona recomendaciones concretas.
 
@@ -929,6 +1029,7 @@ Actualiza la memoria de conversación con:
       border: 'border-cyan-600',
       description: 'Resumen de glifos equipados vs todas las opciones disponibles',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { glyphs: true },
       generate: () => `Genera un **RESUMEN COMPARATIVO** de glifos para mi ${personaje.clase}.
 
@@ -979,6 +1080,7 @@ Lo usaremos en Stage 2 para recomendaciones de reemplazo.`
       border: 'border-cyan-600',
       description: 'Análisis profundo de glifos con recomendaciones específicas',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { glyphs: true },
       generate: () => `Basándote en el **resumen de Stage 1**, realiza un análisis profundo de glifos.
 
@@ -1032,6 +1134,7 @@ ${getSkillsContext()}
       border: 'border-amber-600',
       description: 'Resumen de aspectos equipados vs todas las opciones disponibles',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { aspects: true },
       generate: () => `Genera un **RESUMEN COMPARATIVO** de aspectos para mi ${personaje.clase}.
 
@@ -1080,6 +1183,7 @@ ${getAllAspectsContext()}
       border: 'border-amber-600',
       description: 'Análisis profundo de aspectos con prioridades de farmeo',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { aspects: true },
       generate: () => `Basándote en el **resumen de Stage 1**, realiza análisis profundo de aspectos.
 
@@ -1280,6 +1384,7 @@ ${getStatsContext()}
       border: 'border-orange-600',
       description: 'Compara nodos equipados vs disponibles para maximizar eficiencia del build',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { stats: true },
       generate: async () => {
         const { PromptService } = await import('../../services/PromptService');
@@ -1299,6 +1404,7 @@ ${getStatsContext()}
       border: 'border-cyan-600',
       description: 'Analiza y compara nodos específicos para decisiones estratégicas',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { stats: true },
       generate: async () => {
         const { PromptService } = await import('../../services/PromptService');
@@ -1348,6 +1454,7 @@ Solicito:
       border: 'border-yellow-600',
       description: 'Compara los aspectos de la build con todo el catálogo del héroe para sugerir alternativas',
       requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
       requiredData: { build: true, aspects: true },
       generate: () => `Compara la build equipada con el pool completo de aspectos del héroe y recomienda la mejor configuración.
 
@@ -1416,6 +1523,234 @@ Entregar:
 3. Prioridad de stats para maximización de DPS efectivo
 4. Trade-off ofensivo vs defensivo (qué perdería/ganaría)
 5. Tabla de acciones concretas de optimización matemática`
+    },
+
+    // ========== DIAGNÓSTICO COMPLETO INTEGRAL ==========
+    {
+      id: 'complete-diagnosis',
+      title: '🔬 Diagnóstico Completo Integral',
+      category: 'Build y Optimización',
+      keywords: ['completo', 'integral', 'diagnóstico', 'todo', 'exhaustivo'],
+      icon: AlertCircle,
+      color: 'text-red-400',
+      bg: 'bg-red-900/20',
+      border: 'border-red-600',
+      description: 'Análisis exhaustivo incluyendo TODO: Skills, Glifos, Aspectos, Stats, Build, Paragon y Mecánicas de Clase',
+      requiredData: { skills: false, glyphs: false, aspects: false, stats: false, build: false },
+      generate: () => `Actúa como un experto máximo en builds de Diablo 4 para la clase ${personaje.clase}. Realiza un ANÁLISIS EXHAUSTIVO Y COMPLETO de mi personaje sin dejar NADA fuera.
+
+**📋 INFORMACIÓN COMPLETA DEL PERSONAJE:**
+- **Clase**: ${personaje.clase}
+- **Nivel**: ${personaje.nivel}${personaje.nivel_paragon ? ` | Paragon: ${personaje.nivel_paragon}` : ''}${personaje.puertas_anexo ? ` | Puertas Anexo: ${personaje.puertas_anexo}` : ''}
+
+---
+
+## 🎮 COMPONENTES DE LA BUILD
+
+${getSkillsContext()}
+
+${getGlyphsContext()}
+
+${getAspectsContext()}
+
+${getBuildContext()}
+
+${getParagonContext()}
+
+${getStatsContext()}
+
+${getClassMechanicsContext()}
+
+---
+
+## 🔍 ANÁLISIS EXHAUSTIVO SOLICITADO
+
+### 1. ⚡ ANÁLISIS DE DAÑO COMPLETO
+- **Fuentes de daño principales**: Identifica las 3 principales fuentes de DPS
+- **Multiplicadores activos**: Lista TODOS los multiplicadores (skills, aspectos, glifos, mecánicas, Paragon)
+- **Cálculo de DPS estimado**: Proporciona una estimación matemática de DPS bajo condiciones ideales
+- **Breakdowns por tipo**: Físico, Elemental, DoT, Burst, etc.
+- **¿Qué skills/glifos/aspectos/nodos Paragon potencian más el daño?**
+
+### 2. 🛡️ ANÁLISIS DEFENSIVO COMPLETO
+- **EHP (Vida Efectiva)**: Calcula vida efectiva considerando todas las mitigaciones
+- **Fuentes de mitigación**: Armadura, Aguante, Resistencias, Reducción %
+- **Sustain y regeneración**: Vida/s, sanación, pociones, life steal
+- **Puntos débiles defensivos**: ¿Dónde soy más vulnerable?
+- **¿Qué skills/aspectos/nodos Paragon mejoran supervivencia?**
+
+### 3. 🧩 SINERGIAS Y COHERENCIA
+- **Tags compartidos**: Identifica tags que aparecen en múltiples elementos
+- **Sinergias fuertes**: ¿Qué elementos se potencian entre sí?
+- **Anti-sinergias**: ¿Hay elementos que entran en conflicto?
+- **Coherencia mecánica de clase**: ¿Las mecánicas están alineadas con el resto?
+- **Elementos desperdiciados**: ¿Tengo algo equipado que no aporta?
+
+### 4. ⚙️ MECÁNICAS DE CLASE Y BUILD
+- **¿Cómo impactan las mecánicas de clase en mi daño y supervivencia?**
+- **¿Qué skills aprovechan mejor las mecánicas equipadas?**
+- **¿Qué aspectos potencian las mecánicas de clase?**
+- **¿Los glifos escalan con las mecánicas?**
+- **¿Los nodos Paragon están alineados con las mecánicas?**
+
+### 5. 🎯 OPTIMIZACIÓN MATEMÁTICA
+- **ROI por stat**: ¿Qué atributo tiene mayor retorno por punto invertido?
+- **Prioridad de mejora**: Ordena por impacto (Crítico > Alto > Medio > Bajo)
+- **Breakpoints importantes**: ¿Hay umbrales críticos que debería alcanzar?
+- **Aditivo vs Multiplicativo**: Explica dónde están los mejores multiplicadores
+
+### 6. 📊 QUÉ COMBINAR Y QUÉ CAMBIAR
+- **Skills a combinar**: ¿Qué habilidades funcionan mejor juntas en rotación?
+- **Glifos óptimos**: ¿Qué glifos escalan mejor con mis stats y skills?
+- **Aspectos sinérgicos**: ¿Qué aspectos potencian más mi estrategia?
+- **Nodos Paragon prioritarios**: ¿Qué camino de Paragon maximiza mi build?
+- **TOP 5 cambios recomendados**: Lista ordenada con justificación matemática
+
+### 7. 🏆 VIABILIDAD ENDGAME
+- **Pit Corrupto**: ¿Hasta qué tier puedo llegar?
+- **Speedfarm T4**: ¿Qué tan eficiente soy?
+- **Bosses Pinnacle**: ¿Puedo con Lilith, Duriel, etc.?
+- **Tier de la build**: S / A / B / C / D (con justificación)
+- **Distancia al tier superior**: ¿Qué me falta para subir?
+
+### 8. 📋 ROADMAP DE OPTIMIZACIÓN
+- **Inmediato (Hoy)**: Cambios urgentes con mayor impacto
+- **Corto plazo (Esta semana)**: Mejoras progresivas
+- **Mediano plazo (Este mes)**: Optimización fina y farmeo de gear
+
+---
+
+**⚙️ RECORDATORIO CRÍTICO:**
+Incluye las **mecánicas de clase** en TODOS los cálculos, sinergias y recomendaciones. Son fundamentales para coherencia, multiplicadores y efectividad de la build.
+
+**💾 GUARDA EN MEMORIA:**
+- El resumen ejecutivo del análisis
+- Los cambios prioritarios validados
+- Las sinergias clave identificadas`
+    },
+
+    // ========== ANÁLISIS DE MECÁNICAS DE CLASE ==========
+    {
+      id: 'class-mechanics-analysis',
+      title: '⚙️ Análisis de Mecánicas de Clase',
+      category: 'Mecánicas de Clase',
+      keywords: ['mecánicas', 'clase', 'sinergias', 'optimización'],
+      icon: Shield,
+      color: 'text-indigo-400',
+      bg: 'bg-indigo-900/20',
+      border: 'border-indigo-600',
+      description: 'Análisis profundo de las mecánicas de clase equipadas y su impacto en la build',
+      requiredData: { skills: false, glyphs: false, aspects: false },
+      generate: () => `Actúa como un experto en mecánicas de clase de ${personaje.clase} en Diablo 4. Analiza mis mecánicas equipadas y su impacto total en la build.
+
+**📋 INFORMACIÓN BÁSICA:**
+- Clase: ${personaje.clase}
+- Nivel: ${personaje.nivel}${personaje.nivel_paragon ? ` | Paragon: ${personaje.nivel_paragon}` : ''}
+
+${getClassMechanicsContext()}
+
+${getSkillsContext()}
+
+${getGlyphsContext()}
+
+${getAspectsContext()}
+
+${getParagonContext()}
+
+**🎯 ANÁLISIS DE MECÁNICAS SOLICITADO:**
+
+### 1. 📊 IMPACTO DE LAS MECÁNICAS EQUIPADAS
+- ¿Qué aportan exactamente las mecánicas equipadas a mi build?
+- ¿Cómo afectan al daño, supervivencia y utilidad?
+- ¿Qué multiplicadores o bonificaciones proporcionan?
+
+### 2. 🔗 SINERGIAS CON HABILIDADES
+- ¿Qué skills aprovechan mejor las mecánicas equipadas?
+- ¿Hay habilidades que NO se benefician de las mecánicas?
+- ¿Debería cambiar alguna habilidad para aprovechar más las mecánicas?
+
+### 3. ✨ SINERGIAS CON ASPECTOS Y GLIFOS
+- ¿Qué aspectos potencian las mecánicas de clase?
+- ¿Qué glifos escalan mejor con las mecánicas?
+- ¿Hay aspectos/glifos desperdiciados que NO sinergicen con las mecánicas?
+
+### 4. 🎯 SINERGIAS CON PARAGON
+- ¿Qué nodos Paragon potencian las mecánicas de clase?
+- ¿Mis tableros están alineados con las mecánicas equipadas?
+- ¿Debería priorizar otros nodos?
+
+### 5. 📈 OPTIMIZACIÓN DE MECÁNICAS
+- ¿Están las mecánicas al máximo nivel?
+- ¿Debería invertir más puntos en alguna selección específica?
+- ¿Hay mecánicas inactivas que debería activar?
+
+### 6. 🔧 RECOMENDACIONES
+- ¿Qué cambios haría para maximizar el aprovechamiento de las mecánicas?
+- TOP 3 mejoras para aprovechar mejor las mecánicas de clase
+- ¿Las mecánicas actuales son coherentes con el estilo de build?
+
+**⚙️ IMPORTANTE:**
+Considera que las mecánicas de clase son CENTRALES en ${personaje.clase} y deben ser el eje de todas las decisiones de build.`
+    },
+
+    // ========== COMPARATIVO MECÁNICAS DE CLASE (PREMIUM) ==========
+    {
+      id: 'class-mechanics-comparison',
+      title: '🔄 Comparativo Mecánicas de Clase',
+      category: 'Mecánicas de Clase',
+      keywords: ['mecánicas', 'comparativo', 'alternativas', 'pool'],
+      icon: GitCompare,
+      color: 'text-violet-400',
+      bg: 'bg-violet-900/20',
+      border: 'border-violet-600',
+      description: 'Compara mecánicas equipadas vs todas las disponibles para la clase',
+      requiresHeroData: true,
+      requiresPremium: true, // Requiere Premium
+      requiredData: { skills: false },
+      generate: () => `Compara las mecánicas de clase equipadas con TODAS las disponibles para ${personaje.clase}.
+
+**📋 MECÁNICAS ACTUALES:**
+${getClassMechanicsContext()}
+
+**📚 TODAS LAS MECÁNICAS DISPONIBLES:**
+${getAllClassMechanicsContext()}
+
+**🎯 ANÁLISIS COMPARATIVO SOLICITADO:**
+
+### 1. 📊 RESUMEN DE LO EQUIPADO
+- Resume en 2-3 líneas la estrategia actual de mecánicas
+- ¿Están enfocadas en daño, defensa o híbrido?
+- ¿Son coherentes entre sí?
+
+### 2. 🔄 ALTERNATIVAS DESTACADAS
+- Lista las 3-5 mecánicas NO equipadas más relevantes
+- Para cada una: nombre, categoría, efecto principal
+- ¿Por qué serían valiosas para mi build?
+
+### 3. 🧩 SINERGIA CON BUILD ACTUAL
+- ¿Qué mecánicas alternativas sinergizan con mis skills actuales?
+- ¿Qué mecánicas potenciarían mis aspectos equipados?
+- ¿Qué mecánicas escalarían mejor con mis stats/Paragon?
+
+### 4. 📈 CONFIGURACIONES ALTERNATIVAS
+- **Setup A (Máximo Daño)**: Mecánicas optimizadas para DPS
+- **Setup B (Balance)**: Mecánicas para daño/supervivencia equilibrada
+- **Setup C (Endgame)**: Mecánicas para Pit alto y bosses
+
+### 5. 🎯 RECOMENDACIONES PRIORIZADAS
+- TOP 3 cambios de mecánicas con mayor impacto
+- Justificación matemática o estratégica
+- Dificultad de implementación (fácil/medio/difícil)
+
+### 6. 🔧 ROADMAP DE CAMBIO
+- Paso 1: Cambio inmediato (mayor ROI)
+- Paso 2: Ajuste secundario
+- Paso 3: Optimización fina
+
+**💾 GUARDA EN MEMORIA:**
+- Las configuraciones alternativas propuestas
+- Los cambios prioritarios de mecánicas
+- El roadmap de optimización establecido`
     }
   ];
 
@@ -1438,6 +1773,11 @@ Entregar:
   // ============================================
 
   const isPromptAvailable = (prompt: PromptConfig): { available: boolean; reason?: string } => {
+    // Verificar si requiere Premium
+    if (prompt.requiresPremium && !isPremium()) {
+      return { available: false, reason: '👑 Requiere cuenta Premium' };
+    }
+
     // Verificar datos requeridos del personaje
     if (prompt.requiredData.skills && !activeSkills.length && !passiveSkills.length) {
       return { available: false, reason: '⚠️ No hay habilidades cargadas' };

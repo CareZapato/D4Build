@@ -49,6 +49,51 @@
   }
 }
 
+/* Animación de temporada con cambio de color a rojo sangre */
+@keyframes seasonBloodGlow {
+  0% {
+    color: #fbbf24;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5),
+                 0 0 20px rgba(251, 191, 36, 0.3),
+                 0 0 30px rgba(251, 191, 36, 0.2);
+  }
+  25% {
+    color: #f97316;
+    text-shadow: 0 0 12px rgba(249, 115, 22, 0.6),
+                 0 0 24px rgba(249, 115, 22, 0.4),
+                 0 0 36px rgba(249, 115, 22, 0.2);
+  }
+  50% {
+    color: #dc2626;
+    text-shadow: 0 0 15px rgba(220, 38, 38, 0.7),
+                 0 0 30px rgba(220, 38, 38, 0.5),
+                 0 0 45px rgba(220, 38, 38, 0.3);
+  }
+  75% {
+    color: #f97316;
+    text-shadow: 0 0 12px rgba(249, 115, 22, 0.6),
+                 0 0 24px rgba(249, 115, 22, 0.4),
+                 0 0 36px rgba(249, 115, 22, 0.2);
+  }
+  100% {
+    color: #fbbf24;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5),
+                 0 0 20px rgba(251, 191, 36, 0.3),
+                 0 0 30px rgba(251, 191, 36, 0.2);
+  }
+}
+
+.season-text {
+  animation: seasonBloodGlow 4s ease-in-out infinite;
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+.season-text:hover {
+  transform: scale(1.08);
+  filter: brightness(1.2);
+}
+
 :root {
   font-family: 'Rajdhani', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;

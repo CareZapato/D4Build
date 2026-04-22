@@ -565,6 +565,139 @@ export function validateMundoJSON(data: any): JSONValidationResult {
 }
 
 /**
+ * Valida la estructura de JSON para mazmorras de aspectos
+ */
+export function validateMazmorrasJSON(data: any): JSONValidationResult {
+  const errors: ImportValidationError[] = [];
+  const warnings: ImportValidationError[] = [];
+  const detectedFields: string[] = [];
+
+  // Verificar que sea un objeto
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    errors.push({
+      field: 'root',
+      expected: 'object {}',
+      received: Array.isArray(data) ? 'array []' : typeof data,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Verificar mazmorras (requerido)
+  if (!data.mazmorras) {
+    errors.push({
+      field: 'mazmorras',
+      expected: 'array [] (requerido)',
+      received: 'undefined',
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  detectedFields.push('mazmorras');
+
+  if (!Array.isArray(data.mazmorras)) {
+    errors.push({
+      field: 'mazmorras',
+      expected: 'array []',
+      received: typeof data.mazmorras,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Validar cada mazmorra
+  data.mazmorras.forEach((item: any, idx: number) => {
+    // Validar objeto mazmorra
+    if (!item.mazmorra) {
+      errors.push({
+        field: `mazmorras[${idx}].mazmorra`,
+        expected: 'object (requerido)',
+        received: 'undefined',
+        severity: 'error'
+      });
+    } else {
+      if (!item.mazmorra.nombre) {
+        errors.push({
+          field: `mazmorras[${idx}].mazmorra.nombre`,
+          expected: 'string (requerido)',
+          received: 'undefined o vacío',
+          severity: 'error'
+        });
+      }
+      if (!item.mazmorra.clase_requerida) {
+        warnings.push({
+          field: `mazmorras[${idx}].mazmorra.clase_requerida`,
+          expected: 'string',
+          received: 'undefined',
+          severity: 'warning'
+        });
+      }
+    }
+
+    // Validar objeto aspecto
+    if (!item.aspecto) {
+      errors.push({
+        field: `mazmorras[${idx}].aspecto`,
+        expected: 'object (requerido)',
+        received: 'undefined',
+        severity: 'error'
+      });
+    } else {
+      if (!item.aspecto.name) {
+        errors.push({
+          field: `mazmorras[${idx}].aspecto.name`,
+          expected: 'string (requerido)',
+          received: 'undefined o vacío',
+          severity: 'error'
+        });
+      }
+      if (!item.aspecto.shortName) {
+        warnings.push({
+          field: `mazmorras[${idx}].aspecto.shortName`,
+          expected: 'string',
+          received: 'undefined',
+          severity: 'warning'
+        });
+      }
+      if (!item.aspecto.effect) {
+        warnings.push({
+          field: `mazmorras[${idx}].aspecto.effect`,
+          expected: 'string',
+          received: 'undefined',
+          severity: 'warning'
+        });
+      }
+      if (!item.aspecto.category) {
+        warnings.push({
+          field: `mazmorras[${idx}].aspecto.category`,
+          expected: 'string (ofensivo, defensivo, movilidad, recurso, utilidad)',
+          received: 'undefined',
+          severity: 'warning'
+        });
+      }
+    }
+
+    // Validar palabras_clave (opcional)
+    if (item.palabras_clave !== undefined && !Array.isArray(item.palabras_clave)) {
+      warnings.push({
+        field: `mazmorras[${idx}].palabras_clave`,
+        expected: 'array []',
+        received: typeof item.palabras_clave,
+        severity: 'warning'
+      });
+    }
+  });
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    detectedFields
+  };
+}
+
+/**
  * Valida JSON según la categoría
  */
 export function validateJSONByCategory(
@@ -582,6 +715,8 @@ export function validateJSONByCategory(
       return validateMecanicasJSON(data);
     case 'mundo':
       return validateMundoJSON(data);
+    case 'mazmorras':
+      return validateMazmorrasJSON(data);
     case 'estadisticas':
       return validateStatsJSON(data);
     case 'runas': {

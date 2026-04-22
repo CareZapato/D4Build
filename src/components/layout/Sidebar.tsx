@@ -162,11 +162,16 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             <h1 className="text-2xl font-black text-d4-accent leading-tight tracking-wide drop-shadow-lg">
               D4 BUILDS
             </h1>
-            <p className="text-xs text-d4-text-dim mt-0.5 uppercase tracking-widest font-semibold">
+            <div className="mt-2">
+              <span className="season-text text-lg font-black uppercase tracking-wider drop-shadow-lg">
+                ⚡ Temporada 13
+              </span>
+            </div>
+            <p className="text-sm text-d4-text-dim mt-2 uppercase tracking-widest font-semibold">
               Build Manager
             </p>
             {user && (
-              <div className="mt-1.5 flex items-center gap-1.5">
+              <div className="mt-2.5 flex items-center gap-2.5">
                 <button
                   onClick={() => setShowSubscribeModal(true)}
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all hover:scale-105 cursor-pointer ${
@@ -204,10 +209,10 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           </div>
           <button
             onClick={() => setShowChangelog(true)}
-            className="mt-0.5 px-2.5 py-1 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-xs font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
+            className="mt-0.5 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-sm font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
             title="Ver registro de cambios"
           >
-            v0.7.2
+            v0.7.6
           </button>
         </div>
       </div>
@@ -215,8 +220,8 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
       <ImageCaptureModal isOpen={showImageCapture} onClose={() => setShowImageCapture(false)} />
 
-      <nav className="flex-1 p-3 overflow-y-auto min-h-0">
-        <ul className="space-y-1">
+      <nav className="flex-1 p-4 overflow-y-auto min-h-0">
+        <ul className="space-y-2.5">
           {menuItems.map(item => {
             const isPremiumItem = item.premiumOnly && !isPremium();
             return (
@@ -229,7 +234,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                     onViewChange(item.id);
                   }
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide relative ${
+                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide relative ${
                   currentView === item.id
                     ? 'bg-gradient-to-r from-d4-accent to-d4-accent-hover text-black shadow-lg shadow-d4-accent/30 scale-105'
                     : isPremiumItem
@@ -238,7 +243,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                 }`}
                 title={isPremiumItem ? 'Requiere Premium' : ''}
               >
-                <item.icon className={`w-4 h-4 ${currentView === item.id ? 'drop-shadow-md' : ''}`} />
+                <item.icon className={`w-5 h-5 ${currentView === item.id ? 'drop-shadow-md' : ''}`} />
                 <span>{item.label}</span>
                 {isPremiumItem && (
                   <Crown className="w-3.5 h-3.5 text-yellow-400 absolute top-1 right-1" />
@@ -249,38 +254,38 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           })}
           
           {isAdmin() && (
-            <li className="pt-1 border-t border-d4-border/50">
+            <li className="pt-2 border-t border-d4-border/50">
               <button
                 onClick={() => onViewChange('admin')}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide ${
+                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide ${
                   currentView === 'admin'
                     ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-500/30 scale-105'
                     : 'bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 border-2 border-red-500/50 hover:from-red-600/30 hover:to-orange-600/30 hover:scale-102'
                 }`}
               >
-                <Shield className={`w-4 h-4 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
+                <Shield className={`w-5 h-5 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
                 <span>Usuarios</span>
               </button>
             </li>
           )}
           
           {showPremiumButton && (
-            <li className="pt-1 border-t border-d4-border/50">
+            <li className="pt-2 border-t border-d4-border/50">
               <button
                 onClick={() => onViewChange('premium')}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide ${
+                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide ${
                   currentView === 'premium'
                     ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black shadow-lg shadow-yellow-500/30 scale-105'
                     : 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-2 border-yellow-500/50 hover:from-yellow-500/30 hover:to-amber-500/30 hover:scale-102'
                 }`}
               >
-                <Crown className={`w-4 h-4 ${currentView === 'premium' ? 'drop-shadow-md' : ''}`} />
+                <Crown className={`w-5 h-5 ${currentView === 'premium' ? 'drop-shadow-md' : ''}`} />
                 <span>Actualizar</span>
               </button>
             </li>
           )}
           
-          <li className="pt-1 border-t border-d4-border/50">
+          <li className="pt-2 border-t border-d4-border/50">
             <button
               onClick={() => {
                 if (!isPremium()) {
@@ -289,14 +294,14 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                   setShowImageCapture(true);
                 }
               }}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs uppercase tracking-wide relative ${
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide relative ${
                 isPremium()
                   ? 'bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:scale-105'
                   : 'bg-gradient-to-r from-purple-600/30 to-blue-600/30 text-purple-200 border-2 border-purple-500/40 hover:scale-105 opacity-70'
               }`}
               title={isPremium() ? '' : 'Requiere Premium'}
             >
-              <Camera className="w-4 h-4 drop-shadow-md" />
+              <Camera className="w-5 h-5 drop-shadow-md" />
               <span>Captura</span>
               {!isPremium() && (
                 <Crown className="w-3.5 h-3.5 text-yellow-400 absolute top-1 right-1" />

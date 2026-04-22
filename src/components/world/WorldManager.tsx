@@ -4,12 +4,13 @@ import { WorldService } from '../../services/WorldService';
 import { DatosMundo, EventoMundo, RutaOptima, AnalisisEconomia, IndiceRecurso } from '../../types';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
+import WorldDungeons from './WorldDungeons';
 
 const WorldManager: React.FC = () => {
   const modal = useModal();
   const [worldData, setWorldData] = useState<DatosMundo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'eventos' | 'grafo' | 'rutas' | 'analisis' | 'recursos' | 'calculadora'>('eventos');
+  const [currentView, setCurrentView] = useState<'eventos' | 'mazmorras' | 'grafo' | 'rutas' | 'analisis' | 'recursos' | 'calculadora'>('eventos');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [selectedEvent, setSelectedEvent] = useState<EventoMundo | null>(null);
@@ -245,6 +246,7 @@ const WorldManager: React.FC = () => {
         <div className="flex flex-wrap gap-2 border-b-2 border-d4-border pb-3">
           {[
             { value: 'eventos', label: 'Eventos', icon: Calendar },
+            { value: 'mazmorras', label: 'Mazmorras', icon: MapPin },
             { value: 'calculadora', label: 'Calculadora', icon: Calculator },
             { value: 'recursos', label: 'Recursos', icon: Trophy },
             { value: 'grafo', label: 'Cadenas', icon: GitBranch },
@@ -442,6 +444,9 @@ const WorldManager: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Vista de Mazmorras */}
+      {currentView === 'mazmorras' && <WorldDungeons />}
 
       {/* Vista de Recursos */}
       {currentView === 'recursos' && (
