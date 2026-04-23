@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock, MapPin } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock, MapPin, Filter } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
@@ -34,6 +34,9 @@ type ParagonType = 'tablero' | 'nodo' | 'atributos';
 // Estructura jerárquica para Mundo
 type MundoType = 'eventos' | 'mazmorras_aspectos';
 
+// Estructura jerárquica para Talismanes (Temporada 13)
+type TalismanType = 'charms' | 'horadric_seal';
+
 const CATEGORIES: { 
   value: ImageCategory; 
   label: string; 
@@ -47,6 +50,7 @@ const CATEGORIES: {
   { value: 'paragon', label: 'Paragon', icon: Grid3x3 },
   { value: 'runas', label: 'Runas/Gemas', icon: Sparkles },
   { value: 'build', label: 'Equipo', icon: Shield },
+  { value: 'talismanes', label: 'Talismanes', icon: Lock },
   { value: 'mundo', label: 'Eventos del Mundo', icon: MapPin },
   { value: 'otros', label: 'Otros', icon: FileText },
 ];
@@ -57,6 +61,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [paragonType, setParagonType] = useState<ParagonType>('tablero');
   const [runaGemaType, setRunaGemaType] = useState<'runas' | 'gemas'>('runas');
   const [mundoType, setMundoType] = useState<MundoType>('eventos');
+  const [talismanType, setTalismanType] = useState<TalismanType>('charms');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
@@ -73,6 +78,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [aiConfigParagonType, setAiConfigParagonType] = useState<ParagonType>('tablero');
   const [aiConfigMundoType, setAiConfigMundoType] = useState<MundoType>('eventos');
   const [aiConfigRunaGemaType, setAiConfigRunaGemaType] = useState<'runas' | 'gemas'>('runas');
+  const [aiConfigTalismanType, setAiConfigTalismanType] = useState<TalismanType>('charms');
   const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [embedPromptInImage, setEmbedPromptInImage] = useState(false);
@@ -160,6 +166,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (newCategory === 'mundo') {
       setMundoType('eventos');
       setPromptType('heroe'); // Eventos y mazmorras siempre van al héroe
+    }
+
+    // Talismanes: siempre se importa a personaje
+    if (newCategory === 'talismanes') {
+      setTalismanType('charms');
+      setPromptType('personaje'); // Los talismanes se asocian a personajes específicos
     }
   };
 
@@ -992,6 +1004,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         basePrompt = effectiveRunaGemaType === 'gemas'
           ? ImageExtractionPromptService.generateGemsPrompt()
           : ImageExtractionPromptService.generateRunesPrompt();
+        break;
+      case 'talismanes':
+        // Usar prompt específico según tipo
+        basePrompt = talismanType === 'charms'
+          ? ImageExtractionPromptService.generateCharmsPrompt()
+          : ImageExtractionPromptService.generateHoradricSealPrompt();
         break;
       case 'build':
         basePrompt = ImageExtractionPromptService.generateEquipmentPrompt();
@@ -2069,7 +2087,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       runas: 'Runas',
       gemas: 'Gemas',
       build: 'Equipo',
-      mundo: 'Eventos del Mundo'
+      mundo: 'Eventos del Mundo',
+      talismanes: 'Talismanes'
     };
     return labels[category] || category;
   };
@@ -4909,65 +4928,100 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* Header compacto: Categorías + Botones Captura/Galería + Cerrar */}
-        <div className="flex flex-wrap items-center justify-between mb-3 gap-2 sticky top-0 bg-d4-surface pb-2 border-b border-d4-border z-[50]">
-          {/* Categorías con iconos */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <label className="text-xs font-semibold text-d4-text whitespace-nowrap">Categoría:</label>
-            <div className="flex flex-wrap gap-1.5 items-center">
+        {/* Header mejorado: Título + Botones principales + Cerrar */}
+        <div className="mb-6 sticky top-0 bg-d4-surface pb-4 border-b-2 border-d4-accent/30 z-[50]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                <Camera className="w-6 h-6 text-d4-accent" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-d4-accent">Captura de Datos</h2>
+                <p className="text-xs text-d4-text-dim">Importa información desde imágenes del juego</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 items-center">
+              {/* Botones Capturar/Galería mejorados */}
+              <button
+                onClick={() => setShowGallery(false)}
+                className={`px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg ${
+                  !showGallery 
+                    ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-black hover:from-amber-500 hover:to-yellow-500 scale-105' 
+                    : 'bg-d4-bg text-d4-text hover:bg-d4-border'
+                }`}
+                title="Capturar imágenes"
+              >
+                <Camera className="w-5 h-5" />
+                <span>Capturar</span>
+              </button>
+              <button
+                onClick={() => { setShowGallery(true); loadGallery(); }}
+                className={`px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg ${
+                  showGallery 
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 scale-105' 
+                    : 'bg-d4-bg text-d4-text hover:bg-d4-border'
+                }`}
+                title="Ver galería"
+              >
+                <ImageIcon className="w-5 h-5" />
+                <span>Galería</span>
+                {categoryCounts[selectedCategory] > 0 && (
+                  <span className="px-1.5 py-0.5 bg-white/20 rounded text-xs">
+                    {categoryCounts[selectedCategory]}
+                  </span>
+                )}
+              </button>
+              <div className="w-px h-8 bg-d4-border mx-1" />
+              <button 
+                onClick={onClose} 
+                className="p-2 hover:bg-red-600/20 rounded-lg transition-colors border border-d4-border hover:border-red-600" 
+                title="Cerrar"
+              >
+                <X className="w-5 h-5 text-d4-text hover:text-red-400" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Selector de categorías - Carrusel horizontal minimalista */}
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <Filter className="w-4 h-4 text-d4-accent" />
+              <span className="text-xs font-semibold text-d4-text-dim">Categoría</span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-d4-accent scrollbar-track-d4-border">
               {CATEGORIES.map(cat => {
                 const Icon = cat.icon;
+                const isSelected = selectedCategory === cat.value;
+                const count = categoryCounts[cat.value] || 0;
                 return (
                   <button
                     key={cat.value}
                     onClick={() => handleCategoryChange(cat.value)}
-                    className={`px-2 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                      selectedCategory === cat.value
-                        ? 'bg-d4-accent text-black'
-                        : 'bg-d4-bg text-d4-text hover:bg-d4-border'
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 border whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-d4-accent text-black border-d4-accent shadow-md'
+                        : 'bg-d4-surface/50 text-d4-text-dim border-d4-border/50 hover:border-d4-accent/50 hover:text-d4-text'
                     }`}
                     title={cat.label}
                   >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">{cat.label}</span>
-                    {categoryCounts[cat.value] > 0 && (
-                      <span className="text-[10px] opacity-70 hidden md:inline">({categoryCounts[cat.value]})</span>
+                    <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-black' : 'text-d4-text-dim'}`} />
+                    <span className={`text-xs font-medium ${isSelected ? 'text-black' : 'text-d4-text-dim'}`}>
+                      {cat.label}
+                    </span>
+                    {count > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                        isSelected 
+                          ? 'bg-black/20 text-black' 
+                          : 'bg-d4-accent/20 text-d4-accent'
+                      }`}>
+                        {count}
+                      </span>
                     )}
                   </button>
                 );
               })}
             </div>
-          </div>
-          
-          {/* Botones Captura/Galería + Cerrar a la derecha */}
-          <div className="flex gap-1.5 shrink-0 items-center">
-            <button
-              onClick={() => setShowGallery(false)}
-              className={`px-2 py-1.5 rounded text-xs font-semibold flex items-center gap-1 ${
-                !showGallery ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
-              }`}
-              title="Capturar imágenes"
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Capturar</span>
-            </button>
-            <button
-              onClick={() => { setShowGallery(true); loadGallery(); }}
-              className={`px-2 py-1.5 rounded text-xs font-semibold flex items-center gap-1 ${
-                showGallery ? 'bg-d4-accent text-black' : 'bg-d4-bg text-d4-text'
-              }`}
-              title="Ver galería"
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Galería</span>
-              {categoryCounts[selectedCategory] > 0 && (
-                <span className="text-[10px] opacity-70">({categoryCounts[selectedCategory]})</span>
-              )}
-            </button>
-            <div className="w-px h-5 bg-d4-border mx-0.5" />
-            <button onClick={onClose} className="p-1.5 hover:bg-d4-border rounded-lg transition-colors" title="Cerrar">
-              <X className="w-4 h-4 text-d4-text" />
-            </button>
           </div>
         </div>
 
@@ -5313,6 +5367,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           setAiConfigPersonajeId(selectedPersonajeId);
                           setAiConfigParagonType(paragonType);
                           setAiConfigRunaGemaType(runaGemaType);
+                          setAiConfigTalismanType(talismanType);
                           setAiServiceToUse('openai');
                           setShowAIConfigModal(true);
                         }
@@ -5555,6 +5610,27 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
 
+                  {/* Selector de tipo de Talismán */}
+                  {selectedCategory === 'talismanes' && (
+                    <div className="mb-1.5 lg:mb-2">
+                      <label className="block text-[10px] lg:text-xs font-semibold text-d4-text mb-0.5 lg:mb-1">
+                        Tipo de Talismán:
+                      </label>
+                      <select
+                        value={talismanType}
+                        onChange={(e) => setTalismanType(e.target.value as TalismanType)}
+                        className="w-full p-1 lg:p-2 bg-d4-surface border border-d4-border rounded text-d4-text text-[10px] lg:text-sm"
+                      >
+                        <option value="charms">🧿 Talismanes (Charms)</option>
+                        <option value="horadric_seal">🔶 Sello Horádrico</option>
+                      </select>
+                      <p className="text-[9px] lg:text-[10px] text-d4-text-dim mt-0.5">
+                        {talismanType === 'charms' && 'Piezas modulares equipables en el Sello Horádrico'}
+                        {talismanType === 'horadric_seal' && 'Núcleo del sistema: define slots y bonificaciones'}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Selector interno de tipo para Runas/Gemas */}
                   {selectedCategory === 'runas' && (
                     <div className="mb-1.5 lg:mb-2">
@@ -5624,6 +5700,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   {selectedCategory === 'build' && (
                     <p className="text-[9px] lg:text-[10px] text-d4-text-dim -mt-1 mb-1.5">
                       ✅ La categoría Equipo siempre se importa a Personaje
+                    </p>
+                  )}
+                  
+                  {/* Talismanes siempre personaje */}
+                  {selectedCategory === 'talismanes' && (
+                    <p className="text-[9px] lg:text-[10px] text-amber-400 -mt-1 mb-1.5">
+                      🧿 Los talismanes siempre se importan a un personaje específico (Temporada 13)
                     </p>
                   )}
 
@@ -6386,6 +6469,27 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               )}
 
+              {/* Selector de tipo Talismán (si aplica) */}
+              {selectedCategory === 'talismanes' && (
+                <div>
+                  <label className="block text-sm font-semibold text-d4-text mb-2">
+                    🔮 Tipo de Talismán: <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={aiConfigTalismanType}
+                    onChange={(e) => setAiConfigTalismanType(e.target.value as TalismanType)}
+                    className="w-full p-3 bg-d4-surface border border-d4-border rounded-lg text-d4-text"
+                  >
+                    <option value="charms">🧿 Talismanes (Charms)</option>
+                    <option value="horadric_seal">🔶 Sello Horádrico</option>
+                  </select>
+                  <p className="text-xs text-d4-text-dim mt-1">
+                    {aiConfigTalismanType === 'charms' && 'Piezas modulares equipables en el Sello Horádrico'}
+                    {aiConfigTalismanType === 'horadric_seal' && 'Núcleo del sistema: define slots y bonificaciones'}
+                  </p>
+                </div>
+              )}
+
               {/* Selector de destino (Héroe/Personaje) */}
               {selectedCategory !== 'runas' && selectedCategory !== 'build' && selectedCategory !== 'mundo' && (
                 <div>
@@ -6452,6 +6556,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <div className="p-3 bg-blue-600/10 border border-blue-500/30 rounded-lg">
                   <p className="text-sm text-blue-300">
                     ℹ️ El equipo siempre se importa a un personaje específico
+                  </p>
+                </div>
+              )}
+              
+              {selectedCategory === 'talismanes' && (
+                <div className="p-3 bg-amber-600/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-sm text-amber-300">
+                    🧿 Los talismanes siempre se importan a un personaje específico (Temporada 13)
                   </p>
                 </div>
               )}
@@ -6550,12 +6662,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     validationErrors.push('Selecciona el tipo de dato del mundo');
                   }
 
+                  // Validar tipo de talismán
+                  if (selectedCategory === 'talismanes' && !aiConfigTalismanType) {
+                    validationErrors.push('Selecciona el tipo de talismán');
+                  }
+
                   // Validar destino (excepto categorías globales)
                   if (selectedCategory !== 'runas' && selectedCategory !== 'mundo') {
                     // Determinar tipo efectivo
                     const effectiveType = 
                       selectedCategory === 'estadisticas' ? 'personaje' :
                       selectedCategory === 'build' ? 'personaje' :
+                      selectedCategory === 'talismanes' ? 'personaje' :
                       aiConfigPromptType;
 
                     if (effectiveType === 'heroe' && !aiConfigClase) {
@@ -6579,6 +6697,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   setParagonType(aiConfigParagonType);
                   setRunaGemaType(aiConfigRunaGemaType);
                   setMundoType(aiConfigMundoType);
+                  setTalismanType(aiConfigTalismanType);
 
                   // Cerrar modal
                   setShowAIConfigModal(false);
@@ -6587,7 +6706,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   const aiConfig = {
                     paragonType: aiConfigParagonType,
                     runaGemaType: aiConfigRunaGemaType,
-                    mundoType: aiConfigMundoType
+                    mundoType: aiConfigMundoType,
+                    talismanType: aiConfigTalismanType
                   };
                   
                   if (aiServiceToUse === 'gemini') {
@@ -6601,11 +6721,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   if (selectedCategory === 'paragon' && !aiConfigParagonType) return true;
                   if (selectedCategory === 'runas' && !aiConfigRunaGemaType) return true;
                   if (selectedCategory === 'mundo' && !aiConfigMundoType) return true;
+                  if (selectedCategory === 'talismanes' && !aiConfigTalismanType) return true;
                   
                   if (selectedCategory !== 'runas' && selectedCategory !== 'mundo') {
                     const effectiveType = 
                       selectedCategory === 'estadisticas' ? 'personaje' :
                       selectedCategory === 'build' ? 'personaje' :
+                      selectedCategory === 'talismanes' ? 'personaje' :
                       aiConfigPromptType;
 
                     if (effectiveType === 'heroe' && !aiConfigClase) return true;
@@ -6619,11 +6741,13 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     if (selectedCategory === 'paragon' && !aiConfigParagonType) return true;
                     if (selectedCategory === 'runas' && !aiConfigRunaGemaType) return true;
                     if (selectedCategory === 'mundo' && !aiConfigMundoType) return true;
-                    
+                    if (selectedCategory === 'talismanes' && !aiConfigTalismanType) return true;
+
                     if (selectedCategory !== 'runas' && selectedCategory !== 'mundo') {
                       const effectiveType = 
                         selectedCategory === 'estadisticas' ? 'personaje' :
                         selectedCategory === 'build' ? 'personaje' :
+                        selectedCategory === 'talismanes' ? 'personaje' :
                         aiConfigPromptType;
 
                       if (effectiveType === 'heroe' && !aiConfigClase) return true;

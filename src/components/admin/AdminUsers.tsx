@@ -181,18 +181,25 @@ export const AdminUsers = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="w-8 h-8 text-d4-accent" />
-          <h1 className="text-3xl font-bold text-d4-accent">Panel de Administración</h1>
+      <div className="card p-6 mb-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+              <Shield className="w-6 h-6 text-d4-accent" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-d4-accent mb-1">Panel de Administración</h1>
+              <p className="text-d4-text-dim text-sm">Gestión de usuarios y configuración del sistema</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowChangeOwnPasswordModal(true)}
+            className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg bg-gradient-to-r from-slate-600 to-gray-600 text-white hover:from-slate-500 hover:to-gray-500 hover:scale-105"
+          >
+            <Key className="w-4 h-4" />
+            <span>Cambiar mi Contraseña</span>
+          </button>
         </div>
-        <button
-          onClick={() => setShowChangeOwnPasswordModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-d4-card hover:bg-d4-card-hover rounded-lg border border-d4-border transition-colors"
-        >
-          <Key className="w-4 h-4" />
-          <span>Cambiar mi Contraseña</span>
-        </button>
       </div>
 
       {/* Estadísticas */}

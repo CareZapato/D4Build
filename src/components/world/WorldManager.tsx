@@ -184,23 +184,23 @@ const WorldManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header con gradiente mejorado */}
-      <div className="card p-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-d4-accent/30">
+      {/* Header con título mejorado y destacado */}
+      <div className="card p-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-4 rounded-xl bg-gradient-to-br from-d4-accent/20 to-d4-accent/10 border border-d4-accent/30">
-                <MapPin className="w-10 h-10 text-d4-accent" />
+              <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+                <MapPin className="w-6 h-6 text-d4-accent" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-d4-accent to-d4-accent/70 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold text-d4-accent mb-1">
                   Sistema de Progresión del Mundo
                 </h1>
-                <p className="text-d4-text-dim mt-1 font-medium">
+                <p className="text-d4-text-dim text-sm">
                   {worldData ? (
                     <>
-                      <span className="text-d4-accent">{worldData.eventos.length}</span> eventos •{' '}
-                      <span className="text-d4-accent">{worldData.indice_recursos.length}</span> recursos
+                      <span className="text-d4-accent font-bold">{worldData.eventos.length}</span> eventos •{' '}
+                      <span className="text-d4-accent font-bold">{worldData.indice_recursos.length}</span> recursos
                     </>
                   ) : (
                     'Sin datos cargados'
@@ -210,9 +210,9 @@ const WorldManager: React.FC = () => {
             </div>
 
             <div className="flex gap-2 items-start">
-              <label className="btn btn-sm cursor-pointer hover:scale-105 transition-transform flex items-center gap-2">
+              <label className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 cursor-pointer transition-all shadow-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-500 hover:to-cyan-500 hover:scale-105">
                 <Upload className="w-4 h-4" />
-                Importar
+                <span>Importar</span>
                 <input
                   type="file"
                   accept=".json"
@@ -223,7 +223,7 @@ const WorldManager: React.FC = () => {
 
               <button 
                 onClick={handleExportJSON} 
-                className="btn btn-sm hover:scale-105 transition-transform flex items-center gap-2" 
+                className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 hover:scale-105" 
                 disabled={!worldData || worldData.eventos.length === 0}
               >
                 <Download className="w-4 h-4" />
@@ -232,7 +232,7 @@ const WorldManager: React.FC = () => {
 
               <button 
                 onClick={handleGenerateAnalysis} 
-                className="btn btn-sm btn-primary hover:scale-105 transition-transform shadow-lg shadow-d4-accent/20 flex items-center gap-2" 
+                className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg bg-gradient-to-r from-amber-600 to-yellow-600 text-black hover:from-amber-500 hover:to-yellow-500 hover:scale-105" 
                 disabled={!worldData || worldData.eventos.length === 0}
               >
                 <TrendingUp className="w-4 h-4" />
@@ -241,9 +241,11 @@ const WorldManager: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Tabs mejorados */}
-        <div className="flex flex-wrap gap-2 border-b-2 border-d4-border pb-3">
+      {/* Tabs separados del header */}
+      <div className="card p-4">
+        <div className="flex flex-wrap gap-2">
           {[
             { value: 'eventos', label: 'Eventos', icon: Calendar },
             { value: 'mazmorras', label: 'Mazmorras', icon: MapPin },
@@ -258,7 +260,7 @@ const WorldManager: React.FC = () => {
               <button
                 key={tab.value}
                 onClick={() => setCurrentView(tab.value as any)}
-                className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 font-semibold text-sm ${
+                className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 font-bold text-sm ${
                   currentView === tab.value
                     ? 'bg-gradient-to-r from-d4-accent to-d4-accent/90 text-black shadow-lg shadow-d4-accent/30 scale-105'
                     : 'bg-d4-surface/70 text-d4-text hover:bg-d4-border hover:scale-105 hover:shadow-md'
@@ -275,33 +277,41 @@ const WorldManager: React.FC = () => {
       {/* Vista de Eventos */}
       {currentView === 'eventos' && (
         <div className="space-y-5">
-          {/* Filtros mejorados */}
-          <div className="card p-4 bg-gradient-to-r from-d4-surface/80 to-d4-bg/80">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-d4-accent" />
-                <input
-                  type="text"
-                  className="input w-full !pl-14 pr-3 py-2.5 bg-d4-bg border-d4-border focus:border-d4-accent focus:ring-2 focus:ring-d4-accent/20 transition-all"
-                  placeholder="Buscar eventos por nombre, descripción o boss..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          {/* Panel de filtros separado con título */}
+          <div className="card">
+            <div className="p-4 border-b-2 border-d4-border">
+              <div className="flex items-center gap-2">
+                <Search className="w-5 h-5 text-d4-accent" />
+                <h3 className="text-lg font-bold text-d4-text">Filtros de Búsqueda</h3>
               </div>
+            </div>
+            <div className="p-4 bg-gradient-to-r from-d4-surface/80 to-d4-bg/80">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-d4-accent" />
+                  <input
+                    type="text"
+                    className="input w-full !pl-10 pr-3 py-2.5 bg-d4-bg border-d4-border focus:border-d4-accent focus:ring-2 focus:ring-d4-accent/20 transition-all"
+                    placeholder="Buscar eventos por nombre, descripción o boss..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
 
-              <select
-                className="input py-2.5 px-3 bg-d4-bg border-d4-border focus:border-d4-accent focus:ring-2 focus:ring-d4-accent/20 transition-all font-medium sm:w-auto w-full"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <option value="all">🌐 Todos los tipos</option>
-                <option value="guarida">🔴 Guaridas</option>
-                <option value="susurro">🟣 Susurros</option>
-                <option value="evento">🔵 Eventos</option>
-                <option value="calabozo">⚔️ Calabozos</option>
-                <option value="legion">🛡️ Legiones</option>
-                <option value="reserva">🏰 Reservas</option>
-              </select>
+                <select
+                  className="input py-2.5 px-3 bg-d4-bg border-d4-border focus:border-d4-accent focus:ring-2 focus:ring-d4-accent/20 transition-all font-medium sm:w-auto w-full"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                >
+                  <option value="all">🌐 Todos los tipos</option>
+                  <option value="guarida">🔴 Guaridas</option>
+                  <option value="susurro">🟣 Susurros</option>
+                  <option value="evento">🔵 Eventos</option>
+                  <option value="calabozo">⚔️ Calabozos</option>
+                  <option value="legion">🛡️ Legiones</option>
+                  <option value="reserva">🏰 Reservas</option>
+                </select>
+              </div>
             </div>
           </div>
 

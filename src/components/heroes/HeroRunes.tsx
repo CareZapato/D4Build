@@ -335,7 +335,18 @@ const HeroRunes: React.FC<Props> = ({ clase }) => {
 
   return (
     <div className="space-y-4">
-      {/* Header con filtros */}
+      {/* Header con título */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+          <Sparkles className="w-6 h-6 text-d4-accent" />
+        </div>
+        <div>
+          <h3 className="text-2xl font-bold text-d4-accent">Runas</h3>
+          <p className="text-xs text-d4-text-dim">Catálogo de runas disponibles</p>
+        </div>
+      </div>
+
+      {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">

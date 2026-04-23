@@ -672,9 +672,12 @@ export interface Personaje {
   build?: Build;                        // Equipamiento completo del personaje
   // Referencias a mecánicas de clase (v0.8.0)
   mecanicas_clase_refs?: MecanicaClaseReferencia[];
+  // Referencias a talismanes equipados (Temporada 13 - v0.8.1)
+  talismanes_refs?: string[];  // IDs de talismanes (charms) del catálogo del héroe
   notas?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
+  ultima_actualizacion?: string; // Fecha de última modificación (cualquier importación/edición)
 }
 
 export interface EstadisticasPersonaje {
@@ -1023,6 +1026,115 @@ export interface Gema {
   };
   
   tags?: string[];
+}
+
+// ============================================
+// Tipos para Talismanes (Temporada 13)
+// ============================================
+
+/**
+ * EfectoTalisman - Efecto de un talismán
+ */
+export interface EfectoTalisman {
+  tipo: 'pasivo' | 'condicion' | 'proc' | 'stacking';
+  descripcion: string;
+  valor?: number | string;
+  condicion?: string; // Solo si tipo='condicion'
+  stacks?: number; // Solo si tipo='stacking'
+  tags?: string[];
+}
+
+/**
+ * StatTalisman - Estadística de un talismán
+ */
+export interface StatTalisman {
+  nombre: string;
+  valor: number | string;
+  tipo?: 'plano' | 'porcentaje' | 'multiplicador';
+  tags?: string[];
+}
+
+/**
+ * BonusSet - Bonificación de set progresiva
+ */
+export interface BonusSet {
+  piezas_requeridas: number; // Cantidad de piezas necesarias
+  descripcion: string; // Descripción del bonus
+  stats?: StatTalisman[]; // Stats adicionales del bonus
+}
+
+/**
+ * SetTalisman - Información del set al que pertenece un talismán
+ */
+export interface SetTalisman {
+  nombre: string;
+  piezas: string[]; // IDs de los talismanes del set
+  bonus: BonusSet[]; // Bonos progresivos (2, 4, 6 piezas, etc.)
+}
+
+/**
+ * Charm - Talismán/Charm equipable en el Sello Horádrico
+ */
+export interface Charm {
+  id: string;
+  nombre: string;
+  rareza: 'rare' | 'unique' | 'set';
+  nivel_item?: number;
+  nivel_requerido?: number;
+  stats: StatTalisman[];
+  efectos: EfectoTalisman[];
+  set?: SetTalisman; // Solo si rareza='set'
+  descripcion?: string;
+  lore?: string;
+  tags?: string[];
+}
+
+/**
+ * CharmsHeroe - Catálogo de talismanes del héroe
+ */
+export interface CharmsHeroe {
+  talismanes: Charm[];
+}
+
+/**
+ * ReglaHoradricSeal - Regla/Restricción del Sello Horádrico
+ */
+export interface ReglaHoradricSeal {
+  tipo: 'restriccion' | 'bonus' | 'sinergía' | 'penalizacion';
+  descripcion: string;
+  condicion?: string;
+}
+
+/**
+ * HoradricSeal - Núcleo del sistema de talismanes
+ */
+export interface HoradricSeal {
+  id: string;
+  nombre: string;
+  rareza: 'rare' | 'legendary';
+  slots: number; // CRÍTICO: cantidad de espacios para talismanes
+  nivel_item?: number;
+  nivel_requerido?: number;
+  stats: StatTalisman[];
+  bonus: string[]; // Bonificaciones base del sello
+  reglas: ReglaHoradricSeal[];
+  descripcion?: string;
+  tags?: string[];
+}
+
+/**
+ * HoradricSealHeroe - Sello Horádrico del héroe
+ */
+export interface HoradricSealHeroe {
+  sello: HoradricSeal | null;
+}
+
+/**
+ * TalismanesHeroe - Datos completos de talismanes del héroe (usado por WorkspaceService)
+ */
+export interface TalismanesHeroe {
+  talismanes: Charm[];
+  sello_horadrico: HoradricSeal | null;
 }
 
 /**

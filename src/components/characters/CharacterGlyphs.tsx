@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Upload, Plus, Trash2, Gem, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Plus, Trash2, Gem, Copy, Check } from 'lucide-react';
 import { Personaje, Glifo, GlifosHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagLinkingService } from '../../services/TagLinkingService';
-import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';import { TagBadge } from '../tags/TagBadge';import Modal from '../common/Modal';
+import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
+import { TagBadge } from '../tags/TagBadge';
+import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 
 interface Props {
@@ -14,7 +16,6 @@ interface Props {
 const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
   const modal = useModal();
   const [importing, setImporting] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [availableGlyphs, setAvailableGlyphs] = useState<Glifo[]>([]);
   const [characterGlyphsData, setCharacterGlyphsData] = useState<Glifo[]>([]);
   const [glyphsRefs, setGlyphsRefs] = useState<Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>>(
@@ -282,27 +283,25 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
   return (
     <>
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="flex items-center gap-2">
           <Gem className="w-5 h-5 text-d4-accent" />
-          <span className="text-sm text-d4-text font-semibold">
+          <span className="text-sm text-d4-text">
             Glifos ({characterGlyphsData.length})
           </span>
-          {isExpanded ? <ChevronUp className="w-4 h-4 text-d4-accent" /> : <ChevronDown className="w-4 h-4 text-d4-accent" />}
         </div>
-        {isExpanded && (
-          <div className="flex gap-1">
-            <button 
-              onClick={() => setShowAddModal(true)} 
-              className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
-            >
-              <Plus className="w-3 h-3" />
-              Desde Héroe
-            </button>
-            <button 
-              onClick={() => setShowTextInput(!showTextInput)} 
-              className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
-            >
-              <Upload className="w-3 h-3" />
+        <div className="flex gap-1">
+          <button 
+            onClick={() => setShowAddModal(true)} 
+            className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
+          >
+            <Plus className="w-3 h-3" />
+            Desde Héroe
+          </button>
+          <button 
+            onClick={() => setShowTextInput(!showTextInput)} 
+            className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
+          >
+            <Upload className="w-3 h-3" />
             JSON
           </button>
           <label className="btn-secondary cursor-pointer flex items-center gap-1 text-xs py-1 px-2">
@@ -316,12 +315,9 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
               disabled={importing}
             />
           </label>
-          </div>
-        )}
+        </div>
       </div>
 
-      {isExpanded && (
-        <>
       {showTextInput && (
         <div className="bg-d4-bg p-3 rounded border border-d4-accent mb-3">
           <h4 className="font-bold text-d4-accent mb-2 text-sm">Pegar JSON de Glifos</h4>
@@ -563,8 +559,6 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
             </div>
           ))}
         </div>
-      )}
-      </>
       )}
 
       {showAddModal && (

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Upload, Download, FileJson, Copy, Check, Database, Package } from 'lucide-react';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import { TagService } from '../../services/TagService';
-import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, MecanicasClaseHeroe, Tag, RunasHeroe, GemasHeroe } from '../../types';
+import { HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, MecanicasClaseHeroe, Tag, RunasHeroe, GemasHeroe, CharmsHeroe, HoradricSealHeroe } from '../../types';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import HeroSkills from './HeroSkills';
 import HeroGlyphs from './HeroGlyphs';
@@ -11,6 +11,8 @@ import HeroParagon from './HeroParagon';
 import HeroRunes from './HeroRunes';
 import HeroGems from './HeroGems';
 import HeroClassMechanics from './HeroClassMechanics';
+import HeroCharms from './HeroCharms';
+import HeroHoradricSeal from './HeroHoradricSeal';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 import { useAppContext } from '../../context/AppContext';
@@ -20,7 +22,7 @@ const HeroManager: React.FC = () => {
   const { personajes, availableClasses } = useAppContext();
   const [selectedClass, setSelectedClass] = useState('Paladín');
   const [currentView, setCurrentView] = useState<'import' | 'manage'>('manage');
-  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'mecanicas' | 'paragon' | 'runas' | 'gemas'>('habilidades');
+  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'mecanicas' | 'paragon' | 'runas' | 'gemas' | 'talismanes'>('habilidades');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -32,6 +34,8 @@ const HeroManager: React.FC = () => {
   const [heroGlyphs, setHeroGlyphs] = useState<GlifosHeroe | null>(null);
   const [heroAspects, setHeroAspects] = useState<AspectosHeroe | null>(null);
   const [heroClassMechanics, setHeroClassMechanics] = useState<MecanicasClaseHeroe | null>(null);
+  const [heroCharms, setHeroCharms] = useState<CharmsHeroe | null>(null);
+  const [heroHoradricSeal, setHeroHoradricSeal] = useState<HoradricSealHeroe | null>(null);
   const [loading, setLoading] = useState(false);
 
   const clases = ['Paladín', 'Bárbaro', 'Hechicero', 'Pícaro', 'Druida', 'Nigromante', 'Espiritista'];
@@ -46,17 +50,21 @@ const HeroManager: React.FC = () => {
   const loadHeroData = async () => {
     setLoading(true);
     try {
-      const [skills, glyphs, aspects, mechanics] = await Promise.all([
+      const [skills, glyphs, aspects, mechanics, charms, horadricSeal] = await Promise.all([
         WorkspaceService.loadHeroSkills(selectedClass),
         WorkspaceService.loadHeroGlyphs(selectedClass),
         WorkspaceService.loadHeroAspects(selectedClass),
-        WorkspaceService.loadHeroClassMechanics(selectedClass)
+        WorkspaceService.loadHeroClassMechanics(selectedClass),
+        WorkspaceService.loadHeroCharms(selectedClass),
+        WorkspaceService.loadHeroHoradricSeal(selectedClass)
       ]);
       
       setHeroSkills(skills);
       setHeroGlyphs(glyphs);
       setHeroAspects(aspects);
       setHeroClassMechanics(mechanics);
+      setHeroCharms(charms);
+      setHeroHoradricSeal(horadricSeal);
     } catch (error) {
       console.error('Error cargando datos del héroe:', error);
     } finally {
@@ -82,6 +90,16 @@ const HeroManager: React.FC = () => {
   const handleUpdateClassMechanics = async (mechanics: MecanicasClaseHeroe) => {
     await WorkspaceService.saveHeroClassMechanics(selectedClass, mechanics);
     setHeroClassMechanics(mechanics);
+  };
+
+  const handleUpdateCharms = async (charms: CharmsHeroe) => {
+    await WorkspaceService.saveHeroCharms(selectedClass, charms);
+    setHeroCharms(charms);
+  };
+
+  const handleUpdateHoradricSeal = async (seal: HoradricSealHeroe) => {
+    await WorkspaceService.saveHeroHoradricSeal(selectedClass, seal);
+    setHeroHoradricSeal(seal);
   };
 
   const handleImportJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -456,6 +474,54 @@ const HeroManager: React.FC = () => {
       if (agregados > 0) mensajesG.push(`${agregados} nuevas`);
 
       modal.showSuccess(`Gemas ${selectedClass}: ${mensajesG.join(', ')}`);
+    } else if (importType === 'talismanes') {
+      // Detectar si es Charms o Sello Horádrico
+      if (data.talismanes && Array.isArray(data.talismanes)) {
+        // Importar Charms
+        const existingData = await WorkspaceService.loadHeroCharms(selectedClass);
+        const existing: CharmsHeroe = existingData || { talismanes: [] };
+
+        let actualizados = 0;
+        let agregados = 0;
+
+        data.talismanes.forEach((charm: any) => {
+          const existingIndex = existing.talismanes.findIndex((c: any) => c.nombre === charm.nombre);
+          if (existingIndex >= 0) {
+            existing.talismanes[existingIndex] = { ...charm, id: existing.talismanes[existingIndex].id };
+            actualizados++;
+          } else {
+            existing.talismanes.push({
+              ...charm,
+              id: charm.id || `charm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            });
+            agregados++;
+          }
+        });
+
+        await WorkspaceService.saveHeroCharms(selectedClass, existing);
+        setHeroCharms(existing);
+
+        const mensajes: string[] = [];
+        if (actualizados > 0) mensajes.push(`${actualizados} actualizados`);
+        if (agregados > 0) mensajes.push(`${agregados} nuevos`);
+
+        modal.showSuccess(`Talismanes ${selectedClass}: ${mensajes.join(', ')}`);
+      } else if (data.horadric_seal || data.sello_horadrico) {
+        // Importar Sello Horádrico
+        const seal = data.horadric_seal || data.sello_horadrico;
+        
+        if (!seal.id) {
+          seal.id = `seal-${Date.now()}`;
+        }
+
+        const sealData: HoradricSealHeroe = { sello: seal };
+        await WorkspaceService.saveHeroHoradricSeal(selectedClass, sealData);
+        setHeroHoradricSeal(sealData);
+
+        modal.showSuccess(`Sello Horádrico "${seal.nombre}" importado`);
+      } else {
+        modal.showError('El archivo no tiene el formato correcto de talismanes o sello horádrico');
+      }
     }
   };
 
@@ -482,6 +548,24 @@ const HeroManager: React.FC = () => {
           return;
         }
         downloadJSON(data, `${selectedClass}_aspectos.json`);
+      } else if (importType === 'talismanes') {
+        // Exportar tanto charms como sello horádrico
+        const charms = await WorkspaceService.loadHeroCharms(selectedClass);
+        const seal = await WorkspaceService.loadHeroHoradricSeal(selectedClass);
+        
+        if (!charms && !seal) {
+          modal.showWarning('No hay datos de talismanes para exportar');
+          return;
+        }
+
+        if (charms && charms.talismanes.length > 0) {
+          downloadJSON(charms, `${selectedClass}_talismanes.json`);
+        }
+        if (seal && seal.sello) {
+          downloadJSON({ horadric_seal: seal.sello }, `${selectedClass}_sello_horadrico.json`);
+        }
+        
+        modal.showSuccess('Talismanes exportados');
       }
     } catch (error) {
       console.error('Error exportando datos:', error);
@@ -595,11 +679,18 @@ const HeroManager: React.FC = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-d4-text mb-2">Gestión de Héroes</h2>
-        <p className="text-d4-text-dim">
-          Importa y gestiona la información base de cada clase (habilidades, glifos, aspectos)
-        </p>
+      <div className="card p-6 mb-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+            <Shield className="w-6 h-6 text-d4-accent" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-d4-accent mb-1">Gestión de Héroes</h1>
+            <p className="text-d4-text-dim text-sm">
+              Importa y gestiona la información base de cada clase (habilidades, glifos, aspectos)
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Class Selector */}
@@ -725,6 +816,17 @@ const HeroManager: React.FC = () => {
                       className="text-d4-accent"
                     />
                     <span className="text-d4-text">Gemas</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importType"
+                      value="talismanes"
+                      checked={importType === 'talismanes'}
+                      onChange={() => setImportType('talismanes')}
+                      className="text-d4-accent"
+                    />
+                    <span className="text-d4-text">🔮 Talismanes</span>
                   </label>
                 </div>
               </div>
@@ -971,6 +1073,16 @@ const HeroManager: React.FC = () => {
                 >
                   Gemas
                 </button>
+                <button
+                  onClick={() => setImportType('talismanes')}
+                  className={`px-4 py-2 rounded transition-colors ${
+                    importType === 'talismanes'
+                      ? 'bg-d4-accent text-black font-semibold'
+                      : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                  }`}
+                >
+                  🔮 Talismanes
+                </button>
               </div>
 
               {/* Render appropriate component */}
@@ -1018,6 +1130,28 @@ const HeroManager: React.FC = () => {
 
               {importType === 'gemas' && (
                 <HeroGems clase={selectedClass} />
+              )}
+
+              {importType === 'talismanes' && (
+                <div className="space-y-6">
+                  {/* Talismanes */}
+                  {heroCharms && (
+                    <HeroCharms
+                      heroClass={selectedClass}
+                      charms={heroCharms}
+                      onUpdate={handleUpdateCharms}
+                    />
+                  )}
+                  
+                  {/* Sello Horádrico */}
+                  {heroHoradricSeal && (
+                    <HeroHoradricSeal
+                      heroClass={selectedClass}
+                      sealData={heroHoradricSeal}
+                      onUpdate={handleUpdateHoradricSeal}
+                    />
+                  )}
+                </div>
               )}
 
               {/* No data message */}

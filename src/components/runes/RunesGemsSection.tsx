@@ -124,21 +124,28 @@ const RunesGemsSection: React.FC = () => {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-d4-text mb-1">Gemas/Runas</h2>
-          <p className="text-d4-text-dim text-sm">
-            Catalogo global compartido con detalle tecnico, clasificacion por color y busqueda optimizada.
-          </p>
+      <div className="card p-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+              <Gem className="w-6 h-6 text-d4-accent" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-d4-accent mb-1">Gemas/Runas</h1>
+              <p className="text-d4-text-dim text-sm">
+                Catálogo global compartido con detalle técnico, clasificación por color y búsqueda optimizada.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => void loadCatalog()}
+            className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-500 hover:to-violet-500 hover:scale-105"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Recargar
+          </button>
         </div>
-        <button
-          onClick={() => void loadCatalog()}
-          className="btn-secondary flex items-center gap-2"
-          disabled={loading}
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Recargar
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -3103,4 +3103,414 @@ Devuelve **SOLO** un objeto JSON con esta estructura exacta:
 
 **Devuelve ÚNICAMENTE el JSON, sin texto adicional antes o después.**`;
   }
+
+  // ============================================================================
+  // PROMPTS PARA TALISMANES (v0.8.0 - Temporada 13)
+  // ============================================================================
+
+  static generateCharmsPrompt(): string {
+    return `🧿 **ROL**: Experto en sistemas de equipamiento y builds de Diablo 4 - Temporada 13.
+
+**OBJETIVO**: Analiza la imagen y extrae la información de TALISMANES (Charms) de Diablo 4 para un **personaje específico**.
+
+---
+
+## 👤 CONTEXTO
+
+Estos talismanes pertenecen a un **personaje específico** y se equipan en su **Horadric Seal (Sello Horádrico)**. Son parte de su build personalizada.
+
+---
+
+## 🔍 ¿QUÉ SON LOS TALISMANES?
+
+Los **Talismanes (Charms)** son objetos modulares que se equip an dentro del **Horadric Seal (Sello Horádrico)**. Son piezas clave para personalizar builds.
+
+**TIPOS DE TALISMANES:**
+- **Rare (Raro)**: Amarillo/dorado, stats más simples
+- **Unique (Único)**: Naranja/legendario, efectos únicos poderosos
+- **Set Charm (Set)**: Verde, parte de un conjunto con bonificaciones progresivas
+
+---
+
+## 📊 FORMATO JSON ESPERADO
+
+\`\`\`json
+{
+  "talismanes": [
+    {
+      "id": "charm_narrow_eye_fer",
+      "nombre": "Fer of the Narrow Eye",
+      "tipo": "charm",
+      "rareza": "set",
+      "nivel_requerido": null,
+      "stats": [
+        {
+          "nombre": "Smoke Grenade",
+          "valor": 3,
+          "rango": "[2-3]"
+        },
+        {
+          "nombre": "Bonus Experience",
+          "valor": 4.2,
+          "rango": "[3.2 - 6.0]"
+        }
+      ],
+      "efectos": [
+        {
+          "descripcion": "Al usar una habilidad básica Marksman, ganas acumulaciones de Vengeance que aumentan velocidad de movimiento y daño.",
+          "tipo": "stacking",
+          "condicion": "usar habilidad básica Marksman",
+          "tags": ["marksman", "movement", "damage", "stacking"]
+        }
+      ],
+      "set": {
+        "nombre": "Narrow Eye",
+        "piezas": ["Phoba", "Fer", "Mlor", "Linta"],
+        "bonus": [
+          {
+            "piezas_requeridas": 2,
+            "efecto": "Stacks de Vengeance aumentan daño y velocidad"
+          },
+          {
+            "piezas_requeridas": 3,
+            "efecto": "Genera Dark Shroud y reducción de daño"
+          }
+        ]
+      },
+      "tags": ["marksman", "set", "stacking", "vengeance"]
+    },
+    {
+      "id": "charm_paingorgers_gauntlets",
+      "nombre": "Paingorger's Gauntlets",
+      "tipo": "charm",
+      "rareza": "unique",
+      "nivel_requerido": 70,
+      "stats": [
+        {
+          "nombre": "Shadow Resistance",
+          "valor": 438,
+          "rango": "[416-523]"
+        },
+        {
+          "nombre": "Movement Speed",
+          "valor": 23,
+          "rango": "[20-24]"
+        }
+      ],
+      "efectos": [
+        {
+          "descripcion": "Marcar enemigos con habilidades no básicas permite replicar daño con habilidades básicas.",
+          "tipo": "condicion",
+          "condicion": "usar habilidad básica sobre enemigo marcado",
+          "tags": ["mark", "echo_damage", "basic_skills"]
+        }
+      ],
+      "set": {
+        "nombre": null,
+        "piezas": [],
+        "bonus": []
+      },
+      "tags": ["unique", "damage", "mark"]
+    }
+  ],
+  "palabras_clave": ["talisman", "charm", "horadric", "set", "unique"]
 }
+\`\`\`
+
+---
+
+## 📝 INSTRUCCIONES PASO A PASO
+
+### PASO 1: IDENTIFICAR RAREZA
+
+**Por color del borde:**
+- 🟢 **Verde** = Set (parte de conjunto)
+- 🟠 **Naranja/Legendario** = Unique (único)
+- 🟡 **Amarillo** = Rare (raro)
+
+### PASO 2: EXTRAER INFORMACIÓN BÁSICA
+
+- **id**: Identificador único en snake_case (ej: "charm_narrow_eye_fer")
+- **nombre**: Nombre completo tal como aparece
+- **tipo**: Siempre "charm"
+- **rareza**: "set", "unique", o "rare"
+- **nivel_requerido**: Número o null si no es visible
+
+### PASO 3: CAPTURAR STATS
+
+Los **stats** son valores numéricos directos (resistencias, velocidad, experiencia, etc.).
+
+Para cada stat:
+- **nombre**: Nombre del atributo (ej: "Shadow Resistance", "Movement Speed")
+- **valor**: Valor numérico actual
+- **rango**: Rango posible entre corchetes si es visible (ej: "[20-24]"), null si no
+
+### PASO 4: CAPTURAR EFECTOS
+
+Los **efectos** son mecánicas especiales (condicionales, pasivas, por acumulación).
+
+Para cada efecto:
+- **descripcion**: Texto completo del efecto
+- **tipo**: "pasivo", "condicion", "proc", "stacking"
+  - **pasivo**: Siempre activo sin condición
+  - **condicion**: Requiere cumplir algo ("al usar X")
+  - **proc**: Se activa por probabilidad ("chance to...")
+  - **stacking**: Acumulación progresiva de bonos
+- **condicion**: Si tipo es "condicion" o "stacking", describe la condición (null si pasivo)
+- **tags**: Array de palabras clave relevantes del efecto
+
+### PASO 5: INFORMACIÓN DE SET (CRÍTICO)
+
+Si el talismán es de **rareza "set"**:
+
+**set.nombre**: Nombre del conjunto (ej: "Narrow Eye", "Dark Pact")
+**set.piezas**: Array con nombres de TODAS las piezas del set
+  - Pueden aparecer en el tooltip o en la descripción
+  - Ej: ["Phoba", "Fer", "Mlor", "Linta"]
+**set.bonus**: Array de bonificaciones por cantidad equipada
+  - **piezas_requeridas**: 2, 3, 4, etc.
+  - **efecto**: Descripción del bonus al tener X piezas
+
+Si NO es set (unique o rare):
+\`\`\`json
+"set": {
+  "nombre": null,
+  "piezas": [],
+  "bonus": []
+}
+\`\`\`
+
+### PASO 6: TAGS GENERALES
+
+Extrae palabras clave útiles para búsqueda y análisis:
+- Tipos de habilidad: "marksman", "shadow", "basic_skills", "core_skills"
+- Mecánicas: "stacking", "mark", "proc", "vengeance", "movement"
+- Conceptos: "damage", "defense", "resource", "cooldown"
+
+---
+
+## ⚠️ REGLAS CRÍTICAS
+
+1. **Rareza set vs unique**:
+   - Set siempre tiene información del conjunto (nombre + piezas + bonus)
+   - Unique NO tiene set (nombre: null, arrays vacíos)
+
+2. **Stats vs Efectos**:
+   - **Stats** = Números directos (+438 resistencia, +23% velocidad)
+   - **Efectos** = Mecánicas/condiciones ("al usar X", "ganas Y")
+
+3. **Tipos de efecto**:
+   - Usa "stacking" solo si menciona acumulaciones progresivas
+   - Usa "condicion" si requiere hacer algo específico
+   - Usa "pasivo" si siempre está activo
+   - Usa "proc" si es probabilidad ("chance to")
+
+4. **Información de set**:
+   - Captura TODAS las piezas mencionadas
+   - Captura TODOS los bonus por cantidad
+   - Mantén el orden de los bonus (2 piezas, 3 piezas, 4 piezas, etc.)
+
+5. **Tags**:
+   - Incluye conceptos relevantes del efecto
+   - Normaliza a snake_case ("Dark Shroud" → "dark_shroud")
+   - Incluye tipo de rareza como tag ("set", "unique", "rare")
+
+---
+
+## 📋 NOTAS CONTEXTUALES
+
+- Algunos charms tienen efectos que interactúan con **tags de habilidades** (Marksman, Shadow, Abyss, etc.)
+- Los sets tienen **sinergias internas** - captura todas las piezas para análisis posterior
+- Los unique suelen tener **efectos únicos potentes** - captura la descripción completa
+
+**Devuelve ÚNICAMENTE el JSON, sin texto adicional antes o después.**`;
+  }
+
+  static generateHoradricSealPrompt(): string {
+    return `🔶 **ROL**: Experto en sistemas de equipamiento y builds de Diablo 4 - Temporada 13.
+
+**OBJETIVO**: Analiza la imagen y extrae la información del **HORADRIC SEAL (Sello Horádrico)** de Diablo 4 para un **personaje específico**.
+
+---
+
+## 👤 CONTEXTO
+
+Este Sello Horádrico pertenece a un **personaje específico** y define su configuración de talismanes. Es único para cada personaje.
+
+---
+
+## 🔍 ¿QUÉ ES EL HORADRIC SEAL?
+
+El **Horadric Seal (Sello Horádrico)** es el NÚCLEO del sistema de talismanes. Define:
+- **Cantidad de slots** disponibles para equipar talismanes
+- **Estadísticas base** del sistema
+- **Bonificaciones especiales** por sets o tipos de talismanes
+- **Reglas globales** (límites, restricciones)
+
+👉 **Sin el sello, no hay build de talismanes.**
+
+---
+
+## 📊 FORMATO JSON ESPERADO
+
+\`\`\`json
+{
+  "horadric_seal": {
+    "id": "horadric_seal_honor",
+    "nombre": "Horadric Seal of Honor",
+    "tipo": "horadric_seal",
+    "rareza": "legendary",
+    "slots": 5,
+    "stats": [
+      {
+        "nombre": "Total Armor",
+        "valor": 45
+      },
+      {
+        "nombre": "Maximum Life",
+        "valor": 120
+      }
+    ],
+    "bonus": [
+      {
+        "descripcion": "Charm Set: Dark Pact otorga daño adicional",
+        "tags": ["set", "damage", "dark_pact"]
+      },
+      {
+        "descripcion": "Charm Set: Adept Action reduce daño al moverse",
+        "tags": ["movement", "defense", "adept_action"]
+      }
+    ],
+    "reglas": [
+      {
+        "descripcion": "No puede tener más de 5 sockets"
+      },
+      {
+        "descripcion": "Puede equipar hasta 2 charms únicos"
+      }
+    ],
+    "nivel_requerido": 60,
+    "tags": ["horadric", "seal", "legendary"]
+  },
+  "palabras_clave": ["horadric_seal", "slots", "charms", "socket"]
+}
+\`\`\`
+
+---
+
+## 📝 INSTRUCCIONES PASO A PASO
+
+### PASO 1: IDENTIFICAR EL SELLO
+
+**Detectar por:**
+- Nombre contiene "Horadric Seal"
+- Ícono característico (símbolo horádrico)
+- Texto descriptivo menciona "charm slots" o "sockets"
+
+### PASO 2: EXTRAER INFORMACIÓN BÁSICA
+
+- **id**: Identificador único en snake_case (ej: "horadric_seal_honor")
+- **nombre**: Nombre completo (ej: "Horadric Seal of Honor")
+- **tipo**: Siempre "horadric_seal"
+- **rareza**: "rare" o "legendary" (detectar por color del borde)
+  - 🟠 Naranja = legendary
+  - 🟡 Amarillo = rare
+
+### PASO 3: CAPTURAR SLOTS
+
+- **slots**: Número TOTAL de ranuras para equipar talismanes
+  - Puede aparecer como "5 Charm Slots" o "Sockets: 5"
+  - Es un número entero (3, 4, 5, 6, etc.)
+
+### PASO 4: CAPTURAR STATS BASE
+
+Los **stats** son bonificaciones numéricas que otorga el sello.
+
+Para cada stat:
+- **nombre**: Nombre del atributo (ej: "Total Armor", "Maximum Life", "All Resistances")
+- **valor**: Valor numérico (puede ser entero o decimal)
+
+**Ejemplos comunes:**
+- Total Armor: +45
+- Maximum Life: +120
+- All Resistances: +15%
+- Movement Speed: +10%
+
+### PASO 5: CAPTURAR BONIFICACIONES ESPECIALES
+
+Los **bonus** son efectos especiales que otorga el sello, generalmente relacionados con:
+- **Interacción con sets** de talismanes
+- **Multiplicadores** por tipo de charm
+- **Mecánicas especiales**
+
+Para cada bonus:
+- **descripcion**: Texto completo del efecto
+- **tags**: Array de palabras clave relevantes
+  - Incluir nombre del set si menciona uno (ej: "dark_pact", "narrow_eye")
+  - Incluir mecánica (ej: "damage", "defense", "movement")
+
+**Ejemplos:**
+- "Charm Set: Dark Pact otorga 20% más de daño" → tags: ["set", "damage", "dark_pact"]
+- "Charm Set: Adept Action reduce 15% el daño recibido al moverse" → tags: ["movement", "defense", "adept_action"]
+- "Los charms únicos otorgan 10% más de efecto" → tags: ["unique", "multiplier"]
+
+### PASO 6: CAPTURAR REGLAS/RESTRICCIONES
+
+Las **reglas** son limitaciones o condiciones del sello.
+
+Para cada regla:
+- **descripcion**: Texto completo de la regla
+
+**Ejemplos comunes:**
+- "No puede tener más de X sockets"
+- "Puede equipar hasta X charms únicos"
+- "Requiere nivel Y para usar"
+- "Solo puede equipar charms de tipo Z"
+
+### PASO 7: INFORMACIÓN ADICIONAL
+
+- **nivel_requerido**: Nivel mínimo para usar el sello (null si no visible)
+- **tags**: Array de palabras clave generales
+  - Siempre incluir: "horadric", "seal"
+  - Incluir rareza: "legendary" o "rare"
+  - Incluir conceptos relevantes de bonus/reglas
+
+---
+
+## ⚠️ REGLAS CRÍTICAS
+
+1. **Slots es FUNDAMENTAL**:
+   - Sin este número, no se puede construir la build
+   - Debe ser un número entero exacto
+
+2. **Stats vs Bonus**:
+   - **Stats** = Números directos (+45 armadura, +120 vida)
+   - **Bonus** = Efectos especiales/condicionales (interacciones con sets)
+
+3. **Bonus de sets**:
+   - Si menciona "Charm Set: [Nombre]", extrae el nombre exacto del set
+   - Estos bonus se activan solo si tienes piezas de ese set equipadas
+   - Incluye el nombre del set en los tags
+
+4. **Reglas importantes**:
+   - Límite de unique charms (si aplica)
+   - Restricciones de sockets (si aplica)
+   - Requisitos especiales (si aplica)
+
+5. **Rareza**:
+   - Legendary (naranja) = más slots + mejores bonus
+   - Rare (amarillo) = menos slots + bonus más simples
+
+---
+
+## 📋 NOTAS CONTEXTUALES
+
+- El sello es **ÚNICO por personaje** - solo puedes tener uno equipado
+- Los bonus de sets se activan SOLO si tienes las piezas equipadas en los charms
+- Algunos sellos tienen **sinergias específicas** con ciertas clases o builds
+- El número de slots determina **cuántos talismanes** puedes equipar simultáneamente
+
+**Devuelve ÚNICAMENTE el JSON, sin texto adicional antes o después.**`;
+  }
+}
+

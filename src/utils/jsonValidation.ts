@@ -698,6 +698,263 @@ export function validateMazmorrasJSON(data: any): JSONValidationResult {
 }
 
 /**
+ * Valida la estructura de JSON para talismanes (charms)
+ */
+export function validateCharmsJSON(data: any): JSONValidationResult {
+  const errors: ImportValidationError[] = [];
+  const warnings: ImportValidationError[] = [];
+  const detectedFields: string[] = [];
+
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    errors.push({
+      field: 'root',
+      expected: 'object {}',
+      received: Array.isArray(data) ? 'array []' : typeof data,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Verificar array de talismanes
+  if (!data.talismanes) {
+    errors.push({
+      field: 'talismanes',
+      expected: 'array [] (requerido)',
+      received: 'undefined',
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  if (!Array.isArray(data.talismanes)) {
+    errors.push({
+      field: 'talismanes',
+      expected: 'array []',
+      received: typeof data.talismanes,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  detectedFields.push('talismanes');
+
+  // Validar cada talismán
+  data.talismanes.forEach((charm: any, idx: number) => {
+    // Validar campos requeridos
+    if (!charm.nombre) {
+      errors.push({
+        field: `talismanes[${idx}].nombre`,
+        expected: 'string (requerido)',
+        received: 'undefined o vacío',
+        severity: 'error'
+      });
+    }
+
+    if (!charm.rareza || !['rare', 'unique', 'set'].includes(charm.rareza)) {
+      errors.push({
+        field: `talismanes[${idx}].rareza`,
+        expected: '"rare", "unique", o "set"',
+        received: charm.rareza || 'undefined',
+        severity: 'error'
+      });
+    }
+
+    // Validar stats
+    if (charm.stats !== undefined) {
+      if (!Array.isArray(charm.stats)) {
+        errors.push({
+          field: `talismanes[${idx}].stats`,
+          expected: 'array []',
+          received: typeof charm.stats,
+          severity: 'error'
+        });
+      } else {
+        charm.stats.forEach((stat: any, statIdx: number) => {
+          if (!stat.nombre) {
+            warnings.push({
+              field: `talismanes[${idx}].stats[${statIdx}].nombre`,
+              expected: 'string',
+              received: 'undefined',
+              severity: 'warning'
+            });
+          }
+        });
+      }
+    }
+
+    // Validar efectos
+    if (charm.efectos !== undefined) {
+      if (!Array.isArray(charm.efectos)) {
+        errors.push({
+          field: `talismanes[${idx}].efectos`,
+          expected: 'array []',
+          received: typeof charm.efectos,
+          severity: 'error'
+        });
+      } else {
+        charm.efectos.forEach((efecto: any, efectoIdx: number) => {
+          if (!efecto.descripcion) {
+            warnings.push({
+              field: `talismanes[${idx}].efectos[${efectoIdx}].descripcion`,
+              expected: 'string',
+              received: 'undefined',
+              severity: 'warning'
+            });
+          }
+          if (!efecto.tipo || !['pasivo', 'condicion', 'proc', 'stacking'].includes(efecto.tipo)) {
+            warnings.push({
+              field: `talismanes[${idx}].efectos[${efectoIdx}].tipo`,
+              expected: '"pasivo", "condicion", "proc", o "stacking"',
+              received: efecto.tipo || 'undefined',
+              severity: 'warning'
+            });
+          }
+        });
+      }
+    }
+
+    // Validar set (si es rareza "set")
+    if (charm.rareza === 'set' && charm.set) {
+      if (!charm.set.nombre) {
+        warnings.push({
+          field: `talismanes[${idx}].set.nombre`,
+          expected: 'string (requerido para sets)',
+          received: 'undefined',
+          severity: 'warning'
+        });
+      }
+      if (!Array.isArray(charm.set.piezas)) {
+        warnings.push({
+          field: `talismanes[${idx}].set.piezas`,
+          expected: 'array []',
+          received: typeof charm.set.piezas,
+          severity: 'warning'
+        });
+      }
+      if (!Array.isArray(charm.set.bonus)) {
+        warnings.push({
+          field: `talismanes[${idx}].set.bonus`,
+          expected: 'array []',
+          received: typeof charm.set.bonus,
+          severity: 'warning'
+        });
+      }
+    }
+  });
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    detectedFields
+  };
+}
+
+/**
+ * Valida la estructura de JSON para Horadric Seal
+ */
+export function validateHoradricSealJSON(data: any): JSONValidationResult {
+  const errors: ImportValidationError[] = [];
+  const warnings: ImportValidationError[] = [];
+  const detectedFields: string[] = [];
+
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    errors.push({
+      field: 'root',
+      expected: 'object {}',
+      received: Array.isArray(data) ? 'array []' : typeof data,
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  // Verificar objeto horadric_seal
+  if (!data.horadric_seal) {
+    errors.push({
+      field: 'horadric_seal',
+      expected: 'object {} (requerido)',
+      received: 'undefined',
+      severity: 'error'
+    });
+    return { isValid: false, errors, warnings, detectedFields };
+  }
+
+  const seal = data.horadric_seal;
+  detectedFields.push('horadric_seal');
+
+  // Validar campos requeridos
+  if (!seal.nombre) {
+    errors.push({
+      field: 'horadric_seal.nombre',
+      expected: 'string (requerido)',
+      received: 'undefined o vacío',
+      severity: 'error'
+    });
+  }
+
+  if (!seal.rareza || !['rare', 'legendary'].includes(seal.rareza)) {
+    errors.push({
+      field: 'horadric_seal.rareza',
+      expected: '"rare" o "legendary"',
+      received: seal.rareza || 'undefined',
+      severity: 'error'
+    });
+  }
+
+  if (seal.slots === undefined || typeof seal.slots !== 'number') {
+    errors.push({
+      field: 'horadric_seal.slots',
+      expected: 'number (requerido)',
+      received: typeof seal.slots,
+      severity: 'error'
+    });
+  }
+
+  // Validar stats
+  if (seal.stats !== undefined) {
+    if (!Array.isArray(seal.stats)) {
+      errors.push({
+        field: 'horadric_seal.stats',
+        expected: 'array []',
+        received: typeof seal.stats,
+        severity: 'error'
+      });
+    }
+  }
+
+  // Validar bonus
+  if (seal.bonus !== undefined) {
+    if (!Array.isArray(seal.bonus)) {
+      errors.push({
+        field: 'horadric_seal.bonus',
+        expected: 'array []',
+        received: typeof seal.bonus,
+        severity: 'error'
+      });
+    }
+  }
+
+  // Validar reglas
+  if (seal.reglas !== undefined) {
+    if (!Array.isArray(seal.reglas)) {
+      warnings.push({
+        field: 'horadric_seal.reglas',
+        expected: 'array []',
+        received: typeof seal.reglas,
+        severity: 'warning'
+      });
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    detectedFields
+  };
+}
+
+/**
  * Valida JSON según la categoría
  */
 export function validateJSONByCategory(
@@ -762,13 +1019,18 @@ export function validateJSONByCategory(
         detectedFields: hasPiezas ? ['build', 'build.piezas'] : []
       };
     }
+    case 'charms':
+      return validateCharmsJSON(data);
+    case 'horadric_seal': {
+      return validateHoradricSealJSON(data);
+    }
     default:
       return {
         isValid: true,
         errors: [],
         warnings: [{
           field: 'category',
-          expected: 'skills, glifos, aspectos, estadisticas, runas, gemas, o build',
+          expected: 'skills, glifos, aspectos, estadisticas, runas, gemas, build, charms, horadric_seal',
           received: category,
           severity: 'warning'
         }],

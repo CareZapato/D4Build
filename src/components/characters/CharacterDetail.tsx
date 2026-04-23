@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Save, ChevronDown, ChevronUp, BarChart3, Swords, Hexagon, Shield, Sparkles, Grid3x3, Zap } from 'lucide-react';
 import { Personaje, Estadisticas, ParagonPersonaje, Build, MecanicaClaseReferencia } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
 import CharacterStats from './CharacterStats';
@@ -67,7 +67,9 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const handleSaveBasicInfo = async () => {
     setSaving(true);
     try {
-      editedPersonaje.fecha_actualizacion = new Date().toISOString();
+      const now = new Date().toISOString();
+      editedPersonaje.fecha_actualizacion = now;
+      editedPersonaje.ultima_actualizacion = now;
       await WorkspaceService.savePersonajeMerge(editedPersonaje);
       setEditMode(false);
       setHasChanges(false);
@@ -83,13 +85,15 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const updatedPersonaje: Personaje = {
         ...editedPersonaje,
         estadisticas: pendingStats,
         glifos_refs: pendingGlyphs,
         habilidades_refs: pendingSkills,
         paragon: pendingParagon || undefined,
-        fecha_actualizacion: new Date().toISOString(),
+        fecha_actualizacion: now,
+        ultima_actualizacion: now,
       };
       
       await WorkspaceService.savePersonajeMerge(updatedPersonaje);
@@ -114,6 +118,7 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   ) => {
     setPendingStats(stats);
     
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
@@ -121,7 +126,8 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
       ...(statsRefs && { estadisticas_refs: statsRefs }), // v0.3.7: Guardar referencias
       ...(nivel !== undefined && { nivel }),
       ...(nivelParagon !== undefined && { nivel_paragon: nivelParagon }),
-      fecha_actualizacion: new Date().toISOString(),
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -140,11 +146,13 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const handleGlyphsChange = async (glifosRefs: Array<{ id: string; nivel_actual: number; nivel_maximo?: number }>) => {
     setPendingGlyphs(glifosRefs);
     
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
       glifos_refs: glifosRefs,
-      fecha_actualizacion: new Date().toISOString(),
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -166,11 +174,13 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   }) => {
     setPendingSkills(skillsRefs);
     
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
- habilidades_refs: skillsRefs,
-      fecha_actualizacion: new Date().toISOString(),
+      habilidades_refs: skillsRefs,
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -189,11 +199,13 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const handleMecanicasChange = async (mecanicasRefs: MecanicaClaseReferencia[]) => {
     setPendingMecanicas(mecanicasRefs);
     
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
       mecanicas_clase_refs: mecanicasRefs,
-      fecha_actualizacion: new Date().toISOString(),
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -212,11 +224,13 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   const handleParagonChange = async (paragonData: ParagonPersonaje) => {
     setPendingParagon(paragonData);
     
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
       paragon: paragonData,
-      fecha_actualizacion: new Date().toISOString(),
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -233,11 +247,13 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   };
 
   const handleRunesChange = async (runasRefs: Array<{ runa_id: string; vinculada_a?: 'arma' | 'escudo' }>) => {
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
       runas_refs: runasRefs,
-      fecha_actualizacion: new Date().toISOString(),
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -254,11 +270,13 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
   };
 
   const handleBuildChange = async (build: Build) => {
+    const now = new Date().toISOString();
     // Construir personaje actualizado
     const updatedPersonaje: Personaje = {
       ...editedPersonaje,
       build: build,
-      fecha_actualizacion: new Date().toISOString(),
+      fecha_actualizacion: now,
+      ultima_actualizacion: now,
     };
     
     // Actualizar estado local
@@ -287,56 +305,63 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="btn-secondary flex items-center gap-2">
-            <ArrowLeft className="w-5 h-5" />
-            Volver
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold text-d4-accent">{editedPersonaje.nombre}</h2>
-            <p className="text-d4-text-dim">{editedPersonaje.clase} - Nivel {editedPersonaje.nivel}</p>
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          {hasChanges && (
-            <button 
-              onClick={handleSaveAll} 
-              className="btn-primary flex items-center gap-2 animate-pulse"
-              disabled={saving}
-            >
-              <Save className="w-5 h-5" />
-              {saving ? 'Guardando...' : 'Guardar Todo'}
+      {/* Header mejorado con estilo moderno */}
+      <div className="card p-6 mb-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="btn-secondary flex items-center gap-2 hover:scale-105 transition-transform">
+              <ArrowLeft className="w-5 h-5" />
+              <span>Volver</span>
             </button>
-          )}
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+                <span className="text-3xl">🎮</span>
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold text-d4-accent">{editedPersonaje.nombre}</h2>
+                <p className="text-d4-text-dim font-medium">{editedPersonaje.clase} • Nivel {editedPersonaje.nivel}</p>
+              </div>
+            </div>
+          </div>
           
-          {editMode ? (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            {hasChanges && (
               <button 
-                onClick={() => {
-                  setEditedPersonaje({ ...personaje });
-                  setEditMode(false);
-                }} 
-                className="btn-secondary"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleSaveBasicInfo} 
-                className="btn-primary flex items-center gap-2"
+                onClick={handleSaveAll} 
+                className="px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-500 hover:to-emerald-500 animate-pulse shadow-lg"
                 disabled={saving}
               >
                 <Save className="w-5 h-5" />
-                {saving ? 'Guardando...' : 'Guardar Info'}
+                {saving ? 'Guardando...' : 'Guardar Todo'}
               </button>
-            </div>
-          ) : (
-            <button onClick={() => setEditMode(true)} className="btn-secondary">
-              Editar Info
-            </button>
-          )}
+            )}
+            
+            {editMode ? (
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    setEditedPersonaje({ ...personaje });
+                    setEditMode(false);
+                  }} 
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveBasicInfo} 
+                  className="btn-primary flex items-center gap-2"
+                  disabled={saving}
+                >
+                  <Save className="w-5 h-5" />
+                  {saving ? 'Guardando...' : 'Guardar Info'}
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setEditMode(true)} className="btn-secondary">
+                Editar Info
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -431,6 +456,20 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
                   {new Date(editedPersonaje.fecha_creacion).toLocaleDateString('es-ES')}
                 </span>
               </div>
+              {editedPersonaje.ultima_actualizacion && (
+                <div className="flex justify-between">
+                  <span className="text-d4-text-dim">Última actualización:</span>
+                  <span className="text-d4-text text-xs">
+                    {new Date(editedPersonaje.ultima_actualizacion).toLocaleDateString('es-ES', { 
+                      day: '2-digit', 
+                      month: '2-digit', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              )}
               {editedPersonaje.notas && (
                 <div className="mt-4 pt-4 border-t border-d4-border">
                   <p className="text-d4-text-dim text-xs mb-1">Notas:</p>
@@ -564,21 +603,26 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
       <div className="space-y-6 mt-6">
         {/* Estadísticas Completas */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setStatsCollapsed(!statsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Estadísticas</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <BarChart3 className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Estadísticas</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                  </p>
+                </div>
               </div>
               {statsCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!statsCollapsed && (
@@ -591,21 +635,26 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Habilidades */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setSkillsCollapsed(!skillsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Habilidades del Personaje</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Swords className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Habilidades del Personaje</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                  </p>
+                </div>
               </div>
               {skillsCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!skillsCollapsed && (
@@ -618,21 +667,26 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Glifos */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setGlyphsCollapsed(!glyphsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Glifos del Personaje</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Hexagon className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Glifos del Personaje</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                  </p>
+                </div>
               </div>
               {glyphsCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!glyphsCollapsed && (
@@ -645,21 +699,26 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Mecánicas de Clase */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setMecanicasCollapsed(!mecanicasCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Mecánicas de Clase</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Shield className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Mecánicas de Clase</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                  </p>
+                </div>
               </div>
               {mecanicasCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!mecanicasCollapsed && (
@@ -672,21 +731,26 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Runas */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setRunesCollapsed(!runesCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Runas del Personaje</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Sparkles className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Runas del Personaje</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                  </p>
+                </div>
               </div>
               {runesCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!runesCollapsed && (
@@ -699,21 +763,26 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Build (Equipo) */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setBuildCollapsed(!buildCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Build / Equipo</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Shield className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Build / Equipo</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    Última actualización: {formatLastUpdate(editedPersonaje.fecha_actualizacion)}
+                  </p>
+                </div>
               </div>
               {buildCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!buildCollapsed && (
@@ -726,23 +795,28 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Sistema Paragon */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setParagonCollapsed(!paragonCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <div>
-                <h3 className="text-lg font-bold text-d4-accent">Sistema Paragon</h3>
-                <p className="text-[10px] text-d4-text-dim mt-0.5">
-                  {editedPersonaje.paragon 
-                    ? `Nivel ${editedPersonaje.paragon.nivel_paragon} - ${editedPersonaje.paragon.tableros_equipados?.length || 0} tableros`
-                    : 'Sin configuración Paragon'}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Grid3x3 className="w-5 h-5 text-d4-accent" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-d4-accent">Sistema Paragon</h3>
+                  <p className="text-[10px] text-d4-text-dim mt-0.5">
+                    {editedPersonaje.paragon 
+                      ? `Nivel ${editedPersonaje.paragon.nivel_paragon} - ${editedPersonaje.paragon.tableros_equipados?.length || 0} tableros`
+                      : 'Sin configuración Paragon'}
+                  </p>
+                </div>
               </div>
               {paragonCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!paragonCollapsed && (
@@ -755,16 +829,21 @@ const CharacterDetail: React.FC<Props> = ({ personaje, onBack, onUpdate }) => {
 
         {/* Prompts Inteligentes */}
         <div className="lg:col-span-3">
-          <div className="card">
+          <div className="card border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
             <button
               onClick={() => setPromptsCollapsed(!promptsCollapsed)}
               className="w-full flex items-center justify-between p-4 hover:bg-d4-border/20 transition-colors rounded"
             >
-              <h3 className="text-lg font-bold text-d4-accent">Generador de Prompts IA</h3>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
+                  <Zap className="w-5 h-5 text-d4-accent" />
+                </div>
+                <h3 className="text-xl font-bold text-d4-accent">Generador de Prompts IA</h3>
+              </div>
               {promptsCollapsed ? (
-                <ChevronDown className="w-5 h-5 text-d4-accent" />
+                <ChevronDown className="w-6 h-6 text-d4-accent" />
               ) : (
-                <ChevronUp className="w-5 h-5 text-d4-accent" />
+                <ChevronUp className="w-6 h-6 text-d4-accent" />
               )}
             </button>
             {!promptsCollapsed && (

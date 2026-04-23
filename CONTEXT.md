@@ -1,7 +1,7 @@
 # 🎮 D4Builds - Contexto y Arquitectura de la Aplicación
 
-> **Última actualización:** 18 de abril de 2026  
-> **Versión:** 0.6.4  
+> **Última actualización:** 23 de abril de 2026  
+> **Versión:** 0.8.2  
 > **Propósito:** Documentación completa del funcionamiento, procesos y formatos de datos
 
 ---

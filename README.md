@@ -1,6 +1,6 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.8.0-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.8.2-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
@@ -860,6 +860,30 @@ Esta aplicación usa la File System Access API, que es compatible con:
 - [ ] Modo oscuro/claro
 
 ## 📝 Changelog
+
+### v0.8.2 (23 de Abril, 2026)
+**🎨 Refinamiento Visual - Botones Premium**
+- ✨ **Botones con gradientes**: Todos los botones en headers con diseño premium (sombras, gradientes de color, efectos hover)
+- 🎨 **Paleta por función**: Importar (azul→cyan), Exportar (púrpura→rosa), Análisis (ámbar→amarillo), Crear (verde→esmeralda), Recargar (índigo→violeta)
+- 💎 **Sistema de Mundo mejorado**: Botones "Importar" y "Exportar" ahora visibles como botones reales (no texto)
+- 🔄 **Consistencia total**: Padding px-4 py-2, text-sm, font-bold, iconos w-4 h-4, scale-105 hover en todos
+- ✅ **Páginas actualizadas**: Personajes, Héroes, Prompts, Mundo, Tags, Admin, Gemas/Runas
+
+### v0.8.1 (23 de Abril, 2026)
+**🔮 Talismanes + Mejoras UX**
+- 🔮 **Talismanes en personajes**: Campo `talismanes_refs`, visualización en resumen, 5% en completitud
+- 📅 **Fecha de última actualización**: Campo `ultima_actualizacion` en personajes, formato completo DD/MM/YYYY HH:mm
+- 🎨 **Rediseño visual global**: Headers premium con cards de fondo, gradientes, iconos unificados, títulos 3xl
+- 📱 **Modal de captura rediseñado**: Carrusel horizontal minimalista, botones con gradientes (Capturar/Galería)
+- 🎯 **Consistencia UI**: Mismo formato en todas las páginas, padding p-6, border-2, descripciones incluidas
+
+### v0.8.0 (20 de Abril, 2026)
+**🔮 Temporada 13: Talismanes**
+- 🧿 **Nueva categoría Talismanes**: Soporte completo para charms y sello horádrico
+- 🤖 **Extracción IA mejorada**: Soporte para Gemini y OpenAI GPT-4o con talismanes
+- 🎨 **Sistema de rareza**: rare, unique, set con bonos progresivos y efectos especiales
+- ⚡ **Tipos de efectos**: Pasivos, condicionales, proc y stacking
+- 📦 **Sets completos**: Bonificaciones al equipar múltiples piezas del mismo set
 
 ### v0.6.0 (17 de Abril, 2026)
 **🎨 Mejoras Visuales y Validación**

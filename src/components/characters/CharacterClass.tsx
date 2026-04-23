@@ -259,16 +259,25 @@ Extrae TODA la información visible sobre las mecánicas de clase del ${personaj
         <div className="flex items-center gap-2">
           <button
             onClick={handleCopyPrompt}
-            className={`btn btn-sm ${copied ? 'bg-emerald-500/20 text-emerald-400' : ''}`}
+            className={`btn-secondary flex items-center gap-1 text-xs py-1 px-2 ${copied ? 'bg-emerald-500/20 text-emerald-400' : ''}`}
             title="Copiar prompt para IA"
           >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copiado' : 'Prompt IA'}
+            {copied ? (
+              <>
+                <Check className="w-3 h-3" />
+                ¡Copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                Prompt IA
+              </>
+            )}
           </button>
 
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="btn btn-sm"
+            className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
             title={isExpanded ? 'Contraer' : 'Expandir'}
           >
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -281,8 +290,8 @@ Extrae TODA la información visible sobre las mecánicas de clase del ${personaj
           {/* Importación */}
           <div className="bg-d4-surface/50 border border-d4-border rounded-lg p-3">
             <div className="flex flex-wrap gap-2">
-              <label className="btn btn-sm cursor-pointer hover:bg-d4-accent/20">
-                <Upload className="w-4 h-4" />
+              <label className="btn-secondary cursor-pointer flex items-center gap-1 text-xs py-1 px-2">
+                <Upload className="w-3 h-3" />
                 Importar JSON
                 <input
                   type="file"
@@ -295,9 +304,9 @@ Extrae TODA la información visible sobre las mecánicas de clase del ${personaj
 
               <button
                 onClick={() => setShowTextInput(!showTextInput)}
-                className="btn btn-sm hover:bg-d4-accent/20"
+                className="btn-secondary flex items-center gap-1 text-xs py-1 px-2"
               >
-                <BookOpen className="w-4 h-4" />
+                <BookOpen className="w-3 h-3" />
                 Pegar JSON
               </button>
             </div>
@@ -314,7 +323,7 @@ Extrae TODA la información visible sobre las mecánicas de clase del ${personaj
               <div className="flex gap-2">
                 <button
                   onClick={handleImportFromText}
-                  className="btn btn-primary btn-sm"
+                  className="btn-primary text-xs py-1 px-2"
                   disabled={importing || !jsonText.trim()}
                 >
                   {importing ? 'Importando...' : 'Importar'}
@@ -324,7 +333,7 @@ Extrae TODA la información visible sobre las mecánicas de clase del ${personaj
                     setShowTextInput(false);
                     setJsonText('');
                   }}
-                  className="btn btn-sm"
+                  className="btn-secondary text-xs py-1 px-2"
                 >
                   Cancelar
                 </button>

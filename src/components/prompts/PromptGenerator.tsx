@@ -73,11 +73,18 @@ const PromptGenerator: React.FC<Props> = ({ personajes }) => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-d4-text mb-2">Generador de Prompts</h2>
-        <p className="text-d4-text-dim">
-          Genera prompts enriquecidos con la información de tus personajes para consultar en ChatGPT, Claude u otras IAs
-        </p>
+      <div className="card p-6 mb-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+            <Sparkles className="w-6 h-6 text-d4-accent" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-d4-accent mb-1">Generador de Prompts</h1>
+            <p className="text-d4-text-dim text-sm">
+              Genera prompts enriquecidos con la información de tus personajes para consultar en ChatGPT, Claude u otras IAs
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

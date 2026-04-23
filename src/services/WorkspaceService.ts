@@ -1,4 +1,4 @@
-import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, EstadisticasHeroe, RunasHeroe, GemasHeroe, GemasRunasCatalogo } from '../types';
+import { WorkspaceConfig, Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, EstadisticasHeroe, RunasHeroe, GemasHeroe, GemasRunasCatalogo, CharmsHeroe, HoradricSealHeroe } from '../types';
 import { TagService } from './TagService';
 import { ImageService } from './ImageService';
 
@@ -486,6 +486,70 @@ export class WorkspaceService {
     } catch (error) {
       console.error('Error cargando aspectos:', error);
       return null;
+    }
+  }
+
+  // Guardar talismanes de héroe (Temporada 13)
+  static async saveHeroCharms(clase: string, charms: CharmsHeroe): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_talismanes.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(charms, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando talismanes:', error);
+      throw error;
+    }
+  }
+
+  // Cargar talismanes de héroe (Temporada 13)
+  static async loadHeroCharms(clase: string): Promise<CharmsHeroe | null> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_talismanes.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('Error cargando talismanes:', error);
+      return { talismanes: [] };
+    }
+  }
+
+  // Guardar Sello Horádrico de héroe (Temporada 13)
+  static async saveHeroHoradricSeal(clase: string, seal: HoradricSealHeroe): Promise<void> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_sello_horadrico.json`, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(seal, null, 2));
+      await writable.close();
+    } catch (error) {
+      console.error('Error guardando sello horádrico:', error);
+      throw error;
+    }
+  }
+
+  // Cargar Sello Horádrico de héroe (Temporada 13)
+  static async loadHeroHoradricSeal(clase: string): Promise<HoradricSealHeroe | null> {
+    if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const heroesDir = await this.fileSystemHandle.getDirectoryHandle('heroes');
+      const fileHandle = await heroesDir.getFileHandle(`${clase}_sello_horadrico.json`);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('Error cargando sello horádrico:', error);
+      return { sello: null };
     }
   }
 

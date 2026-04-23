@@ -208,98 +208,112 @@ export function TagsManager() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <TagIcon className="w-6 h-6 text-d4-accent" />
-          <h2 className="text-2xl font-bold text-d4-accent">Gestor de Tags</h2>
+      {/* Header mejorado con estilo uniforme */}
+      <div className="card p-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+              <TagIcon className="w-6 h-6 text-d4-accent" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-d4-accent mb-1">
+                Gestor de Tags
+              </h1>
+              <p className="text-d4-text-dim text-sm">
+                Sistema de etiquetado y categorización global
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg bg-gradient-to-r from-amber-600 to-yellow-600 text-black hover:from-amber-500 hover:to-yellow-500 hover:scale-105"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Nuevo Tag</span>
+          </button>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo Tag
-        </button>
       </div>
 
       {/* Estadísticas */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="card p-3 text-center">
-          <div className="text-2xl font-bold text-d4-accent">{tags.length}</div>
-          <div className="text-xs text-d4-text-dim">Total Tags</div>
+        <div className="card p-4 text-center border-2 border-d4-border hover:border-d4-accent/50 transition-colors">
+          <div className="text-3xl font-bold text-d4-accent">{tags.length}</div>
+          <div className="text-xs text-d4-text-dim font-semibold mt-1">Total Tags</div>
         </div>
-        <div className="card p-3 text-center">
-          <div className="text-2xl font-bold text-yellow-400">
+        <div className="card p-4 text-center border-2 border-d4-border hover:border-yellow-500/50 transition-colors">
+          <div className="text-3xl font-bold text-yellow-400">
             {tags.filter(t => t.pendiente_revision).length}
           </div>
-          <div className="text-xs text-d4-text-dim">Pendientes Revisión</div>
+          <div className="text-xs text-d4-text-dim font-semibold mt-1">Pendientes Revisión</div>
         </div>
-        <div className="card p-3 text-center">
-          <div className="text-2xl font-bold text-green-400">{filteredTags.length}</div>
-          <div className="text-xs text-d4-text-dim">Filtrados</div>
+        <div className="card p-4 text-center border-2 border-d4-border hover:border-green-500/50 transition-colors">
+          <div className="text-3xl font-bold text-green-400">{filteredTags.length}</div>
+          <div className="text-xs text-d4-text-dim font-semibold mt-1">Filtrados</div>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Filter className="w-4 h-4 text-d4-accent" />
-          <h3 className="font-bold text-d4-accent">Filtros</h3>
+      {/* Panel de filtros separado */}
+      <div className="card">
+        <div className="p-4 border-b-2 border-d4-border">
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-d4-accent" />
+            <h3 className="text-lg font-bold text-d4-text">Filtros de Búsqueda</h3>
+          </div>
         </div>
-
-        {/* Búsqueda */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-d4-text-dim" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por tag, texto original, significado o sinónimos..."
-            className="input w-full !pl-14"
-          />
-        </div>
-
-        {/* Filtros de categoría y origen */}
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs text-d4-text-dim mb-1">Categoría</label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as CategoryType | 'all')}
-              className="input w-full text-sm"
-            >
-              <option value="all">Todas</option>
-              {CATEGORIAS.map(cat => (
-                <option key={cat.value} value={cat.value}>{cat.label}</option>
-              ))}
-            </select>
+        <div className="p-4 space-y-3 bg-gradient-to-r from-d4-surface/80 to-d4-bg/80">
+          {/* Búsqueda */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-d4-accent" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por tag, texto original, significado o sinónimos..."
+              className="input w-full !pl-10"
+            />
           </div>
 
-          <div>
-            <label className="block text-xs text-d4-text-dim mb-1">Origen</label>
-            <select
-              value={originFilter}
-              onChange={(e) => setOriginFilter(e.target.value as OriginType | 'all')}
-              className="input w-full text-sm"
-            >
-              <option value="all">Todos</option>
-              {ORIGENES.map(orig => (
-                <option key={orig.value} value={orig.value}>{orig.label}</option>
-              ))}
-            </select>
-          </div>
+          {/* Filtros de categoría y origen */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-d4-text-dim mb-1 font-semibold">Categoría</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value as CategoryType | 'all')}
+                className="input w-full text-sm"
+              >
+                <option value="all">Todas</option>
+                {CATEGORIAS.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showPendingOnly}
-                onChange={(e) => setShowPendingOnly(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm text-d4-text">Solo pendientes</span>
-            </label>
+            <div>
+              <label className="block text-xs text-d4-text-dim mb-1 font-semibold">Origen</label>
+              <select
+                value={originFilter}
+                onChange={(e) => setOriginFilter(e.target.value as OriginType | 'all')}
+                className="input w-full text-sm"
+              >
+                <option value="all">Todos</option>
+                {ORIGENES.map(orig => (
+                  <option key={orig.value} value={orig.value}>{orig.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPendingOnly}
+                  onChange={(e) => setShowPendingOnly(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-d4-text">Solo pendientes</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>

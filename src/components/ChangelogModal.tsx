@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">22 de Abril, 2026 (v0.7.6)</p>
+                <p className="text-d4-text font-semibold">23 de Abril, 2026 (v0.8.2)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,164 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.2 - Botones Premium */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.2</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">🎨 Refinamiento Visual</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">✨ Botones Premium en Headers</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Diseño Unificado</strong>: Todos los botones en títulos de páginas con gradientes de color y sombras</li>
+                <li><strong>Sistema de Mundo</strong>: Botones "Importar" (azul→cyan), "Exportar" (púrpura→rosa), "Análisis" (ámbar→amarillo)</li>
+                <li><strong>Mis Personajes</strong>: "Nuevo Personaje" con gradiente verde→esmeralda</li>
+                <li><strong>Gestor de Tags</strong>: "Nuevo Tag" con gradiente ámbar→amarillo</li>
+                <li><strong>Panel Admin</strong>: "Cambiar mi Contraseña" con gradiente gris→slate</li>
+                <li><strong>Gemas/Runas</strong>: "Recargar" con gradiente índigo→violeta</li>
+                <li><strong>Efectos Hover</strong>: Todos los botones con scale-105, transiciones suaves y sombras dinámicas</li>
+                <li><strong>Consistencia Visual</strong>: Padding px-4 py-2, text-sm, font-bold, iconos w-4 h-4</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🎨 Paleta de Colores por Función</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Crear/Agregar</strong>: Verde→Esmeralda (acciones positivas)</li>
+                <li><strong>Importar</strong>: Azul→Cyan (traer datos externos)</li>
+                <li><strong>Exportar</strong>: Púrpura→Rosa (enviar datos externos)</li>
+                <li><strong>Análisis/Destacado</strong>: Ámbar→Amarillo (acciones importantes)</li>
+                <li><strong>Actualizar/Recargar</strong>: Índigo→Violeta (refresh de datos)</li>
+                <li><strong>Configuración</strong>: Gris→Slate (ajustes del sistema)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.1 - Talismanes en Personajes + UX */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.1</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-amber-600/20 to-yellow-600/20 text-amber-300 px-2 py-1 rounded">🔗 Mejoras de UX</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔮 Talismanes en Personajes</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li>Campo <code className="text-d4-accent">talismanes_refs</code> agregado al tipo Personaje</li>
+                <li>Referencia por IDs desde el catálogo del héroe</li>
+                <li>Visualización en cuadro de resumen (tarjeta de personaje)</li>
+                <li>Contador de talismanes equipados con icono distintivo ⭐</li>
+                <li>Incluido en cálculo de completitud (5% del total)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📅 Fecha de Última Actualización</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li>Campo <code className="text-d4-accent">ultima_actualizacion</code> en Personaje</li>
+                <li>Mostrada en sección "Información General" del personaje</li>
+                <li>Actualización automática en cada importación o edición</li>
+                <li>Formato completo: fecha y hora (DD/MM/YYYY HH:mm)</li>
+                <li>Se actualiza en todas las operaciones: stats, skills, glifos, runas, build, paragon, mecánicas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🎨 Mejoras de Interfaz</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Glifos</strong>: Eliminado collapser interno duplicado, sigue patrón de otras secciones</li>
+                <li><strong>Mecánicas de Clase</strong>: Botones actualizados a estilo consistente (btn-secondary/btn-primary)</li>
+                <li>Iconos reducidos a tamaño uniforme (w-3 h-3)</li>
+                <li>Espaciado y padding consistentes en todos los botones</li>
+                <li>Mejor jerarquía visual en secciones colapsables</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">✨ Rediseño Visual Global</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Modal de Captura</strong>: Selector de categorías rediseñado como carrusel horizontal minimalista en una sola fila con scroll, iconos pequeños y badges compactas</li>
+                <li><strong>Botones Destacados</strong>: Capturar (gradiente amarillo/dorado) y Galería (gradiente púrpura/rosa) con sombras, efectos hover y scale 105%</li>
+                <li><strong>Headers Premium Unificados</strong>: TODAS las páginas principales con card de fondo (gradiente from-d4-surface via-d4-bg to-d4-surface), bordes accent, iconos w-6 h-6 y títulos 3xl</li>
+                <li><strong>Botones Integrados</strong>: Botones de acción (Nuevo, Recargar, etc.) dentro del mismo card del título con efectos hover scale-105</li>
+                <li><strong>Páginas Actualizadas</strong>: Personajes, Héroes, Prompts, Mundo, Tags, Admin, Gemas/Runas - todas con formato idéntico</li>
+                <li><strong>Consistencia Total</strong>: Mismo padding (p-6), border-2, iconos en cards con p-2 y border-2, títulos 3xl con color accent</li>
+                <li><strong>Descripciones Incluidas</strong>: Subtítulos text-sm en color dim para contexto adicional en cada página</li>
+                <li><strong>CharacterDetail Premium</strong>: Header con gradiente, secciones colapsables con iconos individuales (BarChart3, Swords, Hexagon, etc.)</li>
+                <li><strong>Navegación Optimizada</strong>: Carrusel horizontal para categorías ocupa ~70% menos espacio vertical</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📊 Sistema de Completitud Ajustado</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li>Estadísticas: 25% (reducido de 30%)</li>
+                <li>Skills: 20% (sin cambios)</li>
+                <li>Build: 20% (sin cambios)</li>
+                <li>Glifos: 10% (sin cambios)</li>
+                <li>Runas: 10% (sin cambios)</li>
+                <li><strong>Talismanes: 5% (nuevo)</strong></li>
+                <li>Nodos Paragon: 10% (sin cambios)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.0 - Talismanes */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 px-2 py-1 rounded">🔮 Temporada 13: Talismanes</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🧿 Nueva Categoría: Talismanes</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li>Soporte completo para extracción con IA (Gemini y OpenAI GPT-4o)</li>
+                <li>Dos tipos de datos: <strong>Charms</strong> (piezas modulares) y <strong>Sello Horádrico</strong> (núcleo del sistema)</li>
+                <li>Rareza dinámica: rare, unique y set con bonos progresivos</li>
+                <li>Sistema de efectos: pasivos, condicionales, proc y stacking</li>
+                <li>Sets completos con bonificaciones al equipar múltiples piezas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🤖 Prompts de IA Especializados</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><code className="text-d4-accent">generateCharmsPrompt()</code>: Extracción detallada de talismanes con stats y efectos</li>
+                <li><code className="text-d4-accent">generateHoradricSealPrompt()</code>: Configuración del Sello Horádrico con slots críticos</li>
+                <li>Instrucciones completas para cada campo y estructura JSON esperada</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">✅ Sistema de Validación</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><code className="text-d4-accent">validateCharmsJSON()</code>: Valida estructura de talismanes y arrays</li>
+                <li><code className="text-d4-accent">validateHoradricSealJSON()</code>: Valida campo crítico slots (numérico requerido)</li>
+                <li>Validación especial para sets (nombre, piezas, bonus progresivos)</li>
+                <li>Mensajes de error descriptivos para facilitar correcciones</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🎨 Integración en Interfaz</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li>Nueva categoría "Talismanes" en modal de captura (icono 🔒 Lock)</li>
+                <li>Selector de tipo con ayudas contextuales</li>
+                <li>Soporte completo en modal de configuración de IA</li>
+                <li>Validación en tiempo real antes del procesamiento</li>
+                <li>Destino automático a nivel Héroe (no permite Personaje)</li>
+              </ul>
             </div>
           </div>
         </div>

@@ -120,6 +120,7 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
     const pasivasCount = personaje.habilidades_refs?.pasivas.length || 0;
     const glifosCount = personaje.glifos_refs?.length || 0;
     const runasCount = personaje.runas_refs?.length || 0;
+    const talismanesCount = personaje.talismanes_refs?.length || 0;
     
     // Contar nodos de Paragon (activados + huérfanos)
     const nodosActivados = personaje.paragon_refs?.nodos_activados_ids?.length || 0;
@@ -131,12 +132,13 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
       ? Object.values(personaje.build.piezas).filter(Boolean).length 
       : 0;
 
-    // Nueva distribución v0.6.1:
-    // - Estadísticas: 30%
+    // Nueva distribución v0.8.1:
+    // - Estadísticas: 25%
     // - Skills: 20% (activas + pasivas combinadas)
     // - Build: 20%
     // - Glifos: 10%
     // - Runas: 10%
+    // - Talismanes: 5%
     // - Nodos: 10%
 
     const statsProgress = getStatsFillPercentage(personaje);
@@ -144,14 +146,16 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
     const buildProgress = Math.min(buildPiezas / 12, 1) * 100; // 12 slots de equipamiento
     const glifosProgress = Math.min(glifosCount / 4, 1) * 100; // 4 glifos
     const runasProgress = Math.min(runasCount / 4, 1) * 100; // 4 runas máximo
+    const talismanesProgress = Math.min(talismanesCount / 6, 1) * 100; // ~6 talismanes promedio en sello horádrico
     const nodosProgress = Math.min(nodosCount / 50, 1) * 100; // ~50 nodos promedio para completar tableros
 
     const totalCompletion =
-      (statsProgress * 0.30) +
+      (statsProgress * 0.25) +
       (skillsProgress * 0.20) +
       (buildProgress * 0.20) +
       (glifosProgress * 0.10) +
       (runasProgress * 0.10) +
+      (talismanesProgress * 0.05) +
       (nodosProgress * 0.10);
 
     return Math.min(100, totalCompletion);
@@ -159,12 +163,22 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-d4-text">Mis Personajes</h2>
-        <button onClick={() => setShowNewModal(true)} className="btn-primary flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Nuevo Personaje
-        </button>
+      <div className="card p-6 mb-6 bg-gradient-to-br from-d4-surface via-d4-bg to-d4-surface border-2 border-d4-accent/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-d4-accent/20 rounded-lg border-2 border-d4-accent/40">
+              <User className="w-6 h-6 text-d4-accent" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-d4-accent mb-1">Mis Personajes</h1>
+              <p className="text-d4-text-dim text-sm">Gestiona todos tus personajes de Diablo 4</p>
+            </div>
+          </div>
+          <button onClick={() => setShowNewModal(true)} className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-500 hover:to-emerald-500 hover:scale-105">
+            <Plus className="w-5 h-5" />
+            Nuevo Personaje
+          </button>
+        </div>
       </div>
 
       {personajes.length === 0 ? (
@@ -191,6 +205,7 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
             const pasivasCount = personaje.habilidades_refs?.pasivas.length || 0;
             const glifosCount = personaje.glifos_refs?.length || 0;
             const runasCount = personaje.runas_refs?.length || 0;
+            const talismanesCount = personaje.talismanes_refs?.length || 0;
             const nodosActivados = personaje.paragon_refs?.nodos_activados_ids?.length || 0;
             const nodosHuerfanos = personaje.paragon_refs?.nodos_huerfanos?.length || 0;
             const nodosTotal = nodosActivados + nodosHuerfanos;
@@ -278,6 +293,15 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
                     <Gem className="w-4 h-4 text-pink-400 flex-shrink-0" />
                     <span className="text-xs text-d4-text-dim">Runas:</span>
                     <span className="text-sm text-d4-text font-bold ml-auto">{runasCount}/4</span>
+                  </div>
+                  
+                  {/* Talismanes */}
+                  <div className="flex items-center gap-2" title="Talismanes equipados (Temporada 13)">
+                    <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 2l2.5 5.5L18 9l-4.5 4 1 6-4.5-2.5L5 19l1-6L1.5 9l5.5-1.5L10 2z" />
+                    </svg>
+                    <span className="text-xs text-d4-text-dim">Talismanes:</span>
+                    <span className="text-sm text-d4-text font-bold ml-auto">{talismanesCount}</span>
                   </div>
                   
                   {/* Nodos Paragon */}
