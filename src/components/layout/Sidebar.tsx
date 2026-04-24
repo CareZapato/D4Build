@@ -264,7 +264,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                 }`}
               >
                 <Shield className={`w-5 h-5 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
-                <span>Usuarios</span>
+                <span>Admin</span>
               </button>
             </li>
           )}

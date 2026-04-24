@@ -80,6 +80,18 @@ Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus
 - **Control por ENV**: Habilitar/deshabilitar con variable de entorno
 - **Billing por Usuario**: Tracking de tokens y costos vinculados a cada cuenta
 
+### 🧪 Sistema de Testing para Administradores (v0.8.2 - NUEVO)
+- **30+ Tests Automatizados**: Validación exhaustiva de todos los servicios de importación
+- **8 Suites de Prueba**: Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes
+- **Panel Visual**: Interfaz interactiva con ejecución en tiempo real y resultados detallados
+- **Validaciones Estructurales**: Verificación de tipos, IDs únicos, formato de datos, campos requeridos
+- **Test de Prompts**: Valida que los prompts de IA incluyen todos los campos del JSON esperado
+- **Test de Relaciones**: Verifica integridad de referencias entre personajes y héroes
+- **Simulación de Imágenes**: Tests de almacenamiento, formato de archivos y estructura de carpetas
+- **Métricas Completas**: Duración, tasa de éxito, errores detallados, estadísticas globales
+- **Solo Admin**: Acceso restringido mediante sistema de roles (isAdmin())
+- **Panel Unificado**: Tabs para "Gestión de Usuarios" y "Testing & Validación"
+
 ### ⚙️ Backend & Infraestructura (v0.7.0-0.7.1)
 - **Express.js**: API RESTful en Node.js con 30+ endpoints
 - **PostgreSQL**: Base de datos relacional con 3 tablas principales (users, subscriptions, billing_usage)
@@ -861,8 +873,26 @@ Esta aplicación usa la File System Access API, que es compatible con:
 
 ## 📝 Changelog
 
+### v0.8.3 (23 de Abril, 2026)
+**🧪 Testing Completo + 💎 Runas/Gemas**
+- 🧪 **Sistema de Testing para Admin (COMPLETO)**: 30+ tests automatizados en 8 suites con métricas en tiempo real
+- 📊 **TestingService**: Validación exhaustiva de importaciones (Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes)
+- ✅ **AdminTesting Component**: Panel visual con ejecución de tests, estadísticas globales, detalles por test
+- 🔍 **Verificación de Prompts**: Tests validan que prompts de IA incluyen todos los campos del JSON esperado
+- 🔗 **Test de Relaciones**: Verifica integridad entre personajes y héroes (referencias válidas)
+- 🖼️ **Simulación de Imágenes**: Tests de almacenamiento, formato de archivos, estructura de carpetas
+- 🛡️ **Panel Admin Unificado**: Tabs para "Gestión de Usuarios" y "Testing & Validación" (solo administradores)
+- 💎 **Sistema de Runas/Gemas (NUEVO)**: RunesGemsSection con catálogo completo, búsqueda, clasificación por color/tipo
+- 📋 **Visualización por Tabs**: Separación entre Runas y Gemas con tarjetas colapsables
+- 🎨 **Clasificación Visual**: Gemas por color (Rubí, Zafiro, Esmeralda, etc.), Runas por tipo (Invocación/Ritual)
+- ⚡ **Efectos por Slot**: Gemas muestran efectos diferentes según slot (Arma, Armadura, Joyas)
+- 🔄 **Scroll Infinito**: Carga inicial de 80 items con botón "Cargar más" para optimizar rendimiento
+- 🔗 **Integración con Personajes**: Campo runas_refs para guardar runas equipadas (máx 4: 2 invocación, 2 ritual)
+- 🤖 **Extracción IA Mejorada**: ImageCaptureModal incluye categoría "Runas/Gemas" con selector de tipo
+- 📚 **Documentación Completa**: README y ChangelogModal actualizados con toda la información del sistema de testing
+
 ### v0.8.2 (23 de Abril, 2026)
-**🎨 Refinamiento Visual - Botones Premium**
+**🎨 Refinamiento Visual**
 - ✨ **Botones con gradientes**: Todos los botones en headers con diseño premium (sombras, gradientes de color, efectos hover)
 - 🎨 **Paleta por función**: Importar (azul→cyan), Exportar (púrpura→rosa), Análisis (ámbar→amarillo), Crear (verde→esmeralda), Recargar (índigo→violeta)
 - 💎 **Sistema de Mundo mejorado**: Botones "Importar" y "Exportar" ahora visibles como botones reales (no texto)

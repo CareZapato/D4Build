@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">23 de Abril, 2026 (v0.8.2)</p>
+                <p className="text-d4-text font-semibold">23 de Abril, 2026 (v0.8.3)</p>
               </div>
             </div>
           </div>
@@ -69,6 +69,69 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Version 0.8.3 - Sistema Completo */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.3</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-300 px-2 py-1 rounded">🧪 Testing + 💎 Runas/Gemas</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🧪 Sistema de Testing para Administradores (COMPLETO)</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>TestingService</strong>: Servicio completo con 30+ tests automatizados en 8 suites</li>
+                <li><strong>AdminTesting Component</strong>: Panel visual con ejecución de tests y resultados en tiempo real</li>
+                <li><strong>Validaciones Exhaustivas</strong>: Estructura JSON, tipos de datos, IDs únicos, integridad de referencias</li>
+                <li><strong>Suites Implementadas</strong>: Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes</li>
+                <li><strong>Verificación de Prompts</strong>: Valida que los prompts de IA incluyen todos los campos del JSON esperado</li>
+                <li><strong>Test de Relaciones</strong>: Verifica integridad entre personajes y héroes (referencias válidas)</li>
+                <li><strong>Simulación de Imágenes</strong>: Tests de almacenamiento, formato de archivos, estructura de carpetas</li>
+                <li><strong>Métricas Detalladas</strong>: Duración por test, tasa de éxito global, detalles de errores, estadísticas en tiempo real</li>
+                <li><strong>Panel Admin Unificado</strong>: Tabs para "Gestión de Usuarios" y "Testing & Validación"</li>
+                <li><strong>Acceso Restringido</strong>: Solo administradores pueden ver y ejecutar tests (isAdmin() check)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">💎 Sistema de Runas y Gemas (NUEVO)</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>RunesGemsSection</strong>: Nueva sección completa para gestionar catálogo de runas y gemas</li>
+                <li><strong>Visualización por Tabs</strong>: Separación entre Runas y Gemas con búsqueda integrada</li>
+                <li><strong>Clasificación por Color</strong>: Gemas clasificadas por tipo (Rubí, Zafiro, Esmeralda, Topacio, Amatista, Diamante, Cráneo)</li>
+                <li><strong>Clasificación de Runas</strong>: Runas de Invocación (morado) y Ritual (naranja)</li>
+                <li><strong>Tarjetas Colapsables</strong>: Expandir/colapsar para ver detalles completos de cada item</li>
+                <li><strong>Efectos por Slot</strong>: Gemas muestran efectos diferentes según dónde se inserten (Arma, Armadura, Joyas)</li>
+                <li><strong>Scroll Infinito</strong>: Carga inicial de 80 items con botón "Cargar más" para optimizar rendimiento</li>
+                <li><strong>Búsqueda Normalizada</strong>: Búsqueda sin acentos por nombre, descripción, efectos, tags</li>
+                <li><strong>Integración con Personajes</strong>: Campo runas_refs en personajes para guardar runas equipadas</li>
+                <li><strong>Acceso desde Sidebar</strong>: Nuevo botón "Runas/Gemas" con icono Gem</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🤖 Extracción con IA Mejorada</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Soporte para Runas/Gemas</strong>: ImageCaptureModal ahora incluye categoría "Runas/Gemas"</li>
+                <li><strong>Selector de Tipo</strong>: Permite elegir entre extraer Runas o Gemas antes de procesar</li>
+                <li><strong>Prompts Específicos</strong>: Prompts de IA optimizados para extraer datos de runas y gemas</li>
+                <li><strong>Validación de Campos</strong>: Tests automatizados validan que los prompts incluyen todos los campos necesarios</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📊 Tipos y Estructura de Datos</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Interface Runa</strong>: id, nombre, rareza, tipo, efecto, descripcion, objeto_origen, tags</li>
+                <li><strong>Interface Gema</strong>: id, nombre, tipo, calidad, efectos_por_slot (arma/armadura/joyas), tags</li>
+                <li><strong>GemasRunasCatalogo</strong>: Catálogo global compartido con arrays de runas y gemas</li>
+                <li><strong>Referencias en Personajes</strong>: Array runas_refs con runa_id y vinculada_a (arma/escudo)</li>
+                <li><strong>Límites de Equipamiento</strong>: Máximo 4 runas por personaje (2 invocación, 2 ritual)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Version 0.8.2 - Botones Premium */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
@@ -77,6 +140,22 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🧪 Sistema de Testing para Administradores (NUEVO)</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>TestingService</strong>: Servicio completo con 30+ tests automatizados</li>
+                <li><strong>AdminTesting Component</strong>: Panel visual con ejecución de tests y resultados en tiempo real</li>
+                <li><strong>8 Suites de Prueba</strong>: Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes</li>
+                <li><strong>Validaciones Exhaustivas</strong>: Estructura JSON, tipos de datos, IDs únicos, integridad de referencias</li>
+                <li><strong>Verificación de Prompts</strong>: Valida que los prompts de IA incluyen todos los campos del JSON esperado</li>
+                <li><strong>Test de Relaciones</strong>: Verifica integridad entre personajes y héroes (referencias válidas)</li>
+                <li><strong>Simulación de Imágenes</strong>: Tests de almacenamiento, formato de archivos, estructura de carpetas</li>
+                <li><strong>Métricas Detalladas</strong>: Duración, tasa de éxito, detalles de errores, estadísticas globales</li>
+                <li><strong>Panel Admin Unificado</strong>: Tabs para "Gestión de Usuarios" y "Testing & Validación"</li>
+                <li><strong>Solo Administradores</strong>: Acceso restringido mediante isAdmin() en Sidebar</li>
+              </ul>
+            </div>
+
             <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
               <h4 className="font-bold text-d4-text mb-2 text-sm">✨ Botones Premium en Headers</h4>
               <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">

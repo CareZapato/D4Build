@@ -18,7 +18,7 @@ import RunesGemsSection from './components/runes/RunesGemsSection';
 import BillingPanel from './components/common/BillingPanel';
 import LoginPage from './components/auth/LoginPage';
 import PremiumPage from './components/premium/PremiumPage';
-import AdminUsers from './components/admin/AdminUsers';
+import { AdminPanel } from './components/admin/AdminPanel';
 import { ProfilePage } from './components/profile/ProfilePage';
 
 type View = 'characters' | 'heroes' | 'search' | 'prompts' | 'tags' | 'runes-gems' | 'premium' | 'admin' | 'profile' | 'mundo';
@@ -134,7 +134,7 @@ function AppContent() {
       case 'premium':
         return <PremiumPage />;
       case 'admin':
-        return <AdminUsers />;
+        return <AdminPanel />;
       case 'profile':
         return <ProfilePage />;
       default:
