@@ -31,6 +31,85 @@ export interface TagsData {
   ultima_actualizacion: string;
 }
 
+// ========================================
+// TIPOS PARA TESTING DE INTEGRIDAD (v0.8.4+)
+// ========================================
+
+/** Resultado de un test individual de importación */
+export interface IntegrityTestResult {
+  id: string;                          // ID único del test
+  jsonFileName: string;                // Nombre del archivo JSON probado
+  categoria: string;                   // Categoría del JSON (skills, glifos, etc.)
+  timestamp: string;                   // Momento del test
+  success: boolean;                    // Si el test pasó
+  errorMessage?: string;               // Mensaje de error si falló
+  expectedElements: number;            // Elementos esperados según JSON
+  savedElements: number;               // Elementos efectivamente guardados
+  failedElements: string[];            // IDs de elementos que fallaron
+  warningElements: string[];           // Elementos guardados con advertencias (v0.8.6)
+  executionTimeMs: number;             // Tiempo de ejecución en milisegundos
+  validationErrors: string[];          // Errores de validación específicos
+}
+
+/** Diferencia entre archivo original y generado */
+export interface FileDifference {
+  fileName: string;                    // Nombre del archivo comparado
+  fileType: 'hero' | 'character' | 'mundo' | 'tags' | 'config';
+  hasChanges: boolean;                 // Si hay diferencias
+  originalSize: number;                // Tamaño del archivo original (bytes)
+  generatedSize: number;               // Tamaño del archivo generado (bytes)
+  addedFields: string[];               // Campos agregados en el generado
+  removedFields: string[];             // Campos removidos del original
+  modifiedFields: Array<{              // Campos modificados
+    field: string;
+    originalValue: any;
+    generatedValue: any;
+  }>;
+  structuralIssues: string[];          // Problemas estructurales detectados
+}
+
+/** Métricas agregadas de los tests */
+export interface IntegrityTestMetrics {
+  totalTests: number;                  // Total de tests ejecutados
+  passedTests: number;                 // Tests que pasaron
+  failedTests: number;                 // Tests que fallaron
+  totalExpected: number;               // Total de elementos esperados
+  totalSaved: number;                  // Total de elementos guardados
+  totalFailed: number;                 // Total de elementos fallados
+  totalWarnings: number;               // Total de elementos con advertencias (v0.8.6)
+  successRate: number;                 // Tasa de éxito (0-100)
+  averageExecutionTimeMs: number;      // Tiempo promedio de ejecución
+  categoriesBreakdown: Array<{         // Desglose por categoría
+    categoria: string;
+    total: number;
+    passed: number;
+    failed: number;
+  }>;
+}
+
+/** Reporte completo de integridad */
+export interface IntegrityReport {
+  id: string;                          // ID único del reporte
+  timestamp: string;                   // Momento de generación
+  workspacePath: string;               // Ruta del workspace temporal usado
+  metrics: IntegrityTestMetrics;       // Métricas agregadas
+  testResults: IntegrityTestResult[];  // Resultados individuales de tests
+  fileDifferences: FileDifference[];   // Diferencias entre archivos
+  diagnosticPrompt: string;            // Prompt generado para IA
+  recommendations: string[];           // Recomendaciones para mejoras
+  criticalIssues: string[];            // Problemas críticos detectados
+}
+
+/** Estado del proceso de testing */
+export interface IntegrityTestProgress {
+  status: 'idle' | 'running' | 'completed' | 'error';
+  currentTest: number;                 // Test actual
+  totalTests: number;                  // Total de tests
+  currentFileName: string;             // Archivo siendo procesado
+  message: string;                     // Mensaje de estado
+  progressPercent: number;             // Progreso 0-100
+}
+
 
 // Tipos para Habilidades
 export type TipoHabilidad = 'skill' | 'modificador' | 'pasiva';
@@ -674,6 +753,11 @@ export interface Personaje {
   mecanicas_clase_refs?: MecanicaClaseReferencia[];
   // Referencias a talismanes equipados (Temporada 13 - v0.8.1)
   talismanes_refs?: string[];  // IDs de talismanes (charms) del catálogo del héroe
+  // Datos de mundo asociados al personaje (v0.8.6)
+  mundo?: {
+    eventos?: any[];     // Eventos de mundo asociados
+    mazmorras?: any[];   // Mazmorras asociadas
+  };
   notas?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;

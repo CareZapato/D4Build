@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">24 de Abril, 2026 (v0.8.3)</p>
+                <p className="text-d4-text font-semibold">24 de Abril, 2026 (v0.8.6)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,205 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.6 - Hotfix Crítico Testing */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.6</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 px-2 py-1 rounded">🔥 Hotfix Crítico</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🐛 Corrección de Error Crítico en IntegrityTestService</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Problema Resuelto</strong>: "WorkspaceService.getWorkspace is not a function" - causaba fallo de 100% de los tests (0/59 pasados)</li>
+                <li><strong>Causa Raíz</strong>: Métodos de simulación intentaban usar getWorkspace() y setWorkspace() que no existen en WorkspaceService</li>
+                <li><strong>Solución</strong>: Creados métodos auxiliares savePersonajeToHandle() y loadPersonajeFromHandle() que trabajan directamente con FileSystemDirectoryHandle</li>
+                <li><strong>Impacto</strong>: Los 7 métodos de simulación ahora escriben correctamente en el workspace temporal sin depender de WorkspaceService</li>
+                <li><strong>Verificación</strong>: Compilación exitosa, bundle 1,754.45 kB (sin cambios significativos), sin errores TypeScript</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔧 Correcciones Adicionales Post-Deploy</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Nombres de archivo inconsistentes</strong>: Corregido para que archivos JSON siempre usen nombres en español (ej: "habilidades" en vez de "skills")</li>
+                <li><strong>Funciones originales actualizadas</strong>: Aplicado getFileNameForCategory() a ImageCaptureModal (3 usos de saveImage) para mantener nomenclatura consistente</li>
+                <li><strong>⚡ CRÍTICO - Estadísticas 100% fallando</strong>: Tests buscaban categorías directamente en data[], pero JSONs tienen estructura anidada data.estadisticas[]. Corregido simulateStatsImport() y validateEstadisticasJSON() para detectar ambos formatos (backwards compatibility)</li>
+                <li><strong>⚠️ Tracking de Advertencias</strong>: Agregado sistema de warnings para elementos guardados con datos incompletos (IDs autogenerados, niveles por defecto, etc.). Nuevos campos warningElements[] y totalWarnings en métricas.</li>
+                <li><strong>Estadísticas fallando</strong>: Mejorado simulateStatsImport() para verificar guardado releyendo el archivo y contando campos reales</li>
+                <li><strong>Mundo fallando</strong>: Agregado campo 'mundo' al tipo Personaje para poder guardar eventos y mazmorras</li>
+                <li><strong>Gemas no guardadas</strong>: Actualizado simulateGenericImport() para manejar tanto data.gemas como data.runas en categoría gemas_runas</li>
+                <li><strong>Función helper</strong>: Nuevo getFileNameForCategory() convierte categorías internas a nombres de archivo apropiados</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔍 Logging Mejorado para Diagnóstico</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>simulateSkillsImport()</strong>: Logging detallado de habilidades activas/pasivas, campos encontrados, errores de validación. Detecta y registra IDs autogenerados como warnings.</li>
+                <li><strong>simulateGlyphsImport()</strong>: Log de glifos encontrados, validación de campos requeridos (nombre). Warnings para IDs autogenerados.</li>
+                <li><strong>simulateAspectsImport()</strong>: Verificación de estructura de arrays, logging de nombres y slots. Warnings para IDs autogenerados.</li>
+                <li><strong>simulateStatsImport()</strong>: Detecta estructura anidada (data.estadisticas), log por categoría, verificación de relectura. Ahora muestra si es formato V2 (anidado) o V1 (directo)</li>
+                <li><strong>simulateGenericImport()</strong>: Logging separado para runas, gemas, mundo (eventos/mazmorras). Warnings para IDs autogenerados en runas/gemas.</li>
+                <li><strong>⚠️ Contador de Warnings</strong>: Todas las funciones simulate*Import() retornan <code>{'{ saved, failed, warnings }'}</code> para tracking completo de elementos con advertencias.</li>
+                <li><strong>Advertencias específicas</strong>: Muestra campos disponibles cuando no se encuentra la estructura esperada</li>
+                <li><strong>Stack traces</strong>: Errores críticos ahora incluyen stack completo para debugging</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔧 Métodos Actualizados</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>simulateSkillsImport()</strong>: Eliminado patrón getWorkspace/setWorkspace, usa savePersonajeToHandle directamente</li>
+                <li><strong>simulateGlyphsImport()</strong>: Corregido para manipular filesystem sin WorkspaceService</li>
+                <li><strong>simulateAspectsImport()</strong>: Ahora guarda correctamente en workspace temporal</li>
+                <li><strong>simulateStatsImport()</strong>: Actualizado con verificación de guardado mediante relectura</li>
+                <li><strong>simulateBuildImport()</strong>: Corregido guardado de build completo</li>
+                <li><strong>simulateParagonImport()</strong>: Actualizado para datos de paragon</li>
+                <li><strong>simulateGenericImport()</strong>: Maneja runas, gemas (ambos), talismanes, mecánicas y mundo con campo dedicado</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.5 - Testing Mejorado con Auto-Generación de Personajes */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.5</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-blue-600/20 text-green-300 px-2 py-1 rounded">🔧 Testing Mejorado</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">👤 Auto-Generación de Personajes para Testing</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>extractCharacterInfoFromJSON()</strong>: Extrae automáticamente nombre, clase, nivel y nivel_paragon del JSON</li>
+                <li><strong>Inferencia Inteligente</strong>: Si no hay clase en el JSON, la infiere de nombres de habilidades (ej: "Choque" → Paladín)</li>
+                <li><strong>createOrGetCharacterForTest()</strong>: Crea personajes temporales en workspace de pruebas usando datos extraídos</li>
+                <li><strong>Valores Predefinidos</strong>: Nivel default 100, nivel_paragon default 0, clase default "Paladín" si no se puede inferir</li>
+                <li><strong>Gestión de Workspace</strong>: Usa WorkspaceService con workspace temporal, restaura workspace original después</li>
+                <li><strong>ID Consistente</strong>: Personajes test usan <code>test_{'{clase}'}</code> como ID para reutilizarlos entre ejecuciones</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔨 Simulación Completa de Importaciones Reales</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>simulateSkillsImport()</strong>: Procesa habilidades_activas y habilidades_pasivas, crea referencias en personaje, evita duplicados</li>
+                <li><strong>simulateGlyphsImport()</strong>: Agrega glifos_refs con nivel_actual y nivel_maximo al personaje</li>
+                <li><strong>simulateAspectsImport()</strong>: Crea aspectos_refs con nivel_actual, slot_equipado y valores_actuales</li>
+                <li><strong>simulateStatsImport()</strong>: Actualiza estadisticas del personaje (atributosPrincipales, defensivo, ofensivo, utilidad, personaje)</li>
+                <li><strong>simulateBuildImport()</strong>: Crea build completo con piezas de equipamiento por slot</li>
+                <li><strong>simulateParagonImport()</strong>: Guarda tableros, nodos y atributos_totales en paragon del personaje</li>
+                <li><strong>simulateGenericImport()</strong>: Maneja runas, gemas, talismanes, mecánicas y mundo</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📊 executeJSONTest() - Flujo Completo Actualizado</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Paso 1</strong>: Parsea JSON y extrae información del personaje (nombre, clase, nivel)</li>
+                <li><strong>Paso 2</strong>: Determina elementos esperados según estructura del JSON</li>
+                <li><strong>Paso 3</strong>: Crea o recupera personaje para el test (solo para categorías que lo requieren)</li>
+                <li><strong>Paso 4</strong>: Ejecuta simulación de importación real según categoría (skills, glifos, aspectos, etc.)</li>
+                <li><strong>Paso 5</strong>: Valida estructura del JSON con validadores específicos</li>
+                <li><strong>Paso 6</strong>: Calcula éxito basado en elementos guardados vs esperados (success = no fallos && guardados {'>'} 0)</li>
+                <li><strong>Resultado Detallado</strong>: Devuelve IntegrityTestResult con saved/failed/executionTime</li>
+                <li><strong>Logging Mejorado</strong>: Consola muestra "💾 Se guardaron X/Y elementos correctamente"</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🎯 Cobertura Completa de Testing</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Skills</strong>: Habilidades activas con modificadores, habilidades pasivas con puntos_asignados, nivel_actual y en_batalla</li>
+                <li><strong>Glifos</strong>: Diferentes rarezas (normal, mágico, raro, legendario), niveles actuales y máximos</li>
+                <li><strong>Aspectos</strong>: 5 categorías (ofensivo, defensivo, movilidad, recurso, utilidad), slots equipados, valores actuales</li>
+                <li><strong>Estadísticas</strong>: Todas las categorías (atributosPrincipales, defensivo, ofensivo, utilidad, personaje), extracción de nivel</li>
+                <li><strong>Build</strong>: Todas las piezas de equipamiento (casco, pecho, guantes, pantalones, botas, arma, etc.)</li>
+                <li><strong>Paragon</strong>: Tableros (inicial, legendario, especial, general), nodos (normal, mágico, raro, legendario), atributos_totales</li>
+                <li><strong>Runas/Gemas</strong>: Runas vinculadas a armas (2 invocación + 2 ritual), gemas por color</li>
+                <li><strong>Talismanes</strong>: Referencias a talismanes (charms) de Temporada 13</li>
+                <li><strong>Mecánicas</strong>: Mecánicas de clase con selecciones_activas (juramentos, libros, arsenal, etc.)</li>
+                <li><strong>Mundo</strong>: Eventos de mundo, mazmorras y sus recompensas</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-yellow-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔍 Mejoras Técnicas</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Imports Ampliados</strong>: Agregados Personaje, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, Estadisticas, Build, ParagonPersonaje, WorkspaceService</li>
+                <li><strong>Manejo de Referencias</strong>: Correcta implementación del modelo de referencias (habilidades_refs, glifos_refs, aspectos_refs, etc.)</li>
+                <li><strong>Evitar Duplicados</strong>: Todos los métodos verifican existencia antes de agregar referencias</li>
+                <li><strong>Gestión de Estado</strong>: Guarda cambios con WorkspaceService.savePersonaje() después de cada importación</li>
+                <li><strong>Error Handling</strong>: Try-catch en todos los métodos con logging detallado de errores</li>
+                <li><strong>Performance</strong>: Bundle aumentó 9.31 kB (de 1,736.88 kB a 1,746.19 kB) - incremento razonable por funcionalidad agregada</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.4 - Testing de Integridad Premium */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.4</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-300 px-2 py-1 rounded">🧪 Testing de Integridad Premium</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔬 IntegrityTestService - Validación Automática Completa</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Workspace Temporal</strong>: Crea carpeta <code>Tests/test_run_{'{timestamp}'}/</code> sin afectar workspace actual</li>
+                <li><strong>18 Categorías Validadas</strong>: Skills, glifos, aspectos, estadísticas, paragon, runas, gemas, mundo, talismanes, mecánicas, build, etc.</li>
+                <li><strong>Validadores Específicos</strong>: validateSkillsJSON(), validateGlyphsJSON(), validateAspectsJSON(), validateStatsJSON(), validateParagonJSON(), validateGemsRunesJSON(), validateWorldJSON(), validateCharmsJSON(), validateMechanicsJSON(), validateBuildJSON()</li>
+                <li><strong>Métricas Detalladas</strong>: Tasa de éxito (%), tests pasados/fallidos, elementos esperados vs guardados, tiempo promedio ejecución, desglose por categoría</li>
+                <li><strong>Escaneo Automático</strong>: Lista todos los JSONs en galería de imágenes (imagenes/{'{categoria}'}/*.json)</li>
+                <li><strong>Ejecución de Tests</strong>: executeJSONTest() simula importación real, cuenta elementos, valida estructura, mide tiempo</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-pink-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🎨 ProfileTestingSection - UI Premium/Admin</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Tab Exclusivo</strong>: Nuevo tab "Testing" en perfil de usuario (solo Premium/Admin con badge)</li>
+                <li><strong>Botón Ejecutar Tests</strong>: Valida workspace cargado, ejecuta todos los JSONs, genera reporte completo</li>
+                <li><strong>Barra de Progreso</strong>: Tiempo real con porcentaje, nombre de archivo actual, estado (idle/running/completed/error)</li>
+                <li><strong>Cards de Métricas</strong>: 4 cards principales (Tasa de Éxito con icono dinámico, Tests Totales con ✓/✗, Elementos guardados/esperados, Tiempo Promedio ms)</li>
+                <li><strong>Gráfico de Distribución</strong>: Barra visual horizontal (verde=exitosos, rojo=fallidos) con leyenda</li>
+                <li><strong>Desglose por Categoría</strong>: Lista colapsable con botón por categoría, muestra tests individuales al expandir, archivos con estado ✓/✗</li>
+                <li><strong>Problemas Críticos</strong>: Card destacada con borde rojo si hay issues (archivos sin elementos, errores parsing, categorías rotas)</li>
+                <li><strong>Recomendaciones</strong>: Card con borde azul, sugerencias automáticas (revisar prompts, optimizar, corregir JSONs)</li>
+                <li><strong>Tests Fallidos Detallados</strong>: Lista scrollable, expandibles con error, esperados/guardados/fallidos, errores de validación</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🤖 Diagnóstico para IA + Exportación</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Prompt Completo</strong>: generateDiagnosticPrompt() crea reporte markdown con resumen ejecutivo, métricas clave, desglose por categoría, problemas críticos, recomendaciones priorizadas, tests fallidos detallados, preguntas específicas para IA</li>
+                <li><strong>Copiar al Portapapeles</strong>: Botón "Copiar Prompt para IA" con confirmación visual</li>
+                <li><strong>Descarga JSON</strong>: Botón "Descargar Reporte JSON" con nombre <code>integrity_report_{'{id}'}.json</code></li>
+                <li><strong>Tip para Usuario</strong>: Banner informativo sobre cómo usar el prompt con Claude/GPT/Gemini</li>
+                <li><strong>Análisis Inteligente</strong>: detectCriticalIssues() identifica tests sin elementos, errores parsing, categorías completamente rotas</li>
+                <li><strong>Recomendaciones Automáticas</strong>: generateRecommendations() evalúa tasa de éxito, categorías problemáticas, tiempo de ejecución, pérdida de elementos</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📚 Tipos y Estructura</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>IntegrityTestResult</strong>: id, jsonFileName, categoria, timestamp, success, errorMessage, expectedElements, savedElements, failedElements[], executionTimeMs, validationErrors[]</li>
+                <li><strong>IntegrityTestMetrics</strong>: totalTests, passedTests, failedTests, totalExpected, totalSaved, totalFailed, successRate, averageExecutionTimeMs, categoriesBreakdown[]</li>
+                <li><strong>IntegrityTestProgress</strong>: status (idle/running/completed/error), currentTest, totalTests, currentFileName, message, progressPercent</li>
+                <li><strong>FileDifference</strong>: fileName, fileType, hasChanges, originalSize, generatedSize, addedFields[], removedFields[], modifiedFields[], structuralIssues[] (preparado para futuras mejoras)</li>
+                <li><strong>IntegrityReport</strong>: id, timestamp, workspacePath, metrics, testResults[], fileDifferences[], diagnosticPrompt, recommendations[], criticalIssues[]</li>
+              </ul>
             </div>
           </div>
         </div>

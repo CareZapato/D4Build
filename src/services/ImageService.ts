@@ -172,6 +172,24 @@ export class ImageService {
     return null;
   }
 
+  // Leer JSON directamente por nombre de archivo
+  static async readJSON(categoria: ImageCategory, jsonFileName: string): Promise<string | null> {
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        const fileHandle = await folder.handle.getFileHandle(jsonFileName);
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        return content;
+      } catch {
+        // probar siguiente carpeta
+      }
+    }
+
+    return null;
+  }
+
   // Eliminar JSON asociado a una imagen
   static async deleteImageJSON(categoria: ImageCategory, imageName: string): Promise<void> {
     const jsonFileName = imageName.replace(/\.png$/, '.json');

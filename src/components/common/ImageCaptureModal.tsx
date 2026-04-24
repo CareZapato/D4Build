@@ -82,7 +82,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [selectedPersonajeId, setSelectedPersonajeId] = useState<string | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [embedPromptInImage, setEmbedPromptInImage] = useState(false);
-  const [embedLeyendaInImage, setEmbedLeyendaInImage] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('new');
   const [lastSavedImageUrl, setLastSavedImageUrl] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -132,6 +131,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Ahora almacena ImageBitmap (más rápido que HTMLImageElement)
+  const imageCache = useRef<Map<string, ImageBitmap | HTMLImageElement>>(new Map());
 
   const syncUpdatedPersonajeInContext = (updatedPersonaje: any) => {
     const updatedList = personajes.map(p => p.id === updatedPersonaje.id ? updatedPersonaje : p);
@@ -251,6 +252,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   }, [selectedCategory]);
 
+  // Limpiar caché cuando se cierra el modal o cambia la categoría
+  // Limpiar caché cuando se cierra o cambia categoría (consolidado)
+  useEffect(() => {
+    if (!isOpen) {
+      imageCache.current.clear();
+    }
+  }, [isOpen, selectedCategory]);
+
   // Manejar paste desde clipboard
   useEffect(() => {
     if (!isOpen || showGallery) return;
@@ -275,16 +284,26 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [isOpen, showGallery, captureMode]);
 
   const addImageToComposition = (blob: Blob, isNewElement: boolean) => {
+    console.time('⏱️ Pegado → Preview visible');
+    const pasteStartTime = performance.now();
+    
     const url = URL.createObjectURL(blob);
     const id = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
+    // ✅ AGREGAR INMEDIATAMENTE SIN ESPERAR (el navegador carga lazy)
     setCapturedImages(prev => [...prev, { id, blob, url, isComplete: isNewElement }]);
+    
+    console.log(`📊 addImageToComposition ejecutado en: ${(performance.now() - pasteStartTime).toFixed(2)}ms`);
   };
 
   const removeImage = (id: string) => {
     setCapturedImages(prev => {
       const img = prev.find(i => i.id === id);
-      if (img) URL.revokeObjectURL(img.url);
+      if (img) {
+        URL.revokeObjectURL(img.url);
+        // Limpiar del caché también
+        imageCache.current.delete(img.url);
+      }
       return prev.filter(i => i.id !== id);
     });
   };
@@ -296,6 +315,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   const composeImages = async () => {
+    const composeStartTime = performance.now();
+    
     if (capturedImages.length === 0) return;
 
     const canvas = canvasRef.current;
@@ -304,49 +325,71 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Cargar todas las imágenes
-    const loadedImages = await Promise.all(
-      capturedImages.map(async (capturedImg) => {
-        const img = new Image();
-        img.src = capturedImg.url;
-        await new Promise(resolve => img.onload = resolve);
-        return { img, isComplete: capturedImg.isComplete };
-      })
-    );
-
-    // Calcular dimensiones con layout inteligente (4 horizontales, luego vertical)
-    const SPACING = 10; // Espacio entre elementos completos
-    const OUTER_MARGIN = SPACING; // Margen externo igual al espaciado interno
-    const VERTICAL_OFFSET = 0; // Sin espacio entre partes incompletas
-    const MAX_HORIZONTAL = 4; // Máximo de elementos por fila horizontal
-
-    // Agrupar elementos completos.
-    // isComplete=true significa NUEVA captura (inicio de grupo).
-    // Cuando se ve isComplete=true, se cierra el grupo anterior y empieza uno nuevo.
-    const completeGroups: Array<Array<{ img: HTMLImageElement; isComplete: boolean; originalIndex: number }>> = [];
-    let currentGroup: Array<{ img: HTMLImageElement; isComplete: boolean; originalIndex: number }> = [];
+    console.log(`🔄 composeImages iniciado para ${capturedImages.length} imagen(es)`);
+    const loadStartTime = performance.now();
     
-    loadedImages.forEach((item, index) => {
+    // ✅ Cargar imágenes con createImageBitmap (RÁPIDO, ~50-200ms)
+    const loadedImages: Array<{ img: ImageBitmap | HTMLImageElement; isComplete: boolean }> = [];
+    
+    try {
+      const bitmaps = await Promise.all(
+        capturedImages.map(async (capturedImg) => {
+          // Verificar si ya tenemos bitmap en caché
+          let cached = imageCache.current.get(capturedImg.url);
+          if (cached) {
+            return { bitmap: cached as any, isComplete: capturedImg.isComplete };
+          }
+          
+          // Crear bitmap desde blob (MUCHO más rápido que Image.onload)
+          const bitmap = await createImageBitmap(capturedImg.blob);
+          imageCache.current.set(capturedImg.url, bitmap as any);
+          return { bitmap, isComplete: capturedImg.isComplete };
+        })
+      );
+      
+      bitmaps.forEach(({ bitmap, isComplete }) => {
+        loadedImages.push({ img: bitmap as any, isComplete });
+      });
+      
+      console.log(`✅ Imágenes cargadas en: ${(performance.now() - loadStartTime).toFixed(2)}ms`);
+    } catch (error) {
+      console.error('❌ Error cargando imágenes:', error);
+      return;
+    }
+    
+    if (loadedImages.length === 0) {
+      console.warn('⚠️ No hay imágenes para componer');
+      return;
+    }
+
+    // Calcular dimensiones con layout inteligente
+    const SPACING = 10;
+    const OUTER_MARGIN = SPACING;
+    const VERTICAL_OFFSET = 0;
+    const MAX_HORIZONTAL = 4;
+
+    // Agrupar elementos completos
+    const completeGroups: Array<Array<{ img: ImageBitmap | HTMLImageElement; isComplete: boolean }>> = [];
+    let currentGroup: Array<{ img: ImageBitmap | HTMLImageElement; isComplete: boolean }> = [];
+    
+    loadedImages.forEach((item) => {
       if (item.isComplete && currentGroup.length > 0) {
-        // Nueva captura → cerrar grupo anterior
         completeGroups.push(currentGroup);
         currentGroup = [];
       }
-      currentGroup.push({ ...item, originalIndex: index });
+      currentGroup.push(item);
     });
     if (currentGroup.length > 0) {
       completeGroups.push(currentGroup);
     }
 
-    // Contar grupos completos para layout
     const totalCompleteGroups = completeGroups.length;
     
-    // Calcular dimensiones totales según cantidad de elementos
+    // Calcular dimensiones totales
     let totalWidth = 0;
     let totalHeight = 0;
 
     if (totalCompleteGroups <= MAX_HORIZONTAL) {
-      // Layout horizontal (hasta 4 elementos)
       completeGroups.forEach((group, groupIndex) => {
         if (groupIndex > 0) totalWidth += SPACING;
         let groupWidth = 0;
@@ -359,7 +402,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         totalHeight = Math.max(totalHeight, groupHeight);
       });
     } else {
-      // Layout vertical con filas de MAX_HORIZONTAL elementos
       let currentRowWidth = 0;
       let currentRowHeight = 0;
       
@@ -375,24 +417,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         });
         
         if (colIndex === 0) {
-          // Nueva fila
           if (rowIndex > 0) totalHeight += SPACING;
           totalHeight += currentRowHeight;
           currentRowWidth = groupWidth;
           currentRowHeight = groupHeight;
           totalWidth = Math.max(totalWidth, currentRowWidth);
         } else {
-          // Misma fila
           currentRowWidth += SPACING + groupWidth;
           currentRowHeight = Math.max(currentRowHeight, groupHeight);
           totalWidth = Math.max(totalWidth, currentRowWidth);
         }
       });
-      totalHeight += currentRowHeight; // Agregar última fila
+      totalHeight += currentRowHeight;
     }
 
     // Calcular espacio para el texto del prompt si está activado
-    const PROMPT_MARGIN = 15; // Margen blanco alrededor del marco
+    const PROMPT_MARGIN = 15;
     let promptHeight = 0;
     let promptText = '';
     if (embedPromptInImage && capturedImages.length > 0) {
@@ -402,7 +442,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const padding = 20;
       const maxPromptWidth = totalWidth - (padding * 2) - (PROMPT_MARGIN * 2);
       
-      // Calcular líneas necesarias
       ctx.font = `${fontSize}px Arial`;
       const words = promptText.split(' ');
       const lines: string[] = [];
@@ -423,201 +462,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       promptHeight = (lines.length * lineHeight) + (padding * 2) + (PROMPT_MARGIN * 2);
     }
 
-    // Calcular espacio para la leyenda si está activado (solo mazmorras de aspectos)
-    const shouldEmbedLeyenda = embedLeyendaInImage && selectedCategory === 'mundo' && mundoType === 'mazmorras_aspectos';
-    
-    if (shouldEmbedLeyenda) {
-      // Cargar la leyenda PRIMERO para conocer sus dimensiones reales
-      const leyendaImg = new Image();
-      leyendaImg.crossOrigin = 'anonymous';
-      leyendaImg.onload = () => {
-        const LEYENDA_MARGIN = 15;
-        const LEYENDA_MAX_WIDTH = totalWidth * 0.8;
-        
-        // Calcular dimensiones reales manteniendo proporción
-        const scale = Math.min(LEYENDA_MAX_WIDTH / leyendaImg.width, 1);
-        const scaledWidth = leyendaImg.width * scale;
-        const scaledHeight = leyendaImg.height * scale;
-        const leyendaHeight = scaledHeight + (LEYENDA_MARGIN * 2);
-        
-        console.log('🖼️ [composeImages] Leyenda cargada:', {
-          originalWidth: leyendaImg.width,
-          originalHeight: leyendaImg.height,
-          scaledWidth,
-          scaledHeight,
-          leyendaHeight,
-          totalWidth,
-          totalHeight
-        });
-
-        // Configurar canvas con espacio real para leyenda
-        canvas.width = totalWidth + (2 * OUTER_MARGIN);
-        canvas.height = totalHeight + promptHeight + leyendaHeight + (2 * OUTER_MARGIN);
-
-        // Fondo blanco
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Dibujar texto del prompt ARRIBA si está activado
-        if (embedPromptInImage && promptHeight > 0) {
-          const fontSize = 14;
-          const lineHeight = fontSize * 1.5;
-          const padding = 20;
-          
-          // Marco/borde alrededor del texto
-          const frameX = PROMPT_MARGIN + OUTER_MARGIN;
-          const frameY = PROMPT_MARGIN + OUTER_MARGIN;
-          const frameWidth = canvas.width - (PROMPT_MARGIN * 2) - (OUTER_MARGIN * 2);
-          const frameHeight = promptHeight - (PROMPT_MARGIN * 2);
-          
-          // Fondo gris claro para el cuadro del texto
-          ctx.fillStyle = '#F5F5F5';
-          ctx.fillRect(frameX, frameY, frameWidth, frameHeight);
-          
-          // Borde del marco (negro)
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(frameX, frameY, frameWidth, frameHeight);
-          
-          // Dibujar texto dentro del marco
-          ctx.fillStyle = '#000000';
-          ctx.font = `bold ${fontSize}px Arial`;
-          ctx.textBaseline = 'top';
-          
-          const words = promptText.split(' ');
-          const lines: string[] = [];
-          let currentLine = '';
-          const maxPromptWidth = frameWidth - (padding * 2);
-          
-          for (const word of words) {
-            const testLine = currentLine + word + ' ';
-            const metrics = ctx.measureText(testLine);
-            if (metrics.width > maxPromptWidth && currentLine !== '') {
-              lines.push(currentLine.trim());
-              currentLine = word + ' ';
-            } else {
-              currentLine = testLine;
-            }
-          }
-          if (currentLine) lines.push(currentLine.trim());
-          
-          lines.forEach((line, i) => {
-            ctx.fillText(line, frameX + padding, frameY + padding + (i * lineHeight));
-          });
-        }
-
-        // Dibujar imágenes con layout inteligente (desplazadas hacia abajo si hay prompt)
-        const imageOffsetY = embedPromptInImage && promptHeight > 0 ? promptHeight : 0;
-        
-        if (totalCompleteGroups <= MAX_HORIZONTAL) {
-          // Layout horizontal (hasta 4 elementos)
-          let xOffset = OUTER_MARGIN;
-          completeGroups.forEach((group, groupIndex) => {
-            if (groupIndex > 0) xOffset += SPACING;
-            
-            let groupStartX = xOffset;
-            let yOffset = imageOffsetY + OUTER_MARGIN;
-            let maxGroupWidth = 0;
-            
-            group.forEach(item => {
-              ctx.drawImage(item.img, groupStartX, yOffset);
-              yOffset += item.img.height + VERTICAL_OFFSET;
-              maxGroupWidth = Math.max(maxGroupWidth, item.img.width);
-            });
-            
-            xOffset += maxGroupWidth;
-          });
-        } else {
-          // Layout vertical con filas de MAX_HORIZONTAL elementos
-          let currentRowY = imageOffsetY + OUTER_MARGIN;
-          
-          completeGroups.forEach((group, groupIndex) => {
-            const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
-            const colIndex = groupIndex % MAX_HORIZONTAL;
-            
-            if (colIndex === 0 && rowIndex > 0) {
-              // Calcular altura de fila anterior
-              let maxRowHeight = 0;
-              for (let i = (rowIndex - 1) * MAX_HORIZONTAL; i < Math.min(rowIndex * MAX_HORIZONTAL, totalCompleteGroups); i++) {
-                const prevGroup = completeGroups[i];
-                let groupHeight = 0;
-                prevGroup.forEach(item => {
-                  groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
-                });
-                maxRowHeight = Math.max(maxRowHeight, groupHeight);
-              }
-              currentRowY += maxRowHeight + SPACING;
-            }
-            
-            // Calcular X offset para esta columna
-            let xOffset = OUTER_MARGIN;
-            for (let i = rowIndex * MAX_HORIZONTAL; i < groupIndex; i++) {
-              const prevGroup = completeGroups[i];
-              let groupWidth = 0;
-              prevGroup.forEach(item => {
-                groupWidth = Math.max(groupWidth, item.img.width);
-              });
-              xOffset += groupWidth + SPACING;
-            }
-            
-            // Dibujar grupo actual
-            let yOffset = currentRowY;
-            let groupStartX = xOffset;
-            group.forEach(item => {
-              ctx.drawImage(item.img, groupStartX, yOffset);
-              yOffset += item.img.height + VERTICAL_OFFSET;
-            });
-          });
-        }
-
-        // Dibujar leyenda ABAJO
-        const leyendaX = OUTER_MARGIN + (totalWidth - scaledWidth) / 2;
-        const leyendaY = totalHeight + promptHeight + OUTER_MARGIN + LEYENDA_MARGIN;
-        
-        console.log('🖼️ [composeImages] Dibujando leyenda en posición:', {
-          x: leyendaX,
-          y: leyendaY,
-          width: scaledWidth,
-          height: scaledHeight,
-          canvasHeight: canvas.height
-        });
-        
-        // Marco/borde alrededor de la leyenda
-        ctx.strokeStyle = '#7C3AED'; // Color púrpura para diferenciar
-        ctx.lineWidth = 3;
-        ctx.strokeRect(leyendaX - 5, leyendaY - 5, scaledWidth + 10, scaledHeight + 10);
-        
-        // Dibujar la leyenda
-        ctx.drawImage(leyendaImg, leyendaX, leyendaY, scaledWidth, scaledHeight);
-        
-        // Recrear el blob con la leyenda incluida
-        canvas.toBlob((blob) => {
-          if (blob) {
-            if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
-            const url = URL.createObjectURL(blob);
-            setComposedImageUrl(url);
-            console.log('✅ [composeImages] Imagen compuesta creada con leyenda');
-          }
-        }, 'image/png');
-      };
-      
-      leyendaImg.onerror = () => {
-        console.error('❌ No se pudo cargar la imagen de leyenda, continuando sin ella');
-        // Configurar canvas sin leyenda y continuar normalmente
-        canvas.width = totalWidth + (2 * OUTER_MARGIN);
-        canvas.height = totalHeight + promptHeight + (2 * OUTER_MARGIN);
-        
-        // El código siguiente dibujará sin leyenda automáticamente
-        // ya que shouldEmbedLeyenda solo controla la carga inicial
-      };
-      
-      console.log('🖼️ [composeImages] Cargando leyenda desde: /src/img/utils/leyenda.png');
-      leyendaImg.src = '/src/img/utils/leyenda.png';
-      return; // Esperar a que cargue la leyenda
-    }
-
-    // Si no hay leyenda, dibujar directamente sin ella
-    // Configurar canvas sin leyenda
+    // Configurar canvas SIN leyenda (eliminada permanentemente para rendimiento)
     canvas.width = totalWidth + (2 * OUTER_MARGIN);
     canvas.height = totalHeight + promptHeight + (2 * OUTER_MARGIN);
 
@@ -631,24 +476,18 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const lineHeight = fontSize * 1.5;
       const padding = 20;
       
-      // Fondo blanco para el área completa del prompt (ya pintado)
-      
-      // Marco/borde alrededor del texto
       const frameX = PROMPT_MARGIN + OUTER_MARGIN;
       const frameY = PROMPT_MARGIN + OUTER_MARGIN;
       const frameWidth = canvas.width - (PROMPT_MARGIN * 2) - (OUTER_MARGIN * 2);
       const frameHeight = promptHeight - (PROMPT_MARGIN * 2);
       
-      // Fondo gris claro para el cuadro del texto
       ctx.fillStyle = '#F5F5F5';
       ctx.fillRect(frameX, frameY, frameWidth, frameHeight);
       
-      // Borde del marco (negro)
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 3;
       ctx.strokeRect(frameX, frameY, frameWidth, frameHeight);
       
-      // Dibujar texto dentro del marco
       ctx.fillStyle = '#000000';
       ctx.font = `bold ${fontSize}px Arial`;
       ctx.textBaseline = 'top';
@@ -675,11 +514,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
     }
 
-    // Dibujar imágenes con layout inteligente (desplazadas hacia abajo si hay prompt)
+    // Dibujar imágenes
     const imageOffsetY = embedPromptInImage && promptHeight > 0 ? promptHeight : 0;
     
     if (totalCompleteGroups <= MAX_HORIZONTAL) {
-      // Layout horizontal (hasta 4 elementos)
       let xOffset = OUTER_MARGIN;
       completeGroups.forEach((group, groupIndex) => {
         if (groupIndex > 0) xOffset += SPACING;
@@ -697,7 +535,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         xOffset += maxGroupWidth;
       });
     } else {
-      // Layout vertical con filas de MAX_HORIZONTAL elementos
       let currentRowY = imageOffsetY + OUTER_MARGIN;
       
       completeGroups.forEach((group, groupIndex) => {
@@ -705,7 +542,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         const colIndex = groupIndex % MAX_HORIZONTAL;
         
         if (colIndex === 0 && rowIndex > 0) {
-          // Calcular altura de fila anterior
           let maxRowHeight = 0;
           for (let i = (rowIndex - 1) * MAX_HORIZONTAL; i < Math.min(rowIndex * MAX_HORIZONTAL, totalCompleteGroups); i++) {
             const prevGroup = completeGroups[i];
@@ -718,7 +554,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           currentRowY += maxRowHeight + SPACING;
         }
         
-        // Calcular X offset para esta columna
         let xOffset = OUTER_MARGIN;
         for (let i = rowIndex * MAX_HORIZONTAL; i < groupIndex; i++) {
           const prevGroup = completeGroups[i];
@@ -729,7 +564,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           xOffset += groupWidth + SPACING;
         }
         
-        // Dibujar grupo actual
         let yOffset = currentRowY;
         let groupStartX = xOffset;
         group.forEach(item => {
@@ -739,24 +573,32 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       });
     }
 
-    // Crear blob (si no hay leyenda para cargar)
+    // Crear blob
+    const blobStartTime = performance.now();
     canvas.toBlob((blob) => {
       if (blob) {
+        console.log(`🎨 Canvas → Blob en: ${(performance.now() - blobStartTime).toFixed(2)}ms`);
+        
         if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
         const url = URL.createObjectURL(blob);
         setComposedImageUrl(url);
-        console.log('✅ [composeImages] Imagen compuesta creada sin leyenda');
+        
+        console.log(`📊 composeImages completado en: ${(performance.now() - composeStartTime).toFixed(2)}ms`);
+        console.timeEnd('⏱️ Pegado → Preview visible');
       }
     }, 'image/png');
   };
 
+  // ✅ Ejecutar INMEDIATAMENTE sin ningún delay
   useEffect(() => {
     if (capturedImages.length > 0) {
+      // Sin requestAnimationFrame ni debounce - ejecutar directo
       composeImages();
     } else {
       setComposedImageUrl(null);
+      imageCache.current.clear();
     }
-  }, [capturedImages, embedPromptInImage, embedLeyendaInImage]);
+  }, [capturedImages, embedPromptInImage]);
 
   // Funciones helper
   const loadCategoryCounts = async () => {
@@ -872,7 +714,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       
       // Resolver categoría real (runas/gemas necesitan resolución)
       const resolvedCategory = resolveImportCategory(selectedCategory, runaGemaType);
-      const nombre = await ImageService.saveImage(blob, resolvedCategory, resolvedCategory);
+      const nombre = await ImageService.saveImage(blob, resolvedCategory, getFileNameForCategory(resolvedCategory));
       setLastSavedImageName(nombre); // Trackear para auto-guardado posterior de JSON
       
       // 📄 Guardar JSON asociado si existe
@@ -1144,7 +986,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         // Imagen en preview no guardada → guardar imagen + JSON
         const response = await fetch(composedImageUrl);
         const blob = await response.blob();
-        const nombre = await ImageService.saveImage(blob, resolvedCategory, resolvedCategory);
+        const nombre = await ImageService.saveImage(blob, resolvedCategory, getFileNameForCategory(resolvedCategory));
         await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre);
         setLastSavedImageName(nombre);
         setCapturedImages([]);
@@ -1162,17 +1004,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           showToast(`💾 JSON guardado junto a imagen de galería`, 'info');
         } else if (selectedGalleryImageBlob) {
           // Fallback robusto: si no encontramos la entrada por URL, crear una nueva imagen+JSON.
-          const nombre = await ImageService.saveImage(selectedGalleryImageBlob, resolvedCategory, resolvedCategory);
+          const nombre = await ImageService.saveImage(selectedGalleryImageBlob, resolvedCategory, getFileNameForCategory(resolvedCategory));
           await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre);
           setLastSavedImageName(nombre);
           showToast(`💾 Imagen y JSON guardados automáticamente en galería`, 'info');
         } else {
-          await ImageService.saveJSONOnly(jsonContent, resolvedCategory, resolvedCategory);
+          await ImageService.saveJSONOnly(jsonContent, resolvedCategory, getFileNameForCategory(resolvedCategory));
           showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
         }
       } else {
         // Sin imagen → guardar JSON independiente
-        await ImageService.saveJSONOnly(jsonContent, resolvedCategory, resolvedCategory);
+        await ImageService.saveJSONOnly(jsonContent, resolvedCategory, getFileNameForCategory(resolvedCategory));
         showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
       }
       loadCategoryCounts();
@@ -1274,6 +1116,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           URL.revokeObjectURL(composedImageUrl);
         }
 
+        // Agregar inmediatamente sin precarga
         setCapturedImages([
           {
             id: `gallery_edit_${Date.now()}`,
@@ -2060,6 +1903,25 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       return runeGemCategory;
     }
     return category;
+  };
+
+  // Helper: convierte categoría interna a nombre de archivo en español
+  const getFileNameForCategory = (category: ImageCategory): string => {
+    const categoryNameMap: Record<ImageCategory, string> = {
+      'skills': 'habilidades',
+      'glifos': 'glifos',
+      'aspectos': 'aspectos',
+      'estadisticas': 'estadísticas',
+      'paragon': 'paragon',
+      'build': 'build',
+      'mundo': 'mundo',
+      'mecanicas': 'mecanicas',
+      'talismanes': 'talismanes',
+      'runas': 'runas',
+      'gemas': 'gemas',
+      'otros': 'otros'
+    };
+    return categoryNameMap[category] || category;
   };
 
   const getImportTargetName = (
@@ -5192,19 +5054,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       >
                         <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
-                      {selectedCategory === 'mundo' && mundoType === 'mazmorras_aspectos' && (
-                        <button
-                          onClick={() => setEmbedLeyendaInImage(!embedLeyendaInImage)}
-                          className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
-                            embedLeyendaInImage
-                              ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
-                              : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
-                          }`}
-                          title={embedLeyendaInImage ? 'Leyenda embebida en imagen (activo)' : 'Embeber leyenda en imagen (inactivo)'}
-                        >
-                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                      )}
                     </div>
                     
                     <img src={composedImageUrl} alt="Composed" className="w-full h-auto object-contain" style={{ maxWidth: '100%', transform: 'scale(0.85)' }} />
@@ -5247,19 +5096,6 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       >
                         <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
-                      {selectedCategory === 'mundo' && mundoType === 'mazmorras_aspectos' && (
-                        <button
-                          onClick={() => setEmbedLeyendaInImage(!embedLeyendaInImage)}
-                          className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
-                            embedLeyendaInImage
-                              ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
-                              : 'bg-d4-surface text-d4-text hover:bg-d4-border'
-                          }`}
-                          title={embedLeyendaInImage ? 'Leyenda embebida en imagen (activo)' : 'Embeber leyenda en imagen (inactivo)'}
-                        >
-                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                      )}
                     </div>
                     
                     <ImageIcon className="w-16 h-16 text-d4-text-dim mb-3" />

@@ -1,0 +1,244 @@
+  const composeImages = () => {
+    if (capturedImages.length === 0) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Cargar imágenes síncronamente desde caché
+    const loadedImages: Array<{ img: HTMLImageElement; isComplete: boolean }> = [];
+    
+    for (const capturedImg of capturedImages) {
+      let img = imageCache.current.get(capturedImg.url);
+      
+      if (!img) {
+        img = new Image();
+        img.src = capturedImg.url;
+        imageCache.current.set(capturedImg.url, img);
+      }
+      
+      loadedImages.push({ img, isComplete: capturedImg.isComplete });
+    }
+
+    // Calcular dimensiones con layout inteligente
+    const SPACING = 10;
+    const OUTER_MARGIN = SPACING;
+    const VERTICAL_OFFSET = 0;
+    const MAX_HORIZONTAL = 4;
+
+    // Agrupar elementos completos
+    const completeGroups: Array<Array<{ img: HTMLImageElement; isComplete: boolean }>> = [];
+    let currentGroup: Array<{ img: HTMLImageElement; isComplete: boolean }> = [];
+    
+    loadedImages.forEach((item) => {
+      if (item.isComplete && currentGroup.length > 0) {
+        completeGroups.push(currentGroup);
+        currentGroup = [];
+      }
+      currentGroup.push(item);
+    });
+    if (currentGroup.length > 0) {
+      completeGroups.push(currentGroup);
+    }
+
+    const totalCompleteGroups = completeGroups.length;
+    
+    // Calcular dimensiones totales
+    let totalWidth = 0;
+    let totalHeight = 0;
+
+    if (totalCompleteGroups <= MAX_HORIZONTAL) {
+      completeGroups.forEach((group, groupIndex) => {
+        if (groupIndex > 0) totalWidth += SPACING;
+        let groupWidth = 0;
+        let groupHeight = 0;
+        group.forEach(item => {
+          groupWidth = Math.max(groupWidth, item.img.width);
+          groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+        });
+        totalWidth += groupWidth;
+        totalHeight = Math.max(totalHeight, groupHeight);
+      });
+    } else {
+      let currentRowWidth = 0;
+      let currentRowHeight = 0;
+      
+      completeGroups.forEach((group, groupIndex) => {
+        const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
+        const colIndex = groupIndex % MAX_HORIZONTAL;
+        
+        let groupWidth = 0;
+        let groupHeight = 0;
+        group.forEach(item => {
+          groupWidth = Math.max(groupWidth, item.img.width);
+          groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+        });
+        
+        if (colIndex === 0) {
+          if (rowIndex > 0) totalHeight += SPACING;
+          totalHeight += currentRowHeight;
+          currentRowWidth = groupWidth;
+          currentRowHeight = groupHeight;
+          totalWidth = Math.max(totalWidth, currentRowWidth);
+        } else {
+          currentRowWidth += SPACING + groupWidth;
+          currentRowHeight = Math.max(currentRowHeight, groupHeight);
+          totalWidth = Math.max(totalWidth, currentRowWidth);
+        }
+      });
+      totalHeight += currentRowHeight;
+    }
+
+    // Calcular espacio para el texto del prompt si está activado
+    const PROMPT_MARGIN = 15;
+    let promptHeight = 0;
+    let promptText = '';
+    if (embedPromptInImage && capturedImages.length > 0) {
+      promptText = getShortPrompt();
+      const fontSize = 14;
+      const lineHeight = fontSize * 1.5;
+      const padding = 20;
+      const maxPromptWidth = totalWidth - (padding * 2) - (PROMPT_MARGIN * 2);
+      
+      ctx.font = `${fontSize}px Arial`;
+      const words = promptText.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxPromptWidth && currentLine !== '') {
+          lines.push(currentLine.trim());
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine.trim());
+      
+      promptHeight = (lines.length * lineHeight) + (padding * 2) + (PROMPT_MARGIN * 2);
+    }
+
+    // Configurar canvas SIN leyenda (eliminada permanentemente para rendimiento)
+    canvas.width = totalWidth + (2 * OUTER_MARGIN);
+    canvas.height = totalHeight + promptHeight + (2 * OUTER_MARGIN);
+
+    // Fondo blanco
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar texto del prompt ARRIBA si está activado
+    if (embedPromptInImage && promptHeight > 0) {
+      const fontSize = 14;
+      const lineHeight = fontSize * 1.5;
+      const padding = 20;
+      
+      const frameX = PROMPT_MARGIN + OUTER_MARGIN;
+      const frameY = PROMPT_MARGIN + OUTER_MARGIN;
+      const frameWidth = canvas.width - (PROMPT_MARGIN * 2) - (OUTER_MARGIN * 2);
+      const frameHeight = promptHeight - (PROMPT_MARGIN * 2);
+      
+      ctx.fillStyle = '#F5F5F5';
+      ctx.fillRect(frameX, frameY, frameWidth, frameHeight);
+      
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(frameX, frameY, frameWidth, frameHeight);
+      
+      ctx.fillStyle = '#000000';
+      ctx.font = `bold ${fontSize}px Arial`;
+      ctx.textBaseline = 'top';
+      
+      const words = promptText.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      const maxPromptWidth = frameWidth - (padding * 2);
+      
+      for (const word of words) {
+        const testLine = currentLine + word + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxPromptWidth && currentLine !== '') {
+          lines.push(currentLine.trim());
+          currentLine = word + ' ';
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine.trim());
+      
+      lines.forEach((line, i) => {
+        ctx.fillText(line, frameX + padding, frameY + padding + (i * lineHeight));
+      });
+    }
+
+    // Dibujar imágenes
+    const imageOffsetY = embedPromptInImage && promptHeight > 0 ? promptHeight : 0;
+    
+    if (totalCompleteGroups <= MAX_HORIZONTAL) {
+      let xOffset = OUTER_MARGIN;
+      completeGroups.forEach((group, groupIndex) => {
+        if (groupIndex > 0) xOffset += SPACING;
+        
+        let groupStartX = xOffset;
+        let yOffset = imageOffsetY + OUTER_MARGIN;
+        let maxGroupWidth = 0;
+        
+        group.forEach(item => {
+          ctx.drawImage(item.img, groupStartX, yOffset);
+          yOffset += item.img.height + VERTICAL_OFFSET;
+          maxGroupWidth = Math.max(maxGroupWidth, item.img.width);
+        });
+        
+        xOffset += maxGroupWidth;
+      });
+    } else {
+      let currentRowY = imageOffsetY + OUTER_MARGIN;
+      
+      completeGroups.forEach((group, groupIndex) => {
+        const rowIndex = Math.floor(groupIndex / MAX_HORIZONTAL);
+        const colIndex = groupIndex % MAX_HORIZONTAL;
+        
+        if (colIndex === 0 && rowIndex > 0) {
+          let maxRowHeight = 0;
+          for (let i = (rowIndex - 1) * MAX_HORIZONTAL; i < Math.min(rowIndex * MAX_HORIZONTAL, totalCompleteGroups); i++) {
+            const prevGroup = completeGroups[i];
+            let groupHeight = 0;
+            prevGroup.forEach(item => {
+              groupHeight += item.img.height + (groupHeight > 0 ? VERTICAL_OFFSET : 0);
+            });
+            maxRowHeight = Math.max(maxRowHeight, groupHeight);
+          }
+          currentRowY += maxRowHeight + SPACING;
+        }
+        
+        let xOffset = OUTER_MARGIN;
+        for (let i = rowIndex * MAX_HORIZONTAL; i < groupIndex; i++) {
+          const prevGroup = completeGroups[i];
+          let groupWidth = 0;
+          prevGroup.forEach(item => {
+            groupWidth = Math.max(groupWidth, item.img.width);
+          });
+          xOffset += groupWidth + SPACING;
+        }
+        
+        let yOffset = currentRowY;
+        let groupStartX = xOffset;
+        group.forEach(item => {
+          ctx.drawImage(item.img, groupStartX, yOffset);
+          yOffset += item.img.height + VERTICAL_OFFSET;
+        });
+      });
+    }
+
+    // Crear blob
+    canvas.toBlob((blob) => {
+      if (blob) {
+        if (composedImageUrl) URL.revokeObjectURL(composedImageUrl);
+        const url = URL.createObjectURL(blob);
+        setComposedImageUrl(url);
+      }
+    }, 'image/png');
+  };

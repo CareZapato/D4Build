@@ -1,17 +1,30 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.8.3-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.8.4-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
 [![Express](https://img.shields.io/badge/Express-4.18.2-green.svg)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
 
-Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus builds de Diablo 4 con **integración de IA**, **sistema de autenticación**, **suscripciones Premium** y **gestión de perfil**.
+Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus builds de Diablo 4 con **integración de IA**, **sistema de autenticación**, **suscripciones Premium** y **testing de integridad**.
 
 ## ✨ Características Principales
 
-### 💳 Sistema de Suscripciones (v0.7.1 - NUEVO)
+### 🧪 Testing de Integridad (v0.8.4 - NUEVO)
+- 🔬 **Panel Premium/Admin**: Sección exclusiva en perfil de usuario
+- 🗂️ **Workspace Temporal**: Crea carpeta `Tests/` sin afectar workspace actual
+- 📊 **Validación Automática**: Ejecuta TODOS los JSONs guardados en galería
+- 🎯 **18 Categorías Validadas**: Skills, glifos, aspectos, paragon, runas, gemas, mundo, talismanes, mecánicas, build, stats
+- 📈 **Métricas Detalladas**: Tasa de éxito, elementos guardados, tiempo de ejecución
+- 🔍 **Análisis por Categoría**: Desglose completo con tests pasados/fallidos
+- 📋 **Reporte Interactivo**: Gráficos, tests fallidos expandibles, problemas críticos
+- 🤖 **Prompt para IA**: Genera diagnóstico completo copiable para Claude/GPT
+- 💾 **Exportación**: Descarga reporte completo en JSON
+- ⚡ **Progreso en Tiempo Real**: Barra de progreso con detalles de archivo actual
+- 🎨 **UI Profesional**: Cards con métricas, gráficos de distribución, alertas destacadas
+
+### 💳 Sistema de Suscripciones (v0.7.1)
 - 📅 **Planes Flexibles**: 1 mes ($5), 6 meses ($25), 1 año ($45)
 - 💰 **Créditos para IA**: 80% del pago se convierte en créditos ($4 de cada $5)
 - 📋 **Tabla subscriptions**: Historial completo de suscripciones con fechas y estado
@@ -20,7 +33,7 @@ Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus
 - 🎯 **Descuentos por volumen**: Planes largos incluyen más créditos (ahorra hasta 25%)
 - 📊 **Balance dinámico**: Sistema premium_balance que se recarga al contratar
 
-### 👤 Perfil de Usuario (v0.7.1 - NUEVO)
+### 👤 Perfil de Usuario (v0.7.1)
 - ⚙️ **Gestión completa**: Edita username, email, cambia contraseña
 - 📊 **Análisis de uso**: Estadísticas detalladas por semana, mes y año
 - 💳 **Historial de gastos**: Lista paginada de todas las consultas de IA con costos
@@ -28,6 +41,7 @@ Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus
 - 💵 **Vista de créditos**: Balance actual, total usado, consumo por período
 - 🚨 **Alertas inteligentes**: Notificaciones de expiración y saldo bajo
 - 🔒 **Seguridad**: Cambio de contraseña con validación de contraseña actual
+- 🧪 **Testing Premium**: Tab exclusivo para integrity testing (Premium/Admin)
 
 ### 🔐 Sistema de Autenticación (v0.7.0)
 - 👤 **Login/Registro**: Autenticación JWT con PostgreSQL backend
@@ -883,6 +897,48 @@ Esta aplicación usa la File System Access API, que es compatible con:
 - [ ] Modo oscuro/claro
 
 ## 📝 Changelog
+
+### v0.8.4 (24 de Abril, 2026)
+**🧪 Testing de Integridad Premium**
+- 🔬 **IntegrityTestService**: Servicio completo para validación automática de JSONs
+- 🗂️ **Workspace Temporal**: Crea carpeta `Tests/test_run_{timestamp}/` sin afectar workspace actual
+- 📊 **Validación de 18 Categorías**: Skills, glifos, aspectos, estadísticas, paragon, runas, gemas, mundo, talismanes, mecánicas, build
+- 🎯 **Tests por Estructura**: Validadores específicos para cada tipo de JSON (habilidades activas/pasivas, glifos con rareza, aspectos con categoría, etc.)
+- 📈 **Métricas Detalladas**: 
+  - Tasa de éxito global (% tests pasados)
+  - Elementos esperados vs guardados
+  - Tests fallidos por categoría
+  - Tiempo promedio de ejecución
+  - Desglose completo por categoría
+- 📋 **ProfileTestingSection**: Tab Premium/Admin en perfil de usuario
+- 🎨 **UI Profesional**: 
+  - Cards con métricas principales (éxito, tests, elementos, tiempo)
+  - Gráfico de barra visual (tests exitosos vs fallidos)
+  - Lista colapsable de tests fallidos con detalles
+  - Categorías expandibles con archivos individuales
+- ⚡ **Progreso en Tiempo Real**: Barra de progreso con nombre de archivo actual y porcentaje
+- 🔍 **Análisis Inteligente**:
+  - Detecta problemas críticos (archivos sin elementos guardados, errores de parsing, categorías rotas)
+  - Genera recomendaciones automáticas (revisar prompts, optimizar validaciones, corregir JSONs)
+  - Identifica categorías problemáticas con alta tasa de fallo
+- 🤖 **Prompt Diagnóstico para IA**: Genera reporte completo formateado para compartir con Claude/GPT/Gemini:
+  - Resumen ejecutivo con estado general
+  - Métricas clave por categoría
+  - Problemas críticos destacados
+  - Recomendaciones priorizadas
+  - Tests fallidos con errores detallados
+  - Preguntas específicas para IA
+- 💾 **Exportación**: Botón para descargar reporte completo en JSON (`integrity_report_{id}.json`)
+- 📋 **Copiar Prompt**: Un click para copiar diagnóstico completo al portapapeles
+- 🎯 **Badge Premium**: Tab de testing muestra badge "Premium" en navegación de perfil
+- 🔐 **Control de Acceso**: Solo visible para usuarios con `isPremium()` o `isAdmin()`
+- 📚 **ImageService.readJSON()**: Nuevo método para leer contenido de JSONs directamente
+- 🏗️ **Tipos Nuevos**: 
+  - `IntegrityTestResult`: Resultado individual con éxito, elementos, errores, tiempo
+  - `IntegrityTestMetrics`: Métricas agregadas con totales y desglose por categoría
+  - `IntegrityTestProgress`: Estado de progreso con porcentaje y mensaje
+  - `FileDifference`: Comparación entre archivos (preparado para futuras mejoras)
+  - `IntegrityReport`: Reporte completo con métricas, resultados, prompt diagnóstico
 
 ### v0.8.3 (24 de Abril, 2026)
 **🧪 Testing Completo + 💎 Runas/Gemas + 🗺️ Validación de Mundo/Talismanes**
