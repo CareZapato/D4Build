@@ -793,7 +793,7 @@ Los tags son palabras clave del juego (mecánicas, efectos, condiciones).
 
 1. Identifica el **nombre de la mazmorra** en la parte superior
 2. Localiza el texto "Solo" y el **icono de clase** que aparece junto a él
-3. Extrae toda la información del **aspecto recompensa**:
+3. Extrae toda la información del **aspecto_recompensa** (aspecto de recompensa):
    - Nombre completo del aspecto
    - Efecto exacto con todos los valores numéricos
    - Categoría según el COLOR del icono del aspecto
@@ -1032,13 +1032,14 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 1. Identifica cada sección visible (Personaje, Atributos principales, Defensivo, Ofensivo, Armadura y resistencias, etc.)
 2. Extrae todos los valores numéricos principales
 3. **CRÍTICO:** Extrae TODOS los detalles/subítems debajo de cada estadística
-4. Identifica palabras marcadas en BLANCO/SUBRAYADAS en los detalles (son palabras clave del juego)
-5. Si ves la definición del "Aguante", inclúyela completa
-6. **Para cada detalle agrega SIEMPRE el atributo al que pertenece:**
+4. **NIVEL Y PARAGON:** En atributosPrincipales extrae tanto "nivel" (nivel base 1-60) como "nivel_paragon" (nivel Paragon visible en la UI)
+5. Identifica palabras marcadas en BLANCO/SUBRAYADAS en los detalles (son palabras clave del juego)
+6. Si ves la definición del "Aguante", inclúyela completa
+7. **Para cada detalle agrega SIEMPRE el atributo al que pertenece:**
   - \`atributo_ref\`: key técnica del campo (ej: \`probabilidadGolpeCritico\`, \`danioContraEnemigosVulnerables\`, \`vidaMaxima\`)
   - \`atributo_nombre\`: nombre visible (ej: "Probabilidad de golpe crítico", "Daño contra enemigos vulnerables")
-7. Si no hay marco de selección visible, deduce el atributo por el título del tooltip o por el texto del detalle (lado izquierdo)
-8. NO omitas detalles de atributos compartidos (vulnerables, crítico, abrumar, daño con estados, etc.)
+8. Si no hay marco de selección visible, deduce el atributo por el título del tooltip o por el texto del detalle (lado izquierdo)
+9. NO omitas detalles de atributos compartidos (vulnerables, crítico, abrumar, daño con estados, etc.)
 
 **NOMBRES DE CAMPOS EXACTOS (IMPORTANTE):**
 Usa estos nombres de campos EXACTOS para cada sección:
@@ -1109,6 +1110,7 @@ Usa estos nombres de campos EXACTOS para cada sección:
     },
     "atributosPrincipales": {
       "nivel": 60,
+      "nivel_paragon": 150,
       "fuerza": 1670,
       "inteligencia": 208,
       "detalles": [
@@ -2469,7 +2471,7 @@ Si el jugador ya tiene runas en su catálogo y estás analizando un arma con run
 
 **⚠️ IMPORTANTE - GEMAS:**
 
-Las gemas se insertan en engarces del equipo y tienen efectos DIFERENTES según dónde se inserten:
+Las gemas se insertan en engarces del equipo y tienen **efectos_por_slot** (efectos DIFERENTES según dónde se inserten):
 - **Arma**: Efecto ofensivo
 - **Armadura**: Efecto defensivo/atributo
 - **Joyas** (anillos/amuleto): Efecto de resistencia
@@ -2779,11 +2781,11 @@ No se trata de extraer datos, sino de analizar la efectividad y coherencia del b
   // ============================================================================
 
   static generateClassMechanicsPrompt(): string {
-    return `Analiza la imagen y extrae la información de las mecánicas únicas de clase de Diablo 4.
+    return `Analiza la imagen y extrae la información de las **mecanicas** únicas de clase de Diablo 4.
 
 **⚠️ IMPORTANTE - MECÁNICAS DE CLASE:**
 
-Cada clase tiene mecánicas únicas:
+Cada clase tiene mecánicas (mecanicas_clase) únicas:
 - **Paladín**: Juramentos (Disciple, Arbiter, etc.)
 - **Hechicero**: Libros de hechizos
 - **Nigromante**: Libros de los muertos
@@ -3383,10 +3385,20 @@ El **Horadric Seal (Sello Horádrico)** es el NÚCLEO del sistema de talismanes.
     ],
     "reglas": [
       {
+        "tipo": "restriccion",
         "descripcion": "No puede tener más de 5 sockets"
       },
       {
+        "tipo": "restriccion",
         "descripcion": "Puede equipar hasta 2 charms únicos"
+      },
+      {
+        "tipo": "bonus",
+        "descripcion": "Los charms de set otorgan 5% más de efecto"
+      },
+      {
+        "tipo": "penalizacion",
+        "descripcion": "Los charms de menor rareza reducen 3% las stats base"
       }
     ],
     "nivel_requerido": 60,
@@ -3459,13 +3471,21 @@ Para cada bonus:
 Las **reglas** son limitaciones o condiciones del sello.
 
 Para cada regla:
+- **tipo**: Tipo de regla (usar uno de: "restriccion", "bonus", "sinergia", "penalizacion")
 - **descripcion**: Texto completo de la regla
 
+**Tipos de reglas:**
+- **restriccion**: Limitación o prohibición ("No puede tener más de X sockets", "Solo charms raros")
+- **bonus**: Efecto positivo adicional ("Los charms únicos otorgan +10% de efecto")
+- **sinergia**: Interacción especial entre elementos ("Sets completos otorgan bono extra")
+- **penalizacion**: Efecto negativo por incumplir condición ("Los charms de baja rareza reducen stats")
+
 **Ejemplos comunes:**
-- "No puede tener más de X sockets"
-- "Puede equipar hasta X charms únicos"
-- "Requiere nivel Y para usar"
-- "Solo puede equipar charms de tipo Z"
+- {"tipo": "restriccion", "descripcion": "No puede tener más de X sockets"}
+- {"tipo": "restriccion", "descripcion": "Puede equipar hasta X charms únicos"}
+- {"tipo": "bonus", "descripcion": "Los charms únicos otorgan 10% más de efecto"}
+- {"tipo": "sinergia", "descripcion": "Sets completos activan bono legendario"}
+- {"tipo": "penalizacion", "descripcion": "Charms de menor rareza reducen 5% las stats"}
 
 ### PASO 7: INFORMACIÓN ADICIONAL
 

@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">23 de Abril, 2026 (v0.8.3)</p>
+                <p className="text-d4-text font-semibold">24 de Abril, 2026 (v0.8.3)</p>
               </div>
             </div>
           </div>
@@ -73,23 +73,41 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
         <div className="mb-6">
           <div className="flex items-baseline gap-3 mb-3">
             <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.3</h3>
-            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-300 px-2 py-1 rounded">🧪 Testing + 💎 Runas/Gemas</span>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-300 px-2 py-1 rounded">🧪 Testing Completo + 💎 Runas/Gemas</span>
           </div>
 
           <div className="space-y-4">
             <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
-              <h4 className="font-bold text-d4-text mb-2 text-sm">🧪 Sistema de Testing para Administradores (COMPLETO)</h4>
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🧪 Sistema de Testing Completo (54+ Tests) - COBERTURA TOTAL</h4>
               <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
-                <li><strong>TestingService</strong>: Servicio completo con 30+ tests automatizados en 8 suites</li>
-                <li><strong>AdminTesting Component</strong>: Panel visual con ejecución de tests y resultados en tiempo real</li>
-                <li><strong>Validaciones Exhaustivas</strong>: Estructura JSON, tipos de datos, IDs únicos, integridad de referencias</li>
-                <li><strong>Suites Implementadas</strong>: Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes</li>
-                <li><strong>Verificación de Prompts</strong>: Valida que los prompts de IA incluyen todos los campos del JSON esperado</li>
-                <li><strong>Test de Relaciones</strong>: Verifica integridad entre personajes y héroes (referencias válidas)</li>
-                <li><strong>Simulación de Imágenes</strong>: Tests de almacenamiento, formato de archivos, estructura de carpetas</li>
-                <li><strong>Métricas Detalladas</strong>: Duración por test, tasa de éxito global, detalles de errores, estadísticas en tiempo real</li>
-                <li><strong>Panel Admin Unificado</strong>: Tabs para "Gestión de Usuarios" y "Testing & Validación"</li>
-                <li><strong>Acceso Restringido</strong>: Solo administradores pueden ver y ejecutar tests (isAdmin() check)</li>
+                <li><strong>14 Suites de Prueba</strong>: Estadísticas (4), Habilidades (6), Glifos (5), Aspectos (4), Mundo (6), Talismanes (7), Héroe vs Personaje (6 NUEVO), Paragon (4 NUEVO), Runas/Gemas (3 NUEVO), Build (2 NUEVO), Mecánicas (2 NUEVO), Prompts (8), Relaciones, Imágenes</li>
+                <li><strong>🆕 Tests Héroe vs Personaje (6 tests NUEVO)</strong>: Valida diferencia entre importar para HÉROE (objetos completos) vs PERSONAJE (refs con IDs):
+                  <ul className="list-circle ml-4 mt-1">
+                    <li>Habilidades: Héroe guarda descripción, modificadores completos | Personaje solo IDs</li>
+                    <li>Glifos: Héroe guarda efecto_base, bonificaciones | Personaje solo id + nivel_actual</li>
+                    <li>Aspectos: Prompts diferentes (generateAspectsPrompt vs generateCharacterAspectsPrompt)</li>
+                    <li>Mundo: Prompts diferentes (eventos vs mazmorras con aspectos)</li>
+                  </ul>
+                </li>
+                <li><strong>🆕 Tests Paragon (4 tests NUEVO)</strong>: 
+                  <ul className="list-circle ml-4 mt-1">
+                    <li>Tableros Paragon (héroe): tablero_id, nombre, tipo, nodos_totales</li>
+                    <li>Nodos Paragon (héroe): nodo_id, rareza, bonificaciones, posición</li>
+                    <li>Atributos Paragon (personaje): nivel_paragon, atributos, tableros_equipados con glifos</li>
+                    <li>3 Prompts Diferenciados: generateParagonBoardsPrompt, generateParagonNodesPrompt, generateParagonCharacterPrompt</li>
+                  </ul>
+                </li>
+                <li><strong>🆕 Tests Runas y Gemas (3 tests NUEVO)</strong>: Runas (id, rareza, tipo, efecto), Gemas (calidad, efectos_por_slot), Prompts Separados</li>
+                <li><strong>🆕 Tests Build/Equipamiento (2 tests NUEVO)</strong>: Piezas (espacio, stats, engarces, aspecto_id), Runas equipadas vinculadas</li>
+                <li><strong>🆕 Tests Mecánicas de Clase (2 tests NUEVO)</strong>: mecanica_id, tipo, valor_actual/maximo, bonificaciones</li>
+                <li><strong>Tests de Mundo</strong>: Eventos (guarida/susurro), requisitos con id_recurso, recompensas con probabilidad/garantizado, tiempo (expira_en/cooldown)</li>
+                <li><strong>Tests de Talismanes</strong>: Charms (rare/unique/set), efectos (pasivo/condicion/proc/stacking), Horadric Seal con reglas.tipo</li>
+                <li><strong>Validación de Prompts (8 tests)</strong>: Valida que TODOS los prompts incluyen campos necesarios</li>
+                <li><strong>🔍 Simulación Real</strong>: Tests replican exactamente el flujo del usuario (captura → upload → genera prompt → valida → envía IA → guarda)</li>
+                <li><strong>📝 Diagnóstico Avanzado</strong>: Console logs con ✓/✗ identifican campos faltantes, muestran problema/solución detallado</li>
+                <li><strong>🎯 Cobertura Completa</strong>: 18 casos de importación validados (todos los prompts, todos los destinos: héroe/personaje/workspace)</li>
+                <li><strong>✅ Prompts Corregidos</strong>: Incluyen nivel_paragon en estadísticas y tipos de reglas en Horadric Seal</li>
+                <li><strong>Solo Administradores</strong>: Acceso restringido mediante isAdmin() en Sidebar</li>
               </ul>
             </div>
 
@@ -141,11 +159,11 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
 
           <div className="space-y-4">
             <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
-              <h4 className="font-bold text-d4-text mb-2 text-sm">🧪 Sistema de Testing para Administradores (NUEVO)</h4>
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🧪 Sistema de Testing Inicial</h4>
               <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
                 <li><strong>TestingService</strong>: Servicio completo con 30+ tests automatizados</li>
                 <li><strong>AdminTesting Component</strong>: Panel visual con ejecución de tests y resultados en tiempo real</li>
-                <li><strong>8 Suites de Prueba</strong>: Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes</li>
+                <li><strong>8 Suites de Prueba</strong>: Estadísticas, Habilidades, Glifos, Aspectos, Mundo (básico), Prompts, Relaciones, Imágenes</li>
                 <li><strong>Validaciones Exhaustivas</strong>: Estructura JSON, tipos de datos, IDs únicos, integridad de referencias</li>
                 <li><strong>Verificación de Prompts</strong>: Valida que los prompts de IA incluyen todos los campos del JSON esperado</li>
                 <li><strong>Test de Relaciones</strong>: Verifica integridad entre personajes y héroes (referencias válidas)</li>

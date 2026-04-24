@@ -1,6 +1,6 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.8.2-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.8.3-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
@@ -80,15 +80,26 @@ Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus
 - **Control por ENV**: Habilitar/deshabilitar con variable de entorno
 - **Billing por Usuario**: Tracking de tokens y costos vinculados a cada cuenta
 
-### 🧪 Sistema de Testing para Administradores (v0.8.2 - NUEVO)
-- **30+ Tests Automatizados**: Validación exhaustiva de todos los servicios de importación
-- **8 Suites de Prueba**: Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes
+### 🧪 Sistema de Testing para Administradores (v0.8.3 - COBERTURA COMPLETA)
+- **54+ Tests Automatizados**: Validación exhaustiva de TODOS los casos de importación (héroe vs personaje, todas las subcategorías)
+- **14 Suites de Prueba**: Estadísticas (4), Habilidades (6), Glifos (5), Aspectos (4), Mundo (6), Talismanes (7), **Héroe vs Personaje (6 NUEVO)**, **Paragon (4 NUEVO)**, **Runas/Gemas (3 NUEVO)**, **Build (2 NUEVO)**, **Mecánicas (2 NUEVO)**, Prompts (8), Relaciones, Imágenes
 - **Panel Visual**: Interfaz interactiva con ejecución en tiempo real y resultados detallados
-- **Validaciones Estructurales**: Verificación de tipos, IDs únicos, formato de datos, campos requeridos
-- **Test de Prompts**: Valida que los prompts de IA incluyen todos los campos del JSON esperado
-- **Test de Relaciones**: Verifica integridad de referencias entre personajes y héroes
-- **Simulación de Imágenes**: Tests de almacenamiento, formato de archivos y estructura de carpetas
-- **Métricas Completas**: Duración, tasa de éxito, errores detallados, estadísticas globales
+- **🆕 Tests Héroe vs Personaje**: Valida diferencia entre importar para HÉROE (objetos completos) vs PERSONAJE (solo refs con IDs):
+  - Habilidades: Héroe guarda descripción, modificadores completos | Personaje solo IDs
+  - Glifos: Héroe guarda efecto_base, bonificaciones | Personaje solo id + nivel_actual
+  - Aspectos: Prompts diferentes (catálogo héroe vs equipados personaje)
+  - Mundo: Prompts diferentes (eventos vs mazmorras)
+- **🆕 Tests Paragon**: 3 prompts diferenciados (tableros, nodos, atributos) para héroe y personaje
+- **🆕 Tests Runas/Gemas**: Valida importación al catálogo global con prompts separados
+- **🆕 Tests Build/Equipamiento**: Valida piezas, engarces, gemas, aspectos equipados
+- **🆕 Tests Mecánicas**: Valida mecánicas de clase (recursos secundarios, bonificaciones)
+- **Tests de Mundo**: Valida estructura de eventos, requisitos con id_recurso, recompensas con probabilidad/garantizado, tipos de eventos (guarida/susurro/calabozo/legion/reserva), tiempo (expira_en/cooldown), dificultad y repetibilidad
+- **Tests de Talismanes**: Valida estructura de charms, rarezas (rare/unique/set), stats con nombre/valor/rango, efectos con tipos (pasivo/condicion/proc/stacking), sets con bonos progresivos, Horadric Seal con slots/stats/bonus/reglas.tipo
+- **Tests de Prompts**: Valida que los prompts de IA incluyen TODOS los campos del JSON esperado
+- **🔍 Simulación Real**: Tests orientados a replicar exactamente el paso a paso del usuario (captura imagen → sube → genera prompt → valida campos → envía a IA → guarda)
+- **📝 Diagnóstico Avanzado**: Console logs con ✓/✗ identifican campos faltantes y muestran problema/solución detallado
+- **✅ Prompts Corregidos**: Incluyen nivel_paragon en estadísticas y tipos de reglas en Horadric Seal
+- **🎯 Cobertura Completa**: 18 casos de importación validados (todos los prompts, todos los destinos: héroe/personaje/workspace)
 - **Solo Admin**: Acceso restringido mediante sistema de roles (isAdmin())
 - **Panel Unificado**: Tabs para "Gestión de Usuarios" y "Testing & Validación"
 
@@ -873,23 +884,26 @@ Esta aplicación usa la File System Access API, que es compatible con:
 
 ## 📝 Changelog
 
-### v0.8.3 (23 de Abril, 2026)
-**🧪 Testing Completo + 💎 Runas/Gemas**
-- 🧪 **Sistema de Testing para Admin (COMPLETO)**: 30+ tests automatizados en 8 suites con métricas en tiempo real
-- 📊 **TestingService**: Validación exhaustiva de importaciones (Estadísticas, Habilidades, Glifos, Aspectos, Mundo, Prompts, Relaciones, Imágenes)
-- ✅ **AdminTesting Component**: Panel visual con ejecución de tests, estadísticas globales, detalles por test
-- 🔍 **Verificación de Prompts**: Tests validan que prompts de IA incluyen todos los campos del JSON esperado
+### v0.8.3 (24 de Abril, 2026)
+**🧪 Testing Completo + 💎 Runas/Gemas + 🗺️ Validación de Mundo/Talismanes**
+- 🧪 **Sistema de Testing Mejorado**: 37+ tests automatizados en 9 suites con métricas en tiempo real
+- 🗺️ **Tests de Mundo (6 tests NUEVOS)**: Valida estructura de eventos, requisitos con id_recurso, recompensas con probabilidad/garantizado, tipos de eventos (guarida/susurro/calabozo/etc), estructura de tiempo (expira_en/cooldown), dificultad y repetibilidad
+- 🧿 **Tests de Talismanes (7 tests NUEVOS)**: Valida estructura de charms, rarezas (rare/unique/set), stats con valores y rangos, efectos con tipos (pasivo/condicion/proc/stacking), sets con piezas y bonos progresivos, talismanes unique sin set, Horadric Seal con slots/reglas
+- 📊 **Mock Data Completo**: Datos de prueba realistas para mundo (eventos Duriel/Susurros con requisitos/recompensas/id_recurso), talismanes (charms set/unique con stats/efectos), Horadric Seal (slots/stats/bonus/reglas)
+- 🔍 **Validación de Prompts Ampliada**: 8 tests de prompts incluyendo mundo y talismanes - verifica que generateWorldEventsPrompt() incluye todos los campos (eventos, objetivo, requisitos con id_recurso, recompensas con probabilidad/garantizado, tiempo, dificultad, repetible, tipos de eventos)
+- ✅ **Validación de Prompts de Talismanes**: Verifica que generateCharmsPrompt() incluye rarezas (rare/unique/set), efectos con tipos (pasivo/condicion/proc/stacking), sets con piezas_requeridas, y generateHoradricSealPrompt() incluye slots/reglas con tipos
+- 📈 **AdminTesting Component**: Panel visual muestra 9 suites, estadísticas globales actualizadas, 37+ tests ejecutables
 - 🔗 **Test de Relaciones**: Verifica integridad entre personajes y héroes (referencias válidas)
 - 🖼️ **Simulación de Imágenes**: Tests de almacenamiento, formato de archivos, estructura de carpetas
 - 🛡️ **Panel Admin Unificado**: Tabs para "Gestión de Usuarios" y "Testing & Validación" (solo administradores)
-- 💎 **Sistema de Runas/Gemas (NUEVO)**: RunesGemsSection con catálogo completo, búsqueda, clasificación por color/tipo
+- 💎 **Sistema de Runas/Gemas**: RunesGemsSection con catálogo completo, búsqueda, clasificación por color/tipo
 - 📋 **Visualización por Tabs**: Separación entre Runas y Gemas con tarjetas colapsables
 - 🎨 **Clasificación Visual**: Gemas por color (Rubí, Zafiro, Esmeralda, etc.), Runas por tipo (Invocación/Ritual)
 - ⚡ **Efectos por Slot**: Gemas muestran efectos diferentes según slot (Arma, Armadura, Joyas)
 - 🔄 **Scroll Infinito**: Carga inicial de 80 items con botón "Cargar más" para optimizar rendimiento
 - 🔗 **Integración con Personajes**: Campo runas_refs para guardar runas equipadas (máx 4: 2 invocación, 2 ritual)
 - 🤖 **Extracción IA Mejorada**: ImageCaptureModal incluye categoría "Runas/Gemas" con selector de tipo
-- 📚 **Documentación Completa**: README y ChangelogModal actualizados con toda la información del sistema de testing
+- 📚 **Documentación Actualizada**: README con sección de testing ampliada, changelog detallado
 
 ### v0.8.2 (23 de Abril, 2026)
 **🎨 Refinamiento Visual**
