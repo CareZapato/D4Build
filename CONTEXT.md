@@ -1,7 +1,7 @@
 # 🎮 D4Builds - Contexto y Arquitectura de la Aplicación
 
-> **Última actualización:** 23 de abril de 2026  
-> **Versión:** 0.8.2  
+> **Última actualización:** 25 de abril de 2026  
+> **Versión:** 0.8.6  
 > **Propósito:** Documentación completa del funcionamiento, procesos y formatos de datos
 
 ---
@@ -1128,5 +1128,494 @@ VITE_ENABLE_BILLING_PANEL=true         # Panel de costos minimalista (Dev)
 ---
 
 **Documento mantenido por:** Sistema de IA de GitHub Copilot  
-**Última revisión:** 18 de abril de 2026 (v0.6.4)  
+**Última revisión:** 25 de abril de 2026 (v0.8.6)  
 **Próxima revisión:** Al implementar nuevas funcionalidades
+
+---
+
+## 🧪 Sistema de Testing (v0.8.6 - Validación de Formato)
+
+### IntegrityTestService - Validación de JSONs
+
+**Propósito:** Validar que los JSONs guardados en la galería (`imagenes/`) tengan el formato correcto según su categoría.
+
+**Cambios v0.8.6:**
+- ❌ **ELIMINADO:** Creación de workspace temporal
+- ❌ **ELIMINADO:** Importación real de datos  
+- ❌ **ELIMINADO:** Creación de personajes de prueba
+- ❌ **ELIMINADO:** Simulación de guardado
+- ✅ **SOLO:** Validación de estructura y formato JSON
+
+### Flujo de Validación
+
+```
+1. Escanear carpeta imagenes/
+   ├── skills/
+   ├── glifos/
+   ├── aspectos/
+   ├── estadisticas/
+   ├── paragon/
+   ├── build/
+   ├── gemas_runas/
+   ├── mundo/
+   ├── talismanes/
+   ├── mecanicas/
+   └── otros/
+
+2. Por cada JSON encontrado:
+   ├── Parse JSON
+   ├── Validar estructura según categoría
+   ├── Contar elementos válidos/inválidos
+   └── Registrar resultado
+
+3. Generar reporte:
+   ├── Total de JSONs validados
+   ├── Aprobados/Fallidos
+   ├── Errores por categoría
+   └── Recomendaciones
+```
+
+### Validadores por Categoría
+
+#### Skills (Habilidades)
+```typescript
+Validaciones:
+✓ Debe contener "habilidades_activas" o "habilidades_pasivas"
+✓ Cada habilidad debe tener "nombre"
+✓ IDs únicos
+✓ Tipos válidos (Básica, Principal, Definitiva, Pasiva)
+
+Errores comunes:
+❌ Habilidad sin nombre
+❌ Estructura plana en lugar de arrays
+```
+
+#### Glifos
+```typescript
+Validaciones:
+✓ Debe contener array "glifos"
+✓ Cada glifo debe tener "nombre"
+✓ Rareza válida (Común, Raro, Legendario)
+
+Errores comunes:
+❌ Glifo sin nombre
+❌ Campo "glifos" no es array
+```
+
+#### Aspectos
+```typescript
+Validaciones:
+✓ Debe contener array "aspectos" o "aspectos_equipados"
+✓ Cada aspecto debe tener "name" o "nombre"
+✓ Categoría válida (ofensivo, defensivo, movilidad, recurso, utilidad)
+
+Errores comunes:
+❌ Aspecto sin nombre
+❌ Campo aspectos vacío
+```
+
+#### Estadísticas
+```typescript
+Validaciones:
+✓ Debe contener al menos una categoría:
+  - atributosPrincipales
+  - defensivo
+  - ofensivo
+  - utilidad
+  - personaje
+  - armaduraYResistencias
+  - jcj
+  - moneda
+✓ Cada categoría debe tener campos numéricos o enriquecidos
+
+Errores comunes:
+❌ JSON vacío
+❌ Ninguna categoría presente
+❌ Estructura plana en lugar de anidada
+```
+
+#### Paragon
+```typescript
+Validaciones:
+✓ Debe contener "tableros", "nodos" o "atributos_totales"
+✓ Al menos un elemento presente
+
+Errores comunes:
+❌ JSON vacío sin ningún campo
+```
+
+#### Build
+```typescript
+Validaciones:
+✓ Debe contener "build" o "piezas"
+✓ Piezas puede ser array u objeto
+
+Errores comunes:
+❌ Estructura vacía
+```
+
+### Uso del Test desde UI
+
+```typescript
+// Componente: ProfileTestingSection.tsx
+// Ubicación: Perfil de usuario (sección Premium/Admin)
+
+const handleRunTest = async () => {
+  // 1. Usuario hace clic en "Ejecutar Tests"
+  setIsRunning(true);
+  
+  // 2. Llamar al servicio
+  const report = await IntegrityTestService.runFullIntegrityTest(
+    workspaceHandle,
+    `integrity_${Date.now()}`
+  );
+  
+  // 3. Mostrar resultados
+  setTestReport(report);
+  setIsRunning(false);
+  
+  // 4. Visualizar métricas:
+  //    - Total de JSONs: 45
+  //    - Aprobados: 38 (84.4%)
+  //    - Fallidos: 7 (15.6%)
+  //    - Tiempo total: 2.3s
+};
+```
+
+### Estructura del Reporte
+
+```typescript
+interface IntegrityReport {
+  id: string;                          // "integrity_1234567890"
+  timestamp: string;                   // ISO timestamp
+  workspaceName: string;               // Nombre del workspace
+  
+  totalTests: number;                  // 45
+  passedTests: number;                 // 38
+  failedTests: number;                 // 7
+  
+  metrics: {
+    totalTests: number;                // 45
+    passedTests: number;               // 38
+    failedTests: number;               // 7
+    totalExpected: number;             // 150 elementos esperados
+    totalSaved: number;                // 142 elementos válidos
+    totalFailed: number;               // 8 elementos inválidos
+    totalWarnings: number;             // 0
+    successRate: number;               // 84.4%
+    averageExecutionTimeMs: number;    // 51.2ms
+  };
+  
+  results: IntegrityTestResult[];      // Detalle de cada JSON
+  
+  recommendations: string[];           // [
+                                       //   "Se detectaron 7 JSONs con errores...",
+                                       //   "Revisa los errores en estadisticas/..."
+                                       // ]
+  
+  criticalIssues: string[];            // [
+                                       //   "3 JSON(s) con errores de sintaxis",
+                                       //   "2 JSON(s) con campos faltantes"
+                                       // ]
+  
+  executionTimeMs: number;             // 2345.67ms
+}
+```
+
+### Ejemplo de Resultado Individual
+
+```typescript
+interface IntegrityTestResult {
+  id: string;                          // "test_abc123"
+  jsonFileName: string;                // "estadísticas_1234.json"
+  categoria: ImageCategory;            // "estadisticas"
+  timestamp: string;                   // ISO
+  
+  success: boolean;                    // true/false
+  errorMessage?: string;               // "Errores: JSON debe contener..."
+  
+  expectedElements: number;            // 25 campos esperados
+  savedElements: number;               // 23 campos válidos
+  failedElements: string[];            // ["campo_sin_valor", "campo_invalido"]
+  warningElements: string[];           // []
+  
+  executionTimeMs: number;             // 45.2ms
+  validationErrors: string[];          // ["Campo 'atributosPrincipales' faltante"]
+}
+```
+
+### Console Output durante Testing
+
+```bash
+╔════════════════════════════════════════════════════════════════╗
+║     🧪 VALIDACIÓN DE FORMATO JSON - INICIO                    ║
+╚════════════════════════════════════════════════════════════════╝
+📋 ID de Reporte: integrity_1714077123456
+⏱️  Timestamp: 2026-04-25T10:15:23.456Z
+📁 Workspace: D4buildsTest
+
+📂 PASO 1/3: Escaneando galería de JSONs...
+✅ JSONs encontrados: 45
+
+📊 DESGLOSE POR CATEGORÍA:
+   • skills: 12 archivos
+   • glifos: 8 archivos
+   • aspectos: 10 archivos
+   • estadisticas: 15 archivos
+
+📂 PASO 2/3: Validando formato de JSONs...
+════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ 📁 CATEGORÍA: SKILLS                                        │
+└─────────────────────────────────────────────────────────────┘
+
+🧪 ════════════════════════════════════════════════════════
+📄 VALIDANDO: habilidades_paladin.json
+📁 CATEGORÍA: skills
+⏱️  INICIO: 10:15:23
+✅ JSON parseado correctamente
+📊 ELEMENTOS ESPERADOS: 15
+🔍 Validando formato...
+   🔍 Validando estructura de habilidades...
+   📊 15 válidas, 0 inválidas
+📊 ELEMENTOS VÁLIDOS: 15
+⏱️  TIEMPO VALIDACIÓN: 45.23ms
+✅ FORMATO VÁLIDO: habilidades_paladin.json
+   ✓ 15/15 elementos válidos
+════════════════════════════════════════════════════════
+
+...
+
+╔════════════════════════════════════════════════════════════════╗
+║     ✅ VALIDACIÓN COMPLETADA                                   ║
+╚════════════════════════════════════════════════════════════════╝
+⏱️  Tiempo total: 2345.67ms (2.35s)
+📊 Tasa de éxito: 84.4%
+✅ Aprobados: 38
+❌ Fallidos: 7
+📋 Reporte ID: integrity_1714077123456
+```
+
+### Recomendaciones de Uso
+
+1. **Ejecutar después de cada sesión de importación con IA**
+   - Validar que los JSONs generados tengan formato correcto
+
+2. **Ejecutar antes de compartir workspace**
+   - Asegurar calidad de datos
+
+3. **Revisar problemas críticos primero**
+   - Errores de sintaxis JSON
+   - Campos requeridos faltantes
+
+4. **Usar como diagnóstico cuando algo falla**
+   - Si un personaje no carga, validar sus JSONs
+   - Si una habilidad no aparece, validar estructura
+
+### Limitaciones Conocidas
+
+- ⚠️ **No valida contenido semántico:** Solo valida estructura, no si los valores tienen sentido
+- ⚠️ **No valida referencias:** No verifica si IDs referenciados existen
+- ⚠️ **No valida imágenes:** Solo JSONs
+
+---
+
+## 📊 Arquitectura de Importación de Estadísticas (v0.8.6 - Limpieza)
+
+### Principio: Una Sola Función Centralizada
+
+Todas las importaciones de estadísticas **deben pasar por la misma función centralizada** en WorkspaceService:
+
+```typescript
+WorkspaceService.importStatsToPersonaje(data, personajeId, workspaceHandle?)
+```
+
+### Arquitectura de Código
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              📁 WorkspaceService.ts                         │
+│          (Función Centralizada - ÚNICA FUENTE)              │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ importStatsToPersonaje()      [PÚBLICO - Línea 418]    │
+│     ├─ Detecta formato V1/V2                                │
+│     ├─ Extrae secciones                                     │
+│     ├─ Llama a normalizeStatsFieldNames()                   │
+│     ├─ Llama a deepMergeStats()                             │
+│     ├─ Llama a savePersonajeMerge()                         │
+│     └─ Retorna resultado con métricas                       │
+│                                                              │
+│  🔒 deepMergeStats()               [PRIVADO - Línea 261]   │
+│     ├─ Merge recursivo profundo                             │
+│     ├─ Acumula arrays "detalles" (sin duplicar)            │
+│     └─ Preserva estructura completa                         │
+│                                                              │
+│  🔒 normalizeStatsFieldNames()     [PRIVADO - Línea 353]   │
+│     ├─ Limpia nombres de campos                             │
+│     ├─ Mueve reduccionDanioJcJ a sección jcj               │
+│     └─ Consolida campos duplicados                          │
+│                                                              │
+│  🔒 savePersonajeMerge()           [PRIVADO - Línea 549]   │
+│     ├─ Lee personaje existente del disco                    │
+│     ├─ Hace deepMergeStats de estadisticas                 │
+│     ├─ Preserva todos los demás campos                     │
+│     └─ Guarda en disco                                      │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│         🖼️ ImageCaptureModal.tsx                            │
+│              (Producción - Modal de Captura)                │
+├─────────────────────────────────────────────────────────────┤
+│  ESTADÍSTICAS DE PERSONAJE:                                 │
+│  ✅ Usa WorkspaceService.importStatsToPersonaje() [L3724]  │
+│     └─ Recarga personaje y sincroniza contexto              │
+│                                                              │
+│  ESTADÍSTICAS DE HÉROE (Datos Maestro):                     │
+│  ⚙️ Tiene funciones locales SOLO para heroes:              │
+│     ├─ deepMerge() [L1185] - Para merge de heroes          │
+│     └─ normalizeStatsFieldNames() [L1277] - Para heroes    │
+│                                                              │
+│  ❌ NO duplica lógica de estadísticas de personaje          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│         📝 CharacterStats.tsx                                │
+│          (Componente UI - Vista de Estadísticas)            │
+├─────────────────────────────────────────────────────────────┤
+│  IMPORTACIÓN:                                                │
+│  ✅ confirmAndApplyImport() usa:                            │
+│     └─ WorkspaceService.importStatsToPersonaje() (múltiple) │
+│                                                              │
+│  ANÁLISIS Y UI (No afectan importación real):               │
+│  ⚙️ convertV2ToV1() [L353]                                  │
+│     └─ Solo para analyzeImportChanges() (preview)          │
+│  ⚙️ analyzeImportChanges() [L593]                           │
+│     └─ Solo para mostrar resumen antes de confirmar        │
+│  ⚙️ normalizeAllStats() [L311]                              │
+│     └─ Solo para normalizar datos cargados en UI           │
+│                                                              │
+│  INTEGRACIÓN ADICIONAL:                                      │
+│  🔗 TagService.processAndSaveTagsV2()                       │
+│  🔗 StatsConversionService.saveAndCreateRefs()             │
+│                                                              │
+│  ❌ NO tiene lógica de merge real (eliminada v0.8.6)        │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│         🧪 IntegrityTestService.ts                           │
+│              (Testing - Validación de Formato)              │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ runFullIntegrityTest()                                  │
+│     ├─ Escanea imagenes/                                    │
+│     ├─ Valida formato JSON por categoría                    │
+│     └─ Genera reporte                                       │
+│                                                              │
+│  ❌ NO importa datos (simplificado v0.8.6)                  │
+│  ❌ NO tiene lógica de merge                                │
+│  ❌ NO crea workspaces temporales                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Flujo de Importación
+
+```
+1. Usuario pega imagen o JSON
+   ↓
+2. [ImageCaptureModal] Extrae JSON con IA
+   ↓
+3. [ImageCaptureModal] Llama a:
+   └─> WorkspaceService.importStatsToPersonaje(data, personajeId)
+       ├─ Detecta formato V1/V2
+       ├─ Normaliza campos
+       ├─ Lee personaje del disco
+       ├─ Hace deepMerge (preserva detalles)
+       ├─ Guarda con savePersonajeMerge()
+       └─ Retorna resultado
+   ↓
+4. [ImageCaptureModal] Recarga personaje y sincroniza contexto
+   ↓
+5. ✅ UI actualizada automáticamente
+```
+
+### Reglas de Merge de Detalles
+
+El array `detalles` se **acumula** en lugar de reemplazarse:
+
+```typescript
+// Ejemplo de acumulación
+Base: {
+  ofensivo: {
+    danioBaseArma: 496,
+    detalles: [
+      { atributo_ref: "danioBaseArma", texto: "Daño base..." }
+    ]
+  }
+}
+
+Nuevo: {
+  ofensivo: {
+    danioBaseArma: 520,
+    detalles: [
+      { atributo_ref: "danioBaseArma", texto: "Daño base..." },  // Duplicado
+      { atributo_ref: "velocidadArma", texto: "Velocidad..." }   // Nuevo
+    ]
+  }
+}
+
+Resultado deepMergeStats(): {
+  ofensivo: {
+    danioBaseArma: 520,  // ✅ Actualizado
+    detalles: [
+      { atributo_ref: "danioBaseArma", texto: "Daño base..." },   // ✅ Deduplicado
+      { atributo_ref: "velocidadArma", texto: "Velocidad..." }    // ✅ Añadido
+    ]
+  }
+}
+```
+
+**Deduplicación:** Se considera duplicado si coinciden `atributo_ref` + `texto`.
+
+### Uso de Funciones Locales
+
+**✅ CORRECTO - Funciones locales para UI/análisis:**
+- CharacterStats.tsx: `convertV2ToV1()` para preview
+- CharacterStats.tsx: `analyzeImportChanges()` para resumen
+- CharacterStats.tsx: `normalizeAllStats()` para UI
+- ImageCaptureModal.tsx: `deepMerge()` / `normalizeStatsFieldNames()` para **heroes**
+
+**❌ INCORRECTO - Duplicar lógica de importación:**
+- ❌ Crear funciones `mergeSection()` o `mergeMoneda()` en componentes
+- ❌ Implementar lógica de merge manual
+- ❌ No usar `WorkspaceService.importStatsToPersonaje()`
+
+### Ventajas de la Arquitectura Limpia
+
+1. **Una sola fuente de verdad**
+   - Todas las importaciones usan la misma lógica
+   - Sin divergencia entre producción/testing/componentes
+
+2. **Mantenimiento simplificado**
+   - Cambios en una función afectan a toda la aplicación
+   - Menos código duplicado
+
+3. **Consistencia garantizada**
+   - Mismo algoritmo de merge en todos lados
+   - Detalles siempre se acumulan correctamente
+
+4. **Testing más simple**
+   - Testing solo valida formatos, no simula importaciones
+   - Producción maneja importaciones reales
+
+### Checklist para Desarrolladores
+
+Cuando trabajes con estadísticas:
+
+- [ ] ¿Estás importando datos? → Usa `WorkspaceService.importStatsToPersonaje()`
+- [ ] ¿Estás haciendo merge? → La función centralizada ya lo hace
+- [ ] ¿Necesitas normalizar? → La función centralizada ya lo hace
+- [ ] ¿Estás creando funciones locales de merge? → ❌ No lo hagas
+- [ ] ¿Necesitas análisis para UI? → ✅ Funciones locales están bien
+- [ ] ¿Trabajas con heroes? → ✅ ImageCaptureModal tiene funciones para eso
+
+---

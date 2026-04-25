@@ -257,6 +257,295 @@ export class WorkspaceService {
   }
 
   // Guardar personaje con merge seguro (lee el archivo actual primero)
+  // Helpers de merge para estadísticas con detalles
+  private static deepMergeStats(target: any, source: any): any {
+    // Caso base: Si source es null o undefined, mantener target
+    if (source === null || source === undefined) {
+      return target;
+    }
+
+    // Caso base: Si target es null o undefined, usar source
+    if (target === null || target === undefined) {
+      return source;
+    }
+
+    // Caso especial: Detectar estructura enriquecida de estadística
+    const isTargetEnriched = typeof target === 'object' && !Array.isArray(target) && 
+                             ('valor' in target || 'detalles' in target || 'atributo_ref' in target);
+    const isSourceEnriched = typeof source === 'object' && !Array.isArray(source) && 
+                             ('valor' in source || 'detalles' in source || 'atributo_ref' in source);
+    const isSourcePrimitive = typeof source === 'number' || typeof source === 'string' || typeof source === 'boolean';
+    const isTargetPrimitive = typeof target === 'number' || typeof target === 'string' || typeof target === 'boolean';
+
+    // CASO 1: Target enriquecido + Source primitivo
+    // Preservar estructura enriquecida, solo actualizar el valor
+    if (isTargetEnriched && isSourcePrimitive) {
+      return {
+        ...target,
+        valor: source
+      };
+    }
+
+    // CASO 2: Target primitivo + Source enriquecido
+    // Usar la estructura enriquecida completa
+    if (isTargetPrimitive && isSourceEnriched) {
+      return source;
+    }
+
+    // CASO 3: Ambos son primitivos
+    if (isTargetPrimitive && isSourcePrimitive) {
+      return source;
+    }
+
+    // Arrays: reemplazar directamente (no mergear arrays)
+    if (Array.isArray(source)) {
+      return source;
+    }
+
+    // Si alguno no es objeto, retornar source
+    if (typeof target !== 'object' || typeof source !== 'object') {
+      return source;
+    }
+
+    // Crear copia del target
+    const result = { ...target };
+
+    // Mergear cada propiedad del source
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        // ✅ CASO ESPECIAL: Arrays de "detalles" → ACUMULAR en lugar de reemplazar
+        if (key === 'detalles' && Array.isArray(source[key]) && Array.isArray(target[key])) {
+          // Combinar arrays evitando duplicados (por atributo_ref + texto)
+          const targetDetalles = target[key];
+          const sourceDetalles = source[key];
+          const combined = [...targetDetalles];
+          
+          sourceDetalles.forEach((newDetalle: any) => {
+            // Buscar si ya existe este detalle (mismo atributo_ref + texto)
+            const exists = combined.some((existing: any) => 
+              existing.atributo_ref === newDetalle.atributo_ref && 
+              existing.texto === newDetalle.texto
+            );
+            
+            if (!exists) {
+              combined.push(newDetalle);
+            }
+          });
+          
+          result[key] = combined;
+        } else if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+          // Si es objeto, hacer merge recursivo
+          result[key] = this.deepMergeStats(target[key], source[key]);
+        } else {
+          // Si es valor primitivo o array (que no sea detalles), reemplazar
+          result[key] = source[key];
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Normaliza nombres de campos en secciones de estadísticas
+   * Elimina campos con nombres antiguos/incorrectos
+   */
+  private static normalizeStatsFieldNames(stats: any): any {
+    const normalized = { ...stats };
+
+    // Mapeo de nombres antiguos/incorrectos a nombres correctos
+    const fieldMappings: Record<string, { correct: string; incorrect: string[] }> = {
+      defensivo: {
+        correct: 'vidaCada5Segundos',
+        incorrect: ['regeneracionVida5s', 'regeneracion_vida_5s', 'vida5s']
+      },
+      utilidad: {
+        correct: 'bonificacionProbabilidadGolpeAfortunado',
+        incorrect: ['probabilidadGolpeAfortunado', 'golpeAfortunado']
+      }
+    };
+
+    // Procesar cada sección
+    Object.keys(fieldMappings).forEach(sectionKey => {
+      if (normalized[sectionKey] && typeof normalized[sectionKey] === 'object') {
+        const section = normalized[sectionKey];
+        const { correct, incorrect } = fieldMappings[sectionKey];
+
+        // Buscar y consolidar campos incorrectos
+        let correctValue = section[correct];
+        let hasIncorrectValue = false;
+
+        incorrect.forEach(wrongName => {
+          if (wrongName in section) {
+            if (correctValue === undefined || correctValue === null) {
+              correctValue = section[wrongName];
+            }
+            delete section[wrongName];
+            hasIncorrectValue = true;
+          }
+        });
+
+        if (hasIncorrectValue && correctValue !== undefined) {
+          section[correct] = correctValue;
+        }
+      }
+    });
+
+    // Mover reduccionDanioJcJ de utilidad a jcj
+    if (normalized.utilidad && 'reduccionDanioJcJ' in normalized.utilidad) {
+      if (!normalized.jcj) normalized.jcj = {};
+      normalized.jcj.reduccionDanio = normalized.utilidad.reduccionDanioJcJ;
+      delete normalized.utilidad.reduccionDanioJcJ;
+    }
+
+    return normalized;
+  }
+
+  /**
+   * 🔥 FUNCIÓN CENTRALIZADA DE IMPORTACIÓN DE ESTADÍSTICAS
+   * 
+   * Esta es la ÚNICA función que debe usarse para importar estadísticas.
+   * Se utiliza en:
+   * - ImageCaptureModal (importación manual y por categoría)
+   * - IntegrityTestService (testing)
+   * - Cualquier otro servicio que necesite importar estadísticas
+   * 
+   * @param data - JSON con estadísticas (formato V1 flat o V2 nested)
+   * @param personajeId - ID del personaje al que importar
+   * @param workspaceHandle - Handle del workspace (opcional, usa el actual si no se proporciona)
+   * @returns Objeto con resultado de la importación
+   */
+  static async importStatsToPersonaje(
+    data: any,
+    personajeId: string,
+    workspaceHandle?: FileSystemDirectoryHandle
+  ): Promise<{
+    success: boolean;
+    fieldsAdded: string[];
+    fieldsUpdated: number;
+    nivel?: number;
+    nivelParagon?: number;
+    error?: string;
+  }> {
+    const handle = workspaceHandle || this.fileSystemHandle;
+    if (!handle) throw new Error('No hay workspace seleccionado');
+
+    try {
+      const fieldsAdded: string[] = [];
+      let parsedNivel: number | undefined;
+      let parsedNivelParagon: number | undefined;
+
+      // 1️⃣ DETECTAR FORMATO (V1 flat vs V2 nested)
+      let statsToSave: any;
+      
+      if (data.estadisticas && typeof data.estadisticas === 'object' && !Array.isArray(data.estadisticas)) {
+        // Formato V2: { estadisticas: { ofensivo: {...}, defensivo: {...} } }
+        const v2 = data.estadisticas;
+        statsToSave = {};
+        
+        const sections = [
+          'personaje', 'atributosPrincipales', 'defensivo', 'ofensivo', 
+          'utilidad', 'armaduraYResistencias', 'jcj', 'moneda'
+        ];
+        
+        sections.forEach(section => {
+          if (v2[section] && !Array.isArray(v2[section])) {
+            statsToSave[section] = v2[section];
+            fieldsAdded.push(section);
+          }
+        });
+        
+        parsedNivelParagon = data.nivel_paragon;
+        parsedNivel = statsToSave.atributosPrincipales?.nivel;
+      } else {
+        // Formato V1 flat: { ofensivo: {...}, defensivo: {...}, nivel_paragon: 123 }
+        const { nivel_paragon, ...rest } = data;
+        statsToSave = rest;
+        parsedNivelParagon = nivel_paragon;
+        parsedNivel = rest.atributosPrincipales?.nivel;
+        
+        Object.keys(rest).forEach(key => {
+          if (!['nivel_paragon'].includes(key)) fieldsAdded.push(key);
+        });
+      }
+
+      if (parsedNivel !== undefined) fieldsAdded.push('nivel');
+      if (parsedNivelParagon !== undefined) fieldsAdded.push('nivel_paragon');
+
+      // 2️⃣ CARGAR PERSONAJE DEL DISCO
+      const personajesDir = await handle.getDirectoryHandle('personajes');
+      let personajeFromDisk: any | null = null;
+      
+      try {
+        const fileHandle = await personajesDir.getFileHandle(`${personajeId}.json`);
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        personajeFromDisk = JSON.parse(content);
+      } catch (error) {
+        console.log('⚠️ Personaje no encontrado en disco, se usará versión en memoria');
+      }
+
+      if (!personajeFromDisk) {
+        throw new Error(`Personaje ${personajeId} no encontrado`);
+      }
+
+      // 3️⃣ NORMALIZAR AMBOS OBJETOS (base y nuevos)
+      const normalizedBase = this.normalizeStatsFieldNames(personajeFromDisk.estadisticas || {});
+      const normalizedNew = this.normalizeStatsFieldNames(statsToSave);
+
+      // 4️⃣ DEEP MERGE (preserva detalles acumulados)
+      const mergedEstadisticas = this.deepMergeStats(normalizedBase, normalizedNew);
+
+      // 5️⃣ ACTUALIZAR PERSONAJE
+      const updatedPersonaje = {
+        ...personajeFromDisk,
+        estadisticas: mergedEstadisticas,
+        ...(parsedNivel !== undefined && { nivel: parsedNivel }),
+        ...(parsedNivelParagon !== undefined && { nivel_paragon: parsedNivelParagon }),
+        fecha_actualizacion: new Date().toISOString()
+      };
+
+      // 6️⃣ GUARDAR CON MERGE
+      const originalHandle = this.fileSystemHandle;
+      this.fileSystemHandle = handle; // Temporal para savePersonajeMerge
+      
+      try {
+        await this.savePersonajeMerge(updatedPersonaje);
+      } finally {
+        this.fileSystemHandle = originalHandle; // Restaurar
+      }
+
+      // 7️⃣ CALCULAR CAMPOS ACTUALIZADOS
+      let fieldsUpdated = 0;
+      Object.keys(normalizedNew).forEach(section => {
+        if (typeof normalizedNew[section] === 'object' && !Array.isArray(normalizedNew[section])) {
+          fieldsUpdated += Object.keys(normalizedNew[section]).filter(
+            key => key !== 'detalles' && key !== 'palabras_clave'
+          ).length;
+        }
+      });
+
+      console.log(`✅ Estadísticas importadas: ${fieldsUpdated} campos, ${fieldsAdded.length} secciones`);
+
+      return {
+        success: true,
+        fieldsAdded,
+        fieldsUpdated,
+        nivel: parsedNivel,
+        nivelParagon: parsedNivelParagon
+      };
+
+    } catch (error) {
+      console.error('❌ Error en importStatsToPersonaje:', error);
+      return {
+        success: false,
+        fieldsAdded: [],
+        fieldsUpdated: 0,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
   static async savePersonajeMerge(personaje: Personaje): Promise<void> {
     if (!this.fileSystemHandle) throw new Error('No hay workspace seleccionado');
 
@@ -289,11 +578,10 @@ export class WorkspaceService {
           aspectos_refs: personaje.aspectos_refs || existingPersonaje.aspectos_refs,
           estadisticas_refs: personaje.estadisticas_refs || existingPersonaje.estadisticas_refs,
           
-          // DEEP MERGE de estadisticas: fusionar propiedades internas (moneda, defensivo, etc.)
-          estadisticas: personaje.estadisticas ? {
-            ...existingPersonaje.estadisticas,  // Preservar estadísticas existentes del disco
-            ...personaje.estadisticas,           // Agregar/actualizar con nuevas estadísticas
-          } : existingPersonaje.estadisticas,
+          // ✅ DEEP MERGE de estadisticas: fusionar propiedades internas preservando detalles
+          estadisticas: personaje.estadisticas ? 
+            this.deepMergeStats(existingPersonaje.estadisticas || {}, personaje.estadisticas) 
+            : existingPersonaje.estadisticas,
         };
       }
 

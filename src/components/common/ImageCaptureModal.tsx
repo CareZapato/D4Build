@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock, MapPin, Filter } from 'lucide-react';
+import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock, MapPin, Filter, User, ArrowRight } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
@@ -71,6 +71,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   
   // Estados para modal de configuración AI
   const [showAIConfigModal, setShowAIConfigModal] = useState(false);
+  
+  // Estados para modal de selección de personaje para batch
+  const [showBatchPersonajeModal, setShowBatchPersonajeModal] = useState(false);
+  const [batchTargetPersonajeId, setBatchTargetPersonajeId] = useState<string | null>(null);
+  const [pendingBatchScope, setPendingBatchScope] = useState<'category' | 'all' | null>(null);
   const [aiServiceToUse, setAiServiceToUse] = useState<'gemini' | 'openai' | null>(null);
   const [aiConfigPromptType, setAiConfigPromptType] = useState<'personaje' | 'heroe'>('heroe');
   const [aiConfigClase, setAiConfigClase] = useState('');
@@ -131,8 +136,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Ahora almacena ImageBitmap (más rápido que HTMLImageElement)
-  const imageCache = useRef<Map<string, ImageBitmap | HTMLImageElement>>(new Map());
+  // Almacena HTMLImageElement cargadas desde blob URLs
+  const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
 
   const syncUpdatedPersonajeInContext = (updatedPersonaje: any) => {
     const updatedList = personajes.map(p => p.id === updatedPersonaje.id ? updatedPersonaje : p);
@@ -314,7 +319,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     ));
   };
 
-  const composeImages = async () => {
+  const composeImages = () => {
     const composeStartTime = performance.now();
     
     if (capturedImages.length === 0) return;
@@ -328,34 +333,32 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     console.log(`🔄 composeImages iniciado para ${capturedImages.length} imagen(es)`);
     const loadStartTime = performance.now();
     
-    // ✅ Cargar imágenes con createImageBitmap (RÁPIDO, ~50-200ms)
-    const loadedImages: Array<{ img: ImageBitmap | HTMLImageElement; isComplete: boolean }> = [];
+    // ✅ Cargar imágenes SÍNCRONAMENTE desde URLs de blobs (INSTANTÁNEO)
+    const loadedImages: Array<{ img: HTMLImageElement; isComplete: boolean }> = [];
     
-    try {
-      const bitmaps = await Promise.all(
-        capturedImages.map(async (capturedImg) => {
-          // Verificar si ya tenemos bitmap en caché
-          let cached = imageCache.current.get(capturedImg.url);
-          if (cached) {
-            return { bitmap: cached as any, isComplete: capturedImg.isComplete };
-          }
-          
-          // Crear bitmap desde blob (MUCHO más rápido que Image.onload)
-          const bitmap = await createImageBitmap(capturedImg.blob);
-          imageCache.current.set(capturedImg.url, bitmap as any);
-          return { bitmap, isComplete: capturedImg.isComplete };
-        })
-      );
+    for (const capturedImg of capturedImages) {
+      // Verificar si ya tenemos la imagen en caché
+      let img = imageCache.current.get(capturedImg.url) as HTMLImageElement;
       
-      bitmaps.forEach(({ bitmap, isComplete }) => {
-        loadedImages.push({ img: bitmap as any, isComplete });
-      });
+      if (!img) {
+        // Crear imagen y asignar src (el blob ya está en memoria, carga instantánea)
+        img = new Image();
+        img.src = capturedImg.url;
+        imageCache.current.set(capturedImg.url, img);
+      }
       
-      console.log(`✅ Imágenes cargadas en: ${(performance.now() - loadStartTime).toFixed(2)}ms`);
-    } catch (error) {
-      console.error('❌ Error cargando imágenes:', error);
-      return;
+      // IMPORTANTE: Verificar que la imagen esté completamente cargada
+      if (!img.complete) {
+        console.warn(`⚠️ Imagen aún cargando: ${capturedImg.url}`);
+        // Intentar de nuevo en el próximo frame
+        requestAnimationFrame(() => composeImages());
+        return;
+      }
+      
+      loadedImages.push({ img, isComplete: capturedImg.isComplete });
     }
+    
+    console.log(`✅ Imágenes cargadas en: ${(performance.now() - loadStartTime).toFixed(2)}ms`);
     
     if (loadedImages.length === 0) {
       console.warn('⚠️ No hay imágenes para componer');
@@ -369,8 +372,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const MAX_HORIZONTAL = 4;
 
     // Agrupar elementos completos
-    const completeGroups: Array<Array<{ img: ImageBitmap | HTMLImageElement; isComplete: boolean }>> = [];
-    let currentGroup: Array<{ img: ImageBitmap | HTMLImageElement; isComplete: boolean }> = [];
+    const completeGroups: Array<Array<{ img: HTMLImageElement; isComplete: boolean }>> = [];
+    let currentGroup: Array<{ img: HTMLImageElement; isComplete: boolean }> = [];
     
     loadedImages.forEach((item) => {
       if (item.isComplete && currentGroup.length > 0) {
@@ -1234,11 +1237,31 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     // Mergear cada propiedad del source
     for (const key in source) {
       if (source.hasOwnProperty(key)) {
-        if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+        // ✅ CASO ESPECIAL: Arrays de "detalles" → ACUMULAR en lugar de reemplazar
+        if (key === 'detalles' && Array.isArray(source[key]) && Array.isArray(target[key])) {
+          // Combinar arrays evitando duplicados (por atributo_ref + texto)
+          const targetDetalles = target[key];
+          const sourceDetalles = source[key];
+          const combined = [...targetDetalles];
+          
+          sourceDetalles.forEach((newDetalle: any) => {
+            // Buscar si ya existe este detalle (mismo atributo_ref + texto)
+            const exists = combined.some((existing: any) => 
+              existing.atributo_ref === newDetalle.atributo_ref && 
+              existing.texto === newDetalle.texto
+            );
+            
+            if (!exists) {
+              combined.push(newDetalle);
+            }
+          });
+          
+          result[key] = combined;
+        } else if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
           // Si es objeto, hacer merge recursivo
           result[key] = deepMerge(target[key], source[key]);
         } else {
-          // Si es valor primitivo o array, reemplazar
+          // Si es valor primitivo o array (que no sea detalles), reemplazar
           result[key] = source[key];
         }
       }
@@ -3165,7 +3188,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               };
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-              syncUpdatedPersonajeInContext(updatedPersonaje);
+              
+              // 🔄 Recargar del disco para sincronizar
+              const reloadedPersonaje = await WorkspaceService.loadPersonaje(personaje.id);
+              if (reloadedPersonaje) {
+                syncUpdatedPersonajeInContext(reloadedPersonaje);
+                if (selectedPersonaje?.id === personaje.id) {
+                  setSelectedPersonaje(reloadedPersonaje);
+                }
+              }
+              
               showToast(`✅ ${activasRefs.length + pasivasRefs.length} habilidades guardadas en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
@@ -3228,7 +3260,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               };
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-              syncUpdatedPersonajeInContext(updatedPersonaje);
+              
+              // 🔄 Recargar del disco para sincronizar
+              const reloadedPersonaje = await WorkspaceService.loadPersonaje(personaje.id);
+              if (reloadedPersonaje) {
+                syncUpdatedPersonajeInContext(reloadedPersonaje);
+                if (selectedPersonaje?.id === personaje.id) {
+                  setSelectedPersonaje(reloadedPersonaje);
+                }
+              }
+              
               showToast(`✅ ${nuevosRefs.length} glifos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
@@ -3362,7 +3403,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               };
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-              syncUpdatedPersonajeInContext(updatedPersonaje);
+              
+              // 🔄 Recargar del disco para sincronizar
+              const reloadedPersonaje = await WorkspaceService.loadPersonaje(personaje.id);
+              if (reloadedPersonaje) {
+                syncUpdatedPersonajeInContext(reloadedPersonaje);
+                if (selectedPersonaje?.id === personaje.id) {
+                  setSelectedPersonaje(reloadedPersonaje);
+                }
+              }
+              
               showToast(`✅ ${aspectosRefs.length} aspectos guardados en ${personaje.nombre}`, 'success');
               shouldReload = true;
             }
@@ -3647,7 +3697,15 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               };
 
               await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-              syncUpdatedPersonajeInContext(updatedPersonaje);
+              
+              // 🔄 Recargar del disco para sincronizar
+              const reloadedPersonaje = await WorkspaceService.loadPersonaje(personaje.id);
+              if (reloadedPersonaje) {
+                syncUpdatedPersonajeInContext(reloadedPersonaje);
+                if (selectedPersonaje?.id === personaje.id) {
+                  setSelectedPersonaje(reloadedPersonaje);
+                }
+              }
 
               piezas.forEach((pieza: any) => {
                 const piezaName = pieza.nombre || pieza.id || pieza.espacio || 'pieza';
@@ -3662,100 +3720,29 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             break;
           }
           case 'estadisticas': {
-            // Normalizar: soporta formato V1 (flat con nivel_paragon en raíz) y
-            // V2 (objeto con clave "estadisticas" que envuelve las secciones).
-            // nivel_paragon pertenece a Personaje, no a Estadisticas.
-            let statsToSave: any;
-            let parsedNivel: number | undefined;
-            let parsedNivelParagon: number | undefined;
+            // 🔥 USAR FUNCIÓN CENTRALIZADA DE IMPORTACIÓN
+            const result = await WorkspaceService.importStatsToPersonaje(data, personaje.id);
+            
+            if (!result.success) {
+              throw new Error(result.error || 'Error importando estadísticas');
+            }
 
-            if (data.estadisticas && typeof data.estadisticas === 'object' && !Array.isArray(data.estadisticas)) {
-              // Formato V2: extraer secciones internas
-              const v2 = data.estadisticas;
-              statsToSave = {};
-              if (v2.personaje) {
-                statsToSave.personaje = v2.personaje;
-                fieldsAdded.push('personaje');
-              }
-              if (v2.atributosPrincipales) {
-                statsToSave.atributosPrincipales = v2.atributosPrincipales;
-                fieldsAdded.push('atributosPrincipales');
-              }
-              if (v2.defensivo && !Array.isArray(v2.defensivo)) {
-                statsToSave.defensivo = v2.defensivo;
-                fieldsAdded.push('defensivo');
-              }
-              if (v2.ofensivo && !Array.isArray(v2.ofensivo)) {
-                statsToSave.ofensivo = v2.ofensivo;
-                fieldsAdded.push('ofensivo');
-              }
-              if (v2.utilidad && !Array.isArray(v2.utilidad)) {
-                statsToSave.utilidad = v2.utilidad;
-                fieldsAdded.push('utilidad');
-              }
-              if (v2.armaduraYResistencias) {
-                statsToSave.armaduraYResistencias = v2.armaduraYResistencias;
-                fieldsAdded.push('armaduraYResistencias');
-              }
-              if (v2.jcj) {
-                statsToSave.jcj = v2.jcj;
-                fieldsAdded.push('jcj');
-              }
-              if (v2.moneda) {
-                statsToSave.moneda = v2.moneda;
-                fieldsAdded.push('moneda');
-              }
-              parsedNivelParagon = data.nivel_paragon;
-              parsedNivel = statsToSave.atributosPrincipales?.nivel;
-            } else {
-              // Formato V1 flat: nivel_paragon no pertenece a Estadisticas
-              const { nivel_paragon, ...rest } = data;
-              statsToSave = rest;
-              parsedNivelParagon = nivel_paragon;
-              parsedNivel = rest.atributosPrincipales?.nivel;
+            // Sincronizar contexto
+            const updatedPersonaje = await WorkspaceService.loadPersonaje(personaje.id);
+            if (updatedPersonaje) {
+              syncUpdatedPersonajeInContext(updatedPersonaje);
               
-              // Detectar campos del formato V1
-              Object.keys(rest).forEach(key => {
-                if (!['nivel_paragon'].includes(key)) fieldsAdded.push(key);
-              });
+              // Si es el personaje seleccionado actualmente, actualizar también
+              if (selectedPersonaje?.id === personaje.id) {
+                setSelectedPersonaje(updatedPersonaje);
+              }
             }
-            
-            if (parsedNivel !== undefined) fieldsAdded.push('nivel');
-            if (parsedNivelParagon !== undefined) fieldsAdded.push('nivel_paragon');
 
-            // CRÍTICO: Leer personaje del disco y hacer DEEP MERGE de estadísticas
-            const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
-            const basePersonaje = personajeFromDisk || personaje;
+            // Actualizar contadores para UI
+            fieldsAdded.push(...result.fieldsAdded);
+            itemsUpdated += result.fieldsUpdated;
+            updatedItemsList.push(...result.fieldsAdded.map(f => `Estadísticas: ${f}`));
             
-            // 🔧 NORMALIZAR ambos objetos antes del merge (base y nuevos)
-            const normalizedBase = normalizeStatsFieldNames(basePersonaje.estadisticas || {});
-            const normalizedNew = normalizeStatsFieldNames(statsToSave);
-            
-            // ✅ DEEP MERGE: Preserva TODOS los campos existentes en cada sección
-            // Antes: { ...basePersonaje.estadisticas, ...statsToSave } → SHALLOW MERGE (perdía datos)
-            // Ahora: deepMerge(...) → DEEP MERGE (preserva todo)
-            //   + Normalización previa elimina campos duplicados con nombres incorrectos
-            const mergedEstadisticas = deepMerge(normalizedBase, normalizedNew);
-            const statEntries = collectStatsEntries(normalizedNew || {});
-
-            if (areEquivalentContent(normalizedBase, mergedEstadisticas)) {
-              itemsRepeated += statEntries.length || 1;
-              repeatedItems.push(...statEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
-            } else {
-              itemsUpdated += statEntries.length || 1;
-              updatedItemsList.push(...statEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
-            }
-            
-            const updatedPersonaje = {
-              ...basePersonaje,
-              estadisticas: mergedEstadisticas,
-              ...(parsedNivel !== undefined && { nivel: parsedNivel }),
-              ...(parsedNivelParagon !== undefined && { nivel_paragon: parsedNivelParagon }),
-              fecha_actualizacion: new Date().toISOString()
-            };
-            
-            await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-            syncUpdatedPersonajeInContext(updatedPersonaje);
             showToast(`✅ Estadísticas guardadas en ${personaje.nombre}`, 'success');
             shouldReload = true;
             break;
@@ -3995,7 +3982,16 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             };
             
             await WorkspaceService.savePersonajeMerge(updatedPersonaje);
-            syncUpdatedPersonajeInContext(updatedPersonaje);
+            
+            // 🔄 Recargar del disco para sincronizar
+            const reloadedPersonaje = await WorkspaceService.loadPersonaje(personaje.id);
+            if (reloadedPersonaje) {
+              syncUpdatedPersonajeInContext(reloadedPersonaje);
+              if (selectedPersonaje?.id === personaje.id) {
+                setSelectedPersonaje(reloadedPersonaje);
+              }
+            }
+            
             showToast(`✅ Datos de Paragon guardados en ${personaje.nombre} (${itemsImported} nuevos, ${itemsUpdated} actualizados)`, 'success');
             shouldReload = true;
             break;
@@ -4181,17 +4177,25 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  // Ejecutar múltiples JSONs (batch)
-  const executeBatchJSON = async (scope: 'category' | 'all') => {
+  // Iniciar batch con selección de personaje
+  const startBatchJSON = (scope: 'category' | 'all') => {
+    setPendingBatchScope(scope);
+    setShowBatchPersonajeModal(true);
+  };
+
+  // Ejecutar múltiples JSONs (batch) con personaje seleccionado
+  const executeBatchJSON = async (targetPersonajeId: string) => {
+    const scope = pendingBatchScope;
+    if (!scope) return;
+    
     try {
+      setShowBatchPersonajeModal(false);
       setExecutingBatch(true);
       console.log('🚀 [executeBatchJSON] Inicio:', {
         scope,
+        targetPersonajeId,
         selectedCategory,
-        promptType,
-        selectedPersonajeId,
-        selectedClase,
-        selectedPersonajeContext: selectedPersonaje?.id || null
+        promptType
       });
       const executionResults: Array<{ cat: ImageCategory; entryName: string; result: ImportResultDetails }> = [];
       const categories: ImageCategory[] = scope === 'category'
@@ -4241,14 +4245,25 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         setSelectedCategory(cat);
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        if (promptType === 'personaje' && !selectedPersonajeId && selectedPersonaje?.id) {
-          console.warn('⚠️ [executeBatchJSON] Sin personaje seleccionado, usando selectedPersonaje del contexto:', selectedPersonaje.id);
-          setSelectedPersonajeId(selectedPersonaje.id);
+        // Usar personaje destino seleccionado en el modal
+        const effectivePersonajeId = targetPersonajeId;
+        const targetPersonaje = personajes.find(p => p.id === effectivePersonajeId);
+        
+        if (!targetPersonaje) {
+          console.error('❌ [executeBatchJSON] Personaje destino no encontrado:', effectivePersonajeId);
+          totalFail++;
+          continue;
         }
-        if (promptType === 'heroe' && !selectedClase && selectedPersonaje?.clase) {
-          console.warn('⚠️ [executeBatchJSON] Sin clase seleccionada, usando clase del personaje actual:', selectedPersonaje.clase);
-          setSelectedClase(selectedPersonaje.clase);
-        }
+        
+        console.log('✅ [executeBatchJSON] Importando para personaje:', {
+          id: targetPersonaje.id,
+          nombre: targetPersonaje.nombre,
+          clase: targetPersonaje.clase
+        });
+
+        // Establecer contexto para la importación
+        setSelectedPersonajeId(targetPersonaje.id);
+        setSelectedClase(targetPersonaje.clase);
 
         const jsonTextFromFile = await ImageService.loadJSONText(cat, entry.nombre);
         if (!jsonTextFromFile) {
@@ -4261,7 +4276,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               success: false,
               category: cat,
               promptType,
-              targetName: promptType === 'heroe' ? (selectedClase || 'sin-clase') : (personajes.find(p => p.id === selectedPersonajeId)?.nombre || 'sin-personaje'),
+              targetName: targetPersonaje.nombre,
               validationErrors: [],
               rawJSON: '',
               errorMessage: 'No se pudo leer el archivo JSON desde galería'
@@ -4379,6 +4394,25 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         ),
         errorMessage: totalFail > 0 ? `Se detectaron ${totalFail} errores durante la importación masiva` : undefined
       };
+
+      // 🔄 RECARGAR PERSONAJE ACTUALIZADO DEL DISCO
+      console.log('🔄 Recargando personaje actualizado del disco:', targetPersonajeId);
+      try {
+        const updatedPersonaje = await WorkspaceService.loadPersonaje(targetPersonajeId);
+        if (updatedPersonaje) {
+          console.log('✅ Personaje recargado, sincronizando contexto...');
+          syncUpdatedPersonajeInContext(updatedPersonaje);
+          
+          // Si es el personaje seleccionado actualmente, actualizar también
+          if (selectedPersonaje?.id === targetPersonajeId) {
+            setSelectedPersonaje(updatedPersonaje);
+          }
+        } else {
+          console.warn('⚠️ No se pudo recargar el personaje del disco');
+        }
+      } catch (error) {
+        console.error('❌ Error recargando personaje:', error);
+      }
 
       showImportResultsModal(batchSummary);
       showToast(
@@ -5991,8 +6025,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   Galería de {CATEGORIES.find(c => c.value === selectedCategory)?.label}
                 </h3>
                 <button
-                  onClick={() => executeBatchJSON('category')}
-                  disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0}
+                  onClick={() => startBatchJSON('category')}
+                  disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0 || personajes.length === 0}
                   className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
                   title="Ejecutar todos los JSONs de esta categoría"
                 >
@@ -6139,8 +6173,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
             <div className="mt-3 flex justify-end">
               <button
-                onClick={() => executeBatchJSON('all')}
-                disabled={executingBatch}
+                onClick={() => startBatchJSON('all')}
+                disabled={executingBatch || personajes.length === 0}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                 title="Importar todos los JSONs guardados de todas las categorías"
               >
@@ -6610,6 +6644,91 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Selección de Personaje para Batch */}
+      {showBatchPersonajeModal && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowBatchPersonajeModal(false)}></div>
+          
+          {/* Modal Content */}
+          <div className="card max-w-xl w-full max-h-[70vh] overflow-y-auto relative z-[1] animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 sticky top-0 bg-d4-surface pb-4 border-b border-d4-border z-[50]">
+              <div>
+                <h2 className="text-2xl font-bold text-d4-accent flex items-center gap-2">
+                  <User className="w-6 h-6" />
+                  Seleccionar Personaje Destino
+                </h2>
+                <p className="text-sm text-d4-text-dim">
+                  Importación masiva: {pendingBatchScope === 'category' 
+                    ? `Categoría ${CATEGORIES.find(c => c.value === selectedCategory)?.label}` 
+                    : 'Todas las categorías'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowBatchPersonajeModal(false)}
+                className="p-2 hover:bg-d4-border rounded transition-colors"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5 text-d4-text" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="space-y-4">
+              <p className="text-sm text-d4-text-dim">
+                Los datos de estadísticas, skills, glifos, aspectos, etc. se importarán al personaje seleccionado:
+              </p>
+
+              {/* Lista de personajes */}
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {personajes.length === 0 ? (
+                  <div className="text-center py-8 text-d4-text-dim">
+                    <p className="mb-2">No hay personajes disponibles</p>
+                    <p className="text-xs">Crea un personaje primero</p>
+                  </div>
+                ) : (
+                  personajes.map(personaje => (
+                    <button
+                      key={personaje.id}
+                      onClick={() => {
+                        setBatchTargetPersonajeId(personaje.id);
+                        executeBatchJSON(personaje.id);
+                      }}
+                      className="w-full p-4 bg-d4-bg hover:bg-d4-border border-2 border-transparent hover:border-d4-accent rounded-lg transition-all text-left group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-d4-accent group-hover:text-d4-accent-bright">
+                              {personaje.nombre}
+                            </span>
+                            <span className="text-xs text-d4-text-dim">
+                              Nivel {personaje.nivel}
+                            </span>
+                          </div>
+                          <div className="text-sm text-d4-text-dim">
+                            {personaje.clase}
+                          </div>
+                          {personaje.nivel_paragon && (
+                            <div className="text-xs text-purple-400 mt-1">
+                              Paragon {personaje.nivel_paragon}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-d4-accent group-hover:scale-110 transition-transform">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

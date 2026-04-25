@@ -699,85 +699,51 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
     setImporting(true);
     try {
-      const mergeSection = (current: any, incoming: any) => {
-        if (!current && !incoming) return undefined;
-        const base = { ...(current || {}), ...(incoming || {}) };
-
-        const currentDetails = Array.isArray(current?.detalles) ? current.detalles : [];
-        const incomingDetails = Array.isArray(incoming?.detalles) ? incoming.detalles : [];
-        if (currentDetails.length > 0 || incomingDetails.length > 0) {
-          base.detalles = [...currentDetails, ...incomingDetails];
-        }
-
-        const currentKeywords = Array.isArray(current?.palabras_clave) ? current.palabras_clave : [];
-        const incomingKeywords = Array.isArray(incoming?.palabras_clave) ? incoming.palabras_clave : [];
-        if (currentKeywords.length > 0 || incomingKeywords.length > 0) {
-          base.palabras_clave = Array.from(new Set([...currentKeywords, ...incomingKeywords]));
-        }
-
-        return base;
-      };
-
-      const mergeMoneda = (current: any, incoming: any) => {
-        const merged = mergeSection(current, incoming) || {};
-        if (current?.obolos || incoming?.obolos) {
-          merged.obolos = { ...(current?.obolos || {}), ...(incoming?.obolos || {}) };
-        }
-        // NO normalizar - preservar estructura completa con detalles
-        return merged;
-      };
-
-      // CRÍTICO: Leer personaje del disco para obtener estadísticas más recientes
-      const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
-      const estadisticasFromDisk = personajeFromDisk?.estadisticas || {};
-
       const JSONObjects = parseMultipleJSON(pendingImportData);
-      let mergedStats: Estadisticas = { ...estadisticasFromDisk };  // USAR DISCO en lugar de estado
+      
+      // Recolectar todos los tags y JSONs V2 para procesamiento posterior
+      let allTags: Tag[] = [];
+      const parsedV2Array: any[] = [];
       let extractedNivel: number | undefined;
       let extractedNivelParagon: number | undefined;
-      let allTags: Tag[] = [];
-      const parsedV2Array: any[] = [];  // v0.3.7: Guardar JSONs V2 originales para extraer detalles
 
+      // Procesar cada JSON usando la función centralizada
       for (const jsonStr of JSONObjects) {
         const parsed = JSON.parse(jsonStr);
-        parsedV2Array.push(parsed);  // v0.3.7: Guardar JSON V2 original
+        parsedV2Array.push(parsed);
         
-        // Recolectar todos los tags del JSON V2
+        // Recolectar tags del JSON V2
         if (parsed.palabras_clave && Array.isArray(parsed.palabras_clave)) {
           allTags = [...allTags, ...parsed.palabras_clave];
         }
 
-        // Convertir V2 a V1
-        const { stats, nivel, nivelParagon } = convertV2ToV1(parsed);
+        // ✅ USAR FUNCIÓN CENTRALIZADA para importar estadísticas
+        const result = await WorkspaceService.importStatsToPersonaje(parsed, personaje.id);
         
-        // Merge progresivo
-        mergedStats = {
-          personaje: mergeSection(mergedStats.personaje, stats.personaje),
-          atributosPrincipales: mergeSection(mergedStats.atributosPrincipales, stats.atributosPrincipales),
-          defensivo: mergeSection(mergedStats.defensivo, stats.defensivo),
-          ofensivo: mergeSection(mergedStats.ofensivo, stats.ofensivo),
-          utilidad: mergeSection(mergedStats.utilidad, stats.utilidad),
-          armaduraYResistencias: mergeSection(mergedStats.armaduraYResistencias, stats.armaduraYResistencias),
-          jcj: mergeSection(mergedStats.jcj, stats.jcj),
-          moneda: mergeMoneda(mergedStats.moneda, stats.moneda),
-        };
+        if (!result.success) {
+          throw new Error(result.error || 'Error al importar estadísticas');
+        }
 
         // Extraer nivel si existe
-        if (nivel !== undefined) extractedNivel = nivel;
-        if (nivelParagon !== undefined) extractedNivelParagon = nivelParagon;
+        if (result.nivel !== undefined) extractedNivel = result.nivel;
+        if (result.nivelParagon !== undefined) extractedNivelParagon = result.nivelParagon;
       }
 
-      // Procesar y guardar tags globalmente, obtener IDs
+      // Recargar personaje actualizado desde disco
+      const personajeFromDisk = await WorkspaceService.loadPersonaje(personaje.id);
+      const mergedStats = personajeFromDisk?.estadisticas || {};
+
+      // Procesar y guardar tags globalmente
       const tagIds = await TagService.processAndSaveTagsV2(allTags, 'estadistica');
       console.log('Tags guardados con IDs:', tagIds);
 
-      // v0.3.7: Guardar estadísticas en héroe y crear referencias (con detalles del JSON V2)
+      // Guardar estadísticas en héroe y crear referencias (con detalles del JSON V2)
       let statsRefs: Array<{stat_id: string; valor: string | number}> | undefined;
       try {
         statsRefs = await StatsConversionService.saveAndCreateRefs(
           personaje.clase, 
           mergedStats,
-          parsedV2Array  // v0.3.7: Pasar JSONs V2 originales para extraer detalles
+          parsedV2Array
         );
         console.log(`Estadísticas guardadas en héroe: ${statsRefs.length} referencias creadas`);
       } catch (error) {
@@ -785,10 +751,11 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
         // Continuar sin referencias si hay error (backward compatibility)
       }
 
+      // Actualizar estado local
       setEstadisticas(mergedStats);
       onChange(mergedStats, extractedNivel, extractedNivelParagon, statsRefs);
 
-      // Refrescar metadatos del héroe para tooltips inmediatamente
+      // Refrescar metadatos del héroe para tooltips
       await loadHeroStats();
       
       setJsonText('');
