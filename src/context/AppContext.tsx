@@ -119,6 +119,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const chars = await WorkspaceService.listPersonajes();
       setPersonajes(chars);
+      
+      // Si hay un personaje seleccionado, actualizarlo con los datos frescos del disco
+      if (selectedPersonaje) {
+        const updatedPersonaje = chars.find(p => p.id === selectedPersonaje.id);
+        if (updatedPersonaje) {
+          setSelectedPersonaje(updatedPersonaje);
+        }
+      }
     } catch (error) {
       console.error('Error refrescando personajes:', error);
     }

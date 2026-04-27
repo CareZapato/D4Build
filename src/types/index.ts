@@ -110,6 +110,34 @@ export interface IntegrityTestProgress {
   progressPercent: number;             // Progreso 0-100
 }
 
+// ========================================
+// METADATA DE JSONs GUARDADOS (v0.8.7+)
+// ========================================
+
+/** Metadata que acompaña a cada JSON guardado en galería */
+export interface JSONMetadata {
+  categoria: string;                   // Categoría del JSON (skills, glifos, etc.)
+  timestamp: string;                   // Momento del guardado (ISO)
+  
+  // Inputs de destino (común a todas las categorías)
+  destino: 'heroe' | 'personaje';      // Dónde se importa
+  clase?: string;                      // Si destino es heroe
+  personajeId?: string;                // Si destino es personaje
+  personajeNombre?: string;            // Nombre del personaje (informativo)
+  personajeNivel?: number;             // Nivel del personaje (informativo)
+  personajeClase?: string;             // Clase del personaje (informativo)
+  
+  // Inputs específicos por categoría
+  paragonType?: 'tablero' | 'nodo' | 'atributos';  // Para categoria 'paragon'
+  runaGemaType?: 'runas' | 'gemas';    // Para categoria 'runas'
+  mundoType?: 'eventos' | 'mazmorras_aspectos';  // Para categoria 'mundo'
+  talismanType?: 'charms' | 'horadric_seal';  // Para categoria 'talismanes'
+  
+  // Metadata adicional
+  manualElementCount?: number | null;  // Override manual de cantidad de elementos
+  version?: string;                    // Versión de la app que guardó el JSON
+}
+
 
 // Tipos para Habilidades
 export type TipoHabilidad = 'skill' | 'modificador' | 'pasiva';
@@ -721,7 +749,7 @@ export interface Personaje {
   glifos_refs?: Array<{
     id: string;  // ID del glifo en el héroe
     nivel_actual: number;  // Nivel específico del personaje
-    nivel_maximo?: number;  // Nivel máximo del glifo (por defecto 100)
+    nivel_maximo?: number;  // Nivel máximo del glifo (por defecto 150, Temporada 7)
   }>;
   // Referencias a aspectos del héroe con nivel y valores actuales (v0.3.9)
   aspectos_refs?: Array<{

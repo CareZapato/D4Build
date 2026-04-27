@@ -1022,6 +1022,13 @@ Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADA
   static generateStatsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae las estadísticas del personaje de Diablo 4.
 
+**⚠️ REGLA CRÍTICA - EXTRACCIÓN EXACTA DE VALORES:**
+- Extrae SOLO valores que veas EXPLÍCITAMENTE en la imagen
+- Si un atributo NO está visible en la imagen, usa null u omítelo
+- NO asumas que valores ausentes son 0
+- Lee CADA número visible con precisión absoluta
+- Para atributos principales (fuerza, inteligencia, voluntad, destreza): busca en TODA la imagen y extrae el valor EXACTO que ves
+
 **IMPORTANTE - Detalles de estadísticas:**
 Cada estadística puede tener múltiples detalles que explican cómo se compone ese valor. Por ejemplo:
 - "Contribución de objetos: 0"
@@ -1030,16 +1037,21 @@ Cada estadística puede tener múltiples detalles que explican cómo se compone 
 
 **Instrucciones:**
 1. Identifica cada sección visible (Personaje, Atributos principales, Defensivo, Ofensivo, Armadura y resistencias, etc.)
-2. Extrae todos los valores numéricos principales
-3. **CRÍTICO:** Extrae TODOS los detalles/subítems debajo de cada estadística
-4. **NIVEL Y PARAGON:** En atributosPrincipales extrae tanto "nivel" (nivel base 1-60) como "nivel_paragon" (nivel Paragon visible en la UI)
-5. Identifica palabras marcadas en BLANCO/SUBRAYADAS en los detalles (son palabras clave del juego)
-6. Si ves la definición del "Aguante", inclúyela completa
-7. **Para cada detalle agrega SIEMPRE el atributo al que pertenece:**
+2. **ATRIBUTOS PRINCIPALES - MUY IMPORTANTE:**
+   - Busca en TODA la imagen los valores de: nivel, fuerza, inteligencia, voluntad, destreza
+   - Extrae el valor EXACTO que ves en la columna derecha de cada atributo
+   - Ejemplo: si ves "Voluntad | 253", extrae voluntad: 253
+   - Si un atributo NO está visible, usa null (NO uses 0)
+3. Extrae todos los valores numéricos principales
+4. **CRÍTICO:** Extrae TODOS los detalles/subítems debajo de cada estadística
+5. **NIVEL Y PARAGON:** En atributosPrincipales extrae tanto "nivel" (nivel base 1-60) como "nivel_paragon" (nivel Paragon visible en la UI)
+6. Identifica palabras marcadas en BLANCO/SUBRAYADAS en los detalles (son palabras clave del juego)
+7. Si ves la definición del "Aguante", inclúyela completa
+8. **Para cada detalle agrega SIEMPRE el atributo al que pertenece:**
   - \`atributo_ref\`: key técnica del campo (ej: \`probabilidadGolpeCritico\`, \`danioContraEnemigosVulnerables\`, \`vidaMaxima\`)
   - \`atributo_nombre\`: nombre visible (ej: "Probabilidad de golpe crítico", "Daño contra enemigos vulnerables")
-8. Si no hay marco de selección visible, deduce el atributo por el título del tooltip o por el texto del detalle (lado izquierdo)
-9. NO omitas detalles de atributos compartidos (vulnerables, crítico, abrumar, daño con estados, etc.)
+9. Si no hay marco de selección visible, deduce el atributo por el título del tooltip o por el texto del detalle (lado izquierdo)
+10. NO omitas detalles de atributos compartidos (vulnerables, crítico, abrumar, daño con estados, etc.)
 
 **NOMBRES DE CAMPOS EXACTOS (IMPORTANTE):**
 Usa estos nombres de campos EXACTOS para cada sección:
@@ -1111,24 +1123,81 @@ Usa estos nombres de campos EXACTOS para cada sección:
     "atributosPrincipales": {
       "nivel": 60,
       "nivel_paragon": 150,
-      "fuerza": 1670,
-      "inteligencia": 208,
+      "fuerza": 1740,
+      "inteligencia": 230,
+      "voluntad": 253,
+      "destreza": 144,
       "detalles": [
         {
+          "atributo_ref": "nivel",
+          "atributo_nombre": "Nivel",
+          "texto": "El nivel de tu personaje",
+          "valor": 60,
+          "palabras_clave": ["nivel"]
+        },
+        {
+          "atributo_ref": "fuerza",
+          "atributo_nombre": "Fuerza",
+          "texto": "Contribución de objetos: 1,296",
+          "contribucion": "Contribución de objetos",
+          "valor": 1296
+        },
+        {
+          "atributo_ref": "fuerza",
+          "atributo_nombre": "Fuerza",
+          "texto": "Aumenta el daño de habilidad en 217.6%",
+          "valor": "217.6%",
+          "palabras_clave": ["danio_habilidad"]
+        },
+        {
+          "atributo_ref": "inteligencia",
+          "atributo_nombre": "Inteligencia",
           "texto": "Contribución de objetos: 0",
           "contribucion": "Contribución de objetos",
           "valor": 0
         },
         {
+          "atributo_ref": "inteligencia",
+          "atributo_nombre": "Inteligencia",
           "texto": "Aumenta la probabilidad de golpe crítico en +4.2 %",
           "palabras_clave": ["golpe_critico"]
         },
         {
+          "atributo_ref": "inteligencia",
+          "atributo_nombre": "Inteligencia",
           "texto": "Aumenta la resistencia a todos los elementos en +83",
           "palabras_clave": ["resistencia"]
+        },
+        {
+          "atributo_ref": "voluntad",
+          "atributo_nombre": "Voluntad",
+          "texto": "Contribución de objetos: 0",
+          "contribucion": "Contribución de objetos",
+          "valor": 0
+        },
+        {
+          "atributo_ref": "voluntad",
+          "atributo_nombre": "Voluntad",
+          "texto": "Aumenta la generación de recursos en 7.6%",
+          "valor": "7.6%",
+          "palabras_clave": ["recurso"]
+        },
+        {
+          "atributo_ref": "destreza",
+          "atributo_nombre": "Destreza",
+          "texto": "Contribución de objetos: 0",
+          "contribucion": "Contribución de objetos",
+          "valor": 0
+        },
+        {
+          "atributo_ref": "destreza",
+          "atributo_nombre": "Destreza",
+          "texto": "Aumenta la probabilidad de esquivar en +0.9%",
+          "valor": "0.9%",
+          "palabras_clave": ["esquivar"]
         }
       ],
-      "palabras_clave": []
+      "palabras_clave": ["danio_habilidad", "golpe_critico", "resistencia", "recurso", "esquivar"]
     },
     "armaduraYResistencias": {
       "aguante": 52619,
@@ -1268,6 +1337,14 @@ Usa estos nombres de campos EXACTOS para cada sección:
 \`\`\`
 
 **Notas críticas:**
+- **⚠️ PRECISIÓN DE VALORES - MUY IMPORTANTE:**
+  - Extrae valores EXACTAMENTE como aparecen en la imagen
+  - Para atributos principales: lee cada número visible CON PRECISIÓN
+  - Ejemplo: "Fuerza | 1,740" debe extraerse como fuerza: 1740 (número entero)
+  - Ejemplo: "Voluntad | 253" debe extraerse como voluntad: 253 (NO 0)
+  - Si un atributo NO está visible en la imagen, usa null (NO uses 0 por defecto)
+  - Para monedas: extrae el número completo (ej: 409224377, NO "409M")
+  - Solo simplifica formato si es muy grande y viene abreviado en pantalla (ej: "409M")
 - **DETALLES:** Extrae TODOS los sub-items de cada estadística como objetos en el array "detalles"
 - **Vinculación detalle-atributo:** cada detalle DEBE incluir \`atributo_ref\` y \`atributo_nombre\`
 - **Aguante:** Si ves el tooltip, copia la definición completa en aguante_definicion

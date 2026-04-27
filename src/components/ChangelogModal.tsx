@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">24 de Abril, 2026 (v0.8.6)</p>
+                <p className="text-d4-text font-semibold">26 de Abril, 2026 (v0.8.8)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,66 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.8 - Sistema de Glifos Mejorado */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.8</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-purple-600/20 to-blue-600/20 text-purple-300 px-2 py-1 rounded">💎 Glifos Mejorados</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔢 Nivel Máximo Actualizado (Temporada 7)</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Nivel 150</strong>: Glifos ahora soportan nivel máximo 150 (anteriormente 100)</li>
+                <li><strong>Constante configurable</strong>: Nueva constante <code>MAX_GLYPH_LEVEL</code> en <code>src/config/constants.ts</code></li>
+                <li><strong>Administrable</strong>: Los administradores pueden modificar este valor según la temporada actual</li>
+                <li><strong>Aplicado globalmente</strong>: Se usa en importaciones, UI, validaciones y valores por defecto</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🗂️ Separación Correcta de Datos</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Héroe (Catálogo)</strong>: Guarda solo detalles del glifo (nombre, descripción, efectos, bonificaciones) <strong>SIN</strong> <code>nivel_actual</code></li>
+                <li><strong>Personaje (Build)</strong>: Guarda referencias <code>{'{ id, nivel_actual, nivel_maximo }'}</code> con niveles específicos del build</li>
+                <li><strong>Beneficio</strong>: Cada personaje puede tener el mismo glifo a diferente nivel sin duplicar datos maestros</li>
+                <li><strong>Importación inteligente</strong>: Elimina automáticamente <code>nivel_actual</code> al guardar en catálogo de héroe</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📋 Metadata Estandarizada</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Campos completos</strong>: Todos los JSONs guardados incluyen <code>personajeId</code>, <code>personajeNombre</code>, <code>personajeNivel</code></li>
+                <li><strong>Trazabilidad mejorada</strong>: Sabes exactamente qué personaje importó cada imagen/JSON</li>
+                <li><strong>Consistencia</strong>: Mismo formato de metadata para todas las categorías (glifos, habilidades, aspectos, etc.)</li>
+                <li><strong>Versión incluida</strong>: Campo <code>version</code> muestra qué versión de la app guardó el archivo</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔧 Componentes Actualizados</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>ImageCaptureModal.tsx</strong>: Importación corregida en modo héroe (línea ~2760) y modo personaje (línea ~3335)</li>
+                <li><strong>CharacterGlyphs.tsx</strong>: Uso de <code>MAX_GLYPH_LEVEL</code> al agregar nuevos glifos</li>
+                <li><strong>src/config/constants.ts</strong>: Nuevo archivo con constantes configurables (MAX_GLYPH_LEVEL, MAX_ASPECT_LEVEL, etc.)</li>
+                <li><strong>types/index.ts</strong>: Comentarios actualizados para reflejar nivel máximo 150</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📚 Documentación Actualizada</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>CHANGELOG.md</strong>: Nueva entrada 0.8.8 con detalles completos</li>
+                <li><strong>README.md</strong>: Sección destacada sobre mejoras en glifos</li>
+                <li><strong>CONTEXT.md</strong>: Estructura de datos actualizada con nivel_maximo opcional</li>
+                <li><strong>ChangelogModal.tsx</strong>: Referencias a nivel 100 actualizadas a 150</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -4221,11 +4281,11 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
             <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
               <h4 className="font-semibold text-d4-text mb-2">💎 Sistema de Niveles para Glifos</h4>
               <ul className="space-y-1 text-sm text-d4-text-dim">
-                <li>• <strong>Nivel mostrado:</strong> Visualización "nivel actual / 100" en cada glifo</li>
+                <li>• <strong>Nivel mostrado:</strong> Visualización "nivel actual / 150" en cada glifo (Temporada 7)</li>
                 <li>• <strong>Tipo actualizado:</strong> Soporte para nivel_actual y nivel_maximo en tipos</li>
-                <li>• <strong>Importación mejorada:</strong> Al importar glifos se establece nivel_maximo = 100</li>
-                <li>• <strong>Agregar glifos:</strong> Nuevos glifos inician en nivel 1 con máx. 100</li>
-                <li>• <strong>Heroes sin nivel:</strong> En gestión de héroes no se muestra nivel (todos son 100)</li>
+                <li>• <strong>Importación mejorada:</strong> Al importar glifos se establece nivel_maximo = 150</li>
+                <li>• <strong>Agregar glifos:</strong> Nuevos glifos inician en nivel 1 con máx. 150</li>
+                <li>• <strong>Heroes sin nivel:</strong> En gestión de héroes no se muestra nivel (catálogo)</li>
                 <li>• Input mejorado con indicador visual del máximo</li>
               </ul>
             </div>

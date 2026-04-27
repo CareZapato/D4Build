@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Plus, ArrowDown, Save, Image as ImageIcon, Trash2, Copy, Download, CheckCircle, AlertCircle, XCircle, Zap, Eye, FileJson, Play, PlayCircle, Maximize2, FileText, Swords, Hexagon, Gem, BarChart3, Grid3x3, ChevronDown, ChevronUp, Edit2, Sparkles, Shield, Lock, MapPin, Filter, User, ArrowRight } from 'lucide-react';
 import { ImageCategory, ImageService } from '../../services/ImageService';
+import type { GalleryEntry, JSONMetadata } from '../../services/ImageService';
+import { MAX_GLYPH_LEVEL } from '../../config/constants';
 import { ImageExtractionPromptService } from '../../services/ImageExtractionPromptService';
 import { TagLinkingService } from '../../services/TagLinkingService';
 import { useAppContext } from '../../context/AppContext';
@@ -12,12 +14,23 @@ import { BillingService } from '../../services/BillingService';
 import ImportResultsModal, { ImportResultDetails } from './ImportResultsModal';
 import ImageViewerModal from './ImageViewerModal';
 import EmptyImportWarningModal from './EmptyImportWarningModal';
+import PersonajeRestoreModal from './PersonajeRestoreModal';
 import { validateJSONByCategory } from '../../utils/jsonValidation';
+import type { Personaje } from '../../types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type GalleryImage = { 
+  nombre: string; 
+  url: string; 
+  fecha: string; 
+  hasJSON?: boolean; 
+  isJSONOnly?: boolean;
+  metadata?: JSONMetadata;
+};
 
 interface CapturedImage {
   id: string;
@@ -64,7 +77,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [talismanType, setTalismanType] = useState<TalismanType>('charms');
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [composedImageUrl, setComposedImageUrl] = useState<string | null>(null);
-  const [galleryImages, setGalleryImages] = useState<Array<{ nombre: string; url: string; fecha: string; hasJSON?: boolean; isJSONOnly?: boolean }>>([]);
+  const [galleryImages, setGalleryImages] = useState<Array<{ 
+    nombre: string; 
+    url: string; 
+    fecha: string; 
+    hasJSON?: boolean; 
+    isJSONOnly?: boolean;
+    metadata?: import('../../services/ImageService').JSONMetadata;
+  }>>([]);
   const [showGallery, setShowGallery] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [promptType, setPromptType] = useState<'personaje' | 'heroe'>('heroe');
@@ -130,6 +150,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [manualElementCount, setManualElementCount] = useState<number | null>(null); // Override manual para cantidad de elementos
   const [promptTextExpanded, setPromptTextExpanded] = useState(false); // Toggle texto del prompt en móvil
   const [lastSavedImageName, setLastSavedImageName] = useState<string | null>(null); // Nombre del último PNG guardado
+  
+  // ✅ Estados para filtros de galería (por metadata)
+  const [galleryFilterDestino, setGalleryFilterDestino] = useState<'all' | 'heroe' | 'personaje'>('all');
+  const [galleryFilterClase, setGalleryFilterClase] = useState<string>('all');
+  const [galleryFilterPersonaje, setGalleryFilterPersonaje] = useState<string>('all');
+  const [galleryFilterType, setGalleryFilterType] = useState<string>('all'); // Para paragonType, runaGemaType, mundoType, talismanType
+
+  // 🔄 Estados para modal de restauración de personaje
+  const [personajeDecisions, setPersonajeDecisions] = useState<Map<string, string>>(new Map()); // nombre -> ID a usar
+  const [applyToAllDecision, setApplyToAllDecision] = useState(false); // Decisión de "aplicar a todos"
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [pendingRestoreData, setPendingRestoreData] = useState<{
+    existingPersonaje: { nombre: string; clase: string; nivel: number; id: string };
+    incomingData: { clase: string; nivel: number; id: string };
+    resolve: (result: { useExisting: boolean; applyToAll: boolean }) => void;
+  } | null>(null);
   
   // 🔑 API Keys desde variables de entorno (.env)
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -239,6 +275,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setShowGallery(false);
       setSelectedGalleryImage(null);
       setSelectedGalleryImageBlob(null);
+      // 🧹 Limpiar decisiones de personajes al cerrar modal
+      setPersonajeDecisions(new Map());
+      setApplyToAllDecision(false);
     }
   }, [isOpen]);
 
@@ -264,6 +303,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       imageCache.current.clear();
     }
   }, [isOpen, selectedCategory]);
+
+  // ✅ Limpiar filtros de galería cuando cambia la categoría
+  useEffect(() => {
+    setGalleryFilterDestino('all');
+    setGalleryFilterClase('all');
+    setGalleryFilterPersonaje('all');
+    setGalleryFilterType('all');
+  }, [selectedCategory]);
 
   // Manejar paste desde clipboard
   useEffect(() => {
@@ -723,7 +770,26 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // 📄 Guardar JSON asociado si existe
       if (jsonText.trim()) {
         try {
-          await ImageService.saveImageJSON(jsonText, resolvedCategory, nombre);
+          // ✅ CONSTRUIR METADATA con todos los inputs actuales
+          const personajeSeleccionado = promptType === 'personaje' ? personajes.find(p => p.id === selectedPersonajeId) : undefined;
+          const metadata: import('../../services/ImageService').JSONMetadata = {
+            categoria: resolvedCategory,
+            timestamp: new Date().toISOString(),
+            destino: promptType,
+            clase: promptType === 'heroe' ? selectedClase : undefined,
+            personajeId: promptType === 'personaje' ? (selectedPersonajeId || undefined) : undefined,
+            personajeNombre: personajeSeleccionado?.nombre,
+            personajeNivel: personajeSeleccionado?.nivel,
+            personajeClase: personajeSeleccionado?.clase,
+            paragonType: selectedCategory === 'paragon' ? paragonType : undefined,
+            runaGemaType: selectedCategory === 'runas' ? runaGemaType : undefined,
+            mundoType: selectedCategory === 'mundo' ? mundoType : undefined,
+            talismanType: selectedCategory === 'talismanes' ? talismanType : undefined,
+            manualElementCount: manualElementCount,
+            version: '0.8.7'
+          };
+          
+          await ImageService.saveImageJSON(jsonText, resolvedCategory, nombre, metadata);
           showToast(`✅ Imagen y JSON guardados: ${resolvedCategory}/${nombre}`, 'success');
         } catch (jsonError) {
           console.error('Error guardando JSON:', jsonError);
@@ -758,7 +824,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         url: entry.blob ? URL.createObjectURL(entry.blob) : '',
         fecha: new Date(entry.fecha).toLocaleString('es-ES'),
         hasJSON: entry.hasJSON,
-        isJSONOnly: entry.isJSONOnly
+        isJSONOnly: entry.isJSONOnly,
+        metadata: entry.metadata // ✅ Incluir metadata
       }));
       setGalleryImages(mappedEntries);
     } catch (error) {
@@ -985,40 +1052,60 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       // Resolver categoría real (runas/gemas necesitan resolución)
       const resolvedCategory = resolveImportCategory(selectedCategory, runaGemaType);
+      
+      // ✅ CONSTRUIR METADATA con todos los inputs actuales
+      const personajeSeleccionado = promptType === 'personaje' ? personajes.find(p => p.id === selectedPersonajeId) : undefined;
+      const metadata: import('../../services/ImageService').JSONMetadata = {
+        categoria: resolvedCategory,
+        timestamp: new Date().toISOString(),
+        destino: promptType,
+        clase: promptType === 'heroe' ? selectedClase : undefined,
+        personajeId: promptType === 'personaje' ? (selectedPersonajeId || undefined) : undefined,
+        personajeNombre: personajeSeleccionado?.nombre,
+        personajeNivel: personajeSeleccionado?.nivel,
+        personajeClase: personajeSeleccionado?.clase,
+        paragonType: selectedCategory === 'paragon' ? paragonType : undefined,
+        runaGemaType: selectedCategory === 'runas' ? runaGemaType : undefined,
+        mundoType: selectedCategory === 'mundo' ? mundoType : undefined,
+        talismanType: selectedCategory === 'talismanes' ? talismanType : undefined,
+        manualElementCount: manualElementCount,
+        version: '0.8.7' // Versión de la app
+      };
+      
       if (composedImageUrl) {
-        // Imagen en preview no guardada → guardar imagen + JSON
+        // Imagen en preview no guardada → guardar imagen + JSON + metadata
         const response = await fetch(composedImageUrl);
         const blob = await response.blob();
         const nombre = await ImageService.saveImage(blob, resolvedCategory, getFileNameForCategory(resolvedCategory));
-        await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre);
+        await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre, metadata);
         setLastSavedImageName(nombre);
         setCapturedImages([]);
         setComposedImageUrl(null);
-        showToast(`💾 Imagen y JSON guardados automáticamente en galería`, 'info');
+        showToast(`💾 Imagen, JSON y metadata guardados automáticamente en galería`, 'info');
       } else if (lastSavedImageName) {
-        // Imagen ya guardada previamente → solo guardar JSON junto a ella
-        await ImageService.saveImageJSON(jsonContent, resolvedCategory, lastSavedImageName);
-        showToast(`💾 JSON guardado junto a la imagen guardada`, 'info');
+        // Imagen ya guardada previamente → solo guardar JSON + metadata junto a ella
+        await ImageService.saveImageJSON(jsonContent, resolvedCategory, lastSavedImageName, metadata);
+        showToast(`💾 JSON y metadata guardados junto a la imagen guardada`, 'info');
       } else if (selectedGalleryImage) {
-        // Imagen de galería seleccionada → guardar JSON junto a ella
+        // Imagen de galería seleccionada → guardar JSON + metadata junto a ella
         const galleryEntry = galleryImages.find(img => img.url === selectedGalleryImage);
         if (galleryEntry && !galleryEntry.isJSONOnly) {
-          await ImageService.saveImageJSON(jsonContent, resolvedCategory, galleryEntry.nombre);
-          showToast(`💾 JSON guardado junto a imagen de galería`, 'info');
+          await ImageService.saveImageJSON(jsonContent, resolvedCategory, galleryEntry.nombre, metadata);
+          showToast(`💾 JSON y metadata guardados junto a imagen de galería`, 'info');
         } else if (selectedGalleryImageBlob) {
-          // Fallback robusto: si no encontramos la entrada por URL, crear una nueva imagen+JSON.
+          // Fallback robusto: si no encontramos la entrada por URL, crear una nueva imagen+JSON+metadata
           const nombre = await ImageService.saveImage(selectedGalleryImageBlob, resolvedCategory, getFileNameForCategory(resolvedCategory));
-          await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre);
+          await ImageService.saveImageJSON(jsonContent, resolvedCategory, nombre, metadata);
           setLastSavedImageName(nombre);
-          showToast(`💾 Imagen y JSON guardados automáticamente en galería`, 'info');
+          showToast(`💾 Imagen, JSON y metadata guardados automáticamente en galería`, 'info');
         } else {
-          await ImageService.saveJSONOnly(jsonContent, resolvedCategory, getFileNameForCategory(resolvedCategory));
-          showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
+          await ImageService.saveJSONOnly(jsonContent, resolvedCategory, getFileNameForCategory(resolvedCategory), metadata);
+          showToast(`💾 JSON y metadata guardados sin imagen (listo para re-procesar desde galería)`, 'info');
         }
       } else {
-        // Sin imagen → guardar JSON independiente
-        await ImageService.saveJSONOnly(jsonContent, resolvedCategory, getFileNameForCategory(resolvedCategory));
-        showToast(`💾 JSON guardado sin imagen (listo para re-procesar desde galería)`, 'info');
+        // Sin imagen → guardar JSON independiente + metadata
+        await ImageService.saveJSONOnly(jsonContent, resolvedCategory, getFileNameForCategory(resolvedCategory), metadata);
+        showToast(`💾 JSON y metadata guardados sin imagen (listo para re-procesar desde galería)`, 'info');
       }
       loadCategoryCounts();
       loadGallery();
@@ -2019,7 +2106,11 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   // Importar JSON resultante
-  const handleImportJSON = async (options?: { jsonOverride?: string; skipAutoSave?: boolean }): Promise<ImportResultDetails> => {
+  const handleImportJSON = async (options?: { 
+    jsonOverride?: string; 
+    skipAutoSave?: boolean; 
+    personajeIdOverride?: string; // 🆕 ID directo del personaje para usar (sin depender del estado)
+  }): Promise<ImportResultDetails> => {
     const jsonPayload = (options?.jsonOverride ?? jsonText ?? '').trim();
     const skipAutoSave = options?.skipAutoSave ?? false;
     const effectiveCategory = selectedCategory;
@@ -2041,13 +2132,17 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           : effectiveCategory === 'runas'
             ? 'heroe'
           : promptType;
-    const effectivePersonajeId = selectedPersonajeId || selectedPersonaje?.id || personajes[0]?.id || null;
+    
+    // 🆕 USAR personajeIdOverride si está disponible (tiene prioridad sobre el estado)
+    const effectivePersonajeId = options?.personajeIdOverride || selectedPersonajeId || selectedPersonaje?.id || personajes[0]?.id || null;
     const effectiveClase = selectedClase || selectedPersonaje?.clase || availableClasses[0] || '';
     console.log('🎯 [handleImportJSON] Contexto efectivo:', {
       personajeId: effectivePersonajeId,
+      personajeIdOverride: options?.personajeIdOverride,
       clase: effectiveClase,
       selectedPersonajeId,
-      selectedClase
+      selectedClase,
+      usandoOverride: !!options?.personajeIdOverride
     });
     
     // Validación inicial
@@ -2557,7 +2652,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         };
         
         setJsonText('');
-        if (shouldReload) {
+        // Refrescar siempre después de importación exitosa
+        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
           await refreshPersonajes();
         }
         setImporting(false);
@@ -2657,7 +2753,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               (data.glifos as any[]).forEach((glyph: any) => {
                 const idx = heroGlyphs.glifos.findIndex((g: any) => g.nombre === glyph.nombre);
                 const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${glyph.nombre.toLowerCase().replace(/\s+/g, '_')}`);
-                const glyphWithId = { ...glyph, id: glyphId };
+                
+                // ⚠️ CRÍTICO: Eliminar nivel_actual antes de guardar en héroe
+                // En héroe solo se guardan detalles del glifo, NO niveles de personajes
+                const { nivel_actual, nivel_maximo, ...glyphDetails } = glyph;
+                const glyphWithId = { ...glyphDetails, id: glyphId };
+                
                 if (idx >= 0) {
                   if (areEquivalentContent(heroGlyphs.glifos[idx], glyphWithId)) {
                     itemsRepeated++;
@@ -2779,22 +2880,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             break;
           
           case 'estadisticas':
-            const currentHeroStats = await WorkspaceService.loadHeroStats(clase);
-            const incomingHeroStats = data?.estadisticas && typeof data.estadisticas === 'object' ? data.estadisticas : data;
-            const normalizedIncomingHeroStats = normalizeStatsFieldNames(incomingHeroStats || {});
-            const heroStatsEntries = collectStatsEntries(normalizedIncomingHeroStats);
-            if (areEquivalentContent(currentHeroStats || {}, normalizedIncomingHeroStats || {})) {
-              itemsRepeated += heroStatsEntries.length || 1;
-              repeatedItems.push(...heroStatsEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
-            } else {
-              itemsUpdated += heroStatsEntries.length || 1;
-              updatedItemsList.push(...heroStatsEntries.map(entry => `${getStatsSectionLabel(entry.section)}: ${entry.name}`));
-            }
-            fieldsAdded.push(...heroStatsEntries.map(entry => `${entry.section}.${entry.name}`));
-            
-            await WorkspaceService.saveHeroStats(clase, normalizedIncomingHeroStats);
-            showToast(`✅ Estadísticas guardadas en ${clase}`, 'success');
-            shouldReload = true;
+            // ⚠️ Estadísticas NO se guardan en modo héroe, solo en personajes
+            showToast('ℹ️ Las estadísticas se importan en modo Personaje.', 'info');
             break;
           
           case 'paragon':
@@ -3034,7 +3121,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         
         setJsonText('');
-        if (shouldReload) {
+        // Refrescar siempre después de importación exitosa
+        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
           await refreshPersonajes();
         }
         setImporting(false);
@@ -3059,7 +3147,33 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           return errorResult;
         }
 
-        const personaje = personajes.find(p => p.id === effectivePersonajeId);
+        // 🔄 BUSCAR PERSONAJE: Primero en array, si no existe, cargar del disco
+        let personaje: Personaje | undefined = personajes.find(p => p.id === effectivePersonajeId);
+        
+        if (!personaje) {
+          console.log(`⚠️ [handleImportJSON] Personaje ${effectivePersonajeId} no encontrado en array (${personajes.length} personajes)`, personajes.map(p => ({ id: p.id, nombre: p.nombre })));
+          console.log(`⚠️ [handleImportJSON] Cargando personaje ${effectivePersonajeId} del disco...`);
+          try {
+            const personajeFromDisk = await WorkspaceService.loadPersonaje(effectivePersonajeId);
+            if (personajeFromDisk) {
+              personaje = personajeFromDisk;
+              console.log(`✅ [handleImportJSON] Personaje ${effectivePersonajeId} cargado del disco correctamente`);
+              // Agregar al array en memoria para futuras operaciones
+              const existsInArray = personajes.find(p => p.id === personajeFromDisk.id);
+              if (!existsInArray) {
+                console.log(`➕ [handleImportJSON] Agregando personaje ${personajeFromDisk.id} al array de contexto`);
+                setPersonajes([...personajes, personajeFromDisk]);
+              }
+            } else {
+              console.error(`❌ [handleImportJSON] Personaje ${effectivePersonajeId} no encontrado en disco`);
+            }
+          } catch (loadError) {
+            console.error(`❌ [handleImportJSON] Error cargando personaje ${effectivePersonajeId} del disco:`, loadError);
+          }
+        } else {
+          console.log(`✅ [handleImportJSON] Personaje ${effectivePersonajeId} encontrado en array`);
+        }
+        
         if (!personaje) {
           const errorResult: ImportResultDetails = {
             success: false,
@@ -3069,9 +3183,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
             validationErrors: validation.warnings,
             rawJSON: options?.jsonOverride ?? jsonText,
             parsedJSON: parsedData,
-            errorMessage: 'Personaje no encontrado'
+            errorMessage: `Personaje ${effectivePersonajeId} no encontrado ni en array ni en disco`
           };
-          showToast('❌ Personaje no encontrado', 'error');
+          showToast(`❌ Personaje ${effectivePersonajeId} no encontrado`, 'error');
           setImporting(false);
           return errorResult;
         }
@@ -3092,18 +3206,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   const existingMod = idx >= 0 ? heroSkills.habilidades_activas[idx].modificadores?.find((m: any) => m.nombre === mod.nombre) : undefined;
                   return { ...mod, id: mod.id || existingMod?.id || `mod_${skillId}_${mod.nombre}`.replace(/\s+/g, '_').toLowerCase() + `_${Date.now()}` };
                 });
-                const skillWithId = { ...skill, id: skillId, modificadores: mods };
+                
+                // 🔧 USAR smartMerge para preservar datos existentes
+                const skillBase = idx >= 0 ? heroSkills.habilidades_activas[idx] : { id: skillId };
+                const skillWithId = WorkspaceService.smartMerge(skillBase, { ...skill, id: skillId, modificadores: mods }) as any;
+                
                 if (idx >= 0) {
                   if (areEquivalentContent(heroSkills.habilidades_activas[idx], skillWithId)) {
                     itemsRepeated++;
                     repeatedItems.push(`Activa: ${skill.nombre}`);
                   } else {
-                    heroSkills.habilidades_activas[idx] = skillWithId;
+                    (heroSkills.habilidades_activas as any)[idx] = skillWithId;
                     itemsUpdated++;
                     updatedItemsList.push(`Activa: ${skill.nombre}`);
                   }
                 } else {
-                  heroSkills.habilidades_activas.push(skillWithId);
+                  (heroSkills.habilidades_activas as any).push(skillWithId);
                   itemsImported++;
                   addedItems.push(`Activa: ${skill.nombre}`);
                 }
@@ -3113,18 +3231,22 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               newPasivas.forEach((skill: any) => {
                 const idx = heroSkills.habilidades_pasivas.findIndex((s: any) => s.nombre === skill.nombre);
                 const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-                const skillWithId = { ...skill, id: skillId };
+                
+                // 🔧 USAR smartMerge para preservar datos existentes
+                const skillBase = idx >= 0 ? heroSkills.habilidades_pasivas[idx] : { id: skillId };
+                const skillWithId = WorkspaceService.smartMerge(skillBase, { ...skill, id: skillId }) as any;
+                
                 if (idx >= 0) {
                   if (areEquivalentContent(heroSkills.habilidades_pasivas[idx], skillWithId)) {
                     itemsRepeated++;
                     repeatedItems.push(`Pasiva: ${skill.nombre}`);
                   } else {
-                    heroSkills.habilidades_pasivas[idx] = skillWithId;
+                    (heroSkills.habilidades_pasivas as any)[idx] = skillWithId;
                     itemsUpdated++;
                     updatedItemsList.push(`Pasiva: ${skill.nombre}`);
                   }
                 } else {
-                  heroSkills.habilidades_pasivas.push(skillWithId);
+                  (heroSkills.habilidades_pasivas as any).push(skillWithId);
                   itemsImported++;
                   addedItems.push(`Pasiva: ${skill.nombre}`);
                 }
@@ -3205,24 +3327,32 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
           }
           case 'glifos': {
             if (data.glifos) {
-              // 1. Guardar en héroe
+              // 1. Guardar en héroe (SIN nivel_actual)
               const heroGlyphs = await WorkspaceService.loadHeroGlyphs(personaje.clase) || { glifos: [] };
 
               (data.glifos as any[]).forEach((glyph: any) => {
                 const idx = heroGlyphs.glifos.findIndex((g: any) => g.nombre === glyph.nombre);
                 const glyphId = idx >= 0 ? heroGlyphs.glifos[idx].id : (glyph.id || `glifo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-                const glyphWithId = { ...glyph, id: glyphId };
+                
+                // ⚠️ CRÍTICO: Eliminar nivel_actual antes de guardar en héroe
+                // En héroe solo se guardan detalles del glifo, NO niveles de personajes
+                const { nivel_actual, nivel_maximo, ...glyphDetails } = glyph;
+                
+                // 🔧 USAR smartMerge para preservar datos existentes
+                const glyphBase = idx >= 0 ? heroGlyphs.glifos[idx] : { id: glyphId };
+                const glyphWithId = WorkspaceService.smartMerge(glyphBase, { ...glyphDetails, id: glyphId }) as any;
+                
                 if (idx >= 0) {
                   if (areEquivalentContent(heroGlyphs.glifos[idx], glyphWithId)) {
                     itemsRepeated++;
                     repeatedItems.push(glyph.nombre);
                   } else {
-                    heroGlyphs.glifos[idx] = glyphWithId;
+                    (heroGlyphs.glifos as any)[idx] = glyphWithId;
                     itemsUpdated++;
                     updatedItemsList.push(glyph.nombre);
                   }
                 } else {
-                  heroGlyphs.glifos.push(glyphWithId);
+                  (heroGlyphs.glifos as any).push(glyphWithId);
                   itemsImported++;
                   addedItems.push(glyph.nombre);
                 }
@@ -3247,7 +3377,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 glyphRefsById.set(ref.id, {
                   id: ref.id,
                   nivel_actual: ref.nivel_actual,
-                  nivel_maximo: prev?.nivel_maximo ?? 100
+                  nivel_maximo: prev?.nivel_maximo ?? MAX_GLYPH_LEVEL
                 });
               });
 
@@ -3319,19 +3449,34 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 });
                 const resolvedId = idx >= 0 ? heroAspects.aspectos[idx].id : aspectoId;
                 const base: any = idx >= 0 ? heroAspects.aspectos[idx] : null;
-                const aspectoWithId = {
-                  ...(base || {}),
+                
+                // 🔧 USAR smartMerge para preservar datos existentes
+                const aspectoBase = base || {
+                  id: resolvedId,
+                  aspecto_id: resolvedId,
+                  name: `Aspecto ${toTitle(resolvedId.replace(/^aspecto_/, ''))}`,
+                  shortName: toTitle(resolvedId.replace(/^aspecto_/, '')),
+                  effect: '',
+                  category: 'ofensivo',
+                  level: '1/21',
+                  tags: [],
+                  detalles: []
+                };
+                
+                // Mergear con los nuevos datos del JSON
+                const aspectoWithId = WorkspaceService.smartMerge(aspectoBase, {
                   ...aspectoConTags,
                   id: resolvedId,
                   aspecto_id: resolvedId,
-                  name: aspectoConTags.name || aspectoConTags.nombre || base?.name || `Aspecto ${toTitle(resolvedId.replace(/^aspecto_/, ''))}`,
-                  shortName: aspectoConTags.shortName || base?.shortName || toTitle(resolvedId.replace(/^aspecto_/, '')),
-                  effect: aspectoConTags.effect || base?.effect || '',
-                  category: aspectoConTags.category || base?.category || 'ofensivo',
-                  level: aspectoConTags.nivel_actual || aspectoConTags.level || base?.level || '1/21',
-                  tags: Array.isArray(aspectoConTags.tags) ? aspectoConTags.tags : (base?.tags || []),
-                  detalles: Array.isArray(aspectoConTags.detalles) ? aspectoConTags.detalles : (base?.detalles || [])
-                };
+                  name: aspectoConTags.name || aspectoConTags.nombre || undefined,
+                  shortName: aspectoConTags.shortName || undefined,
+                  effect: aspectoConTags.effect || undefined,
+                  category: aspectoConTags.category || undefined,
+                  level: aspectoConTags.nivel_actual || aspectoConTags.level || undefined,
+                  tags: Array.isArray(aspectoConTags.tags) && aspectoConTags.tags.length > 0 ? aspectoConTags.tags : undefined,
+                  detalles: Array.isArray(aspectoConTags.detalles) && aspectoConTags.detalles.length > 0 ? aspectoConTags.detalles : undefined
+                });
+                
                 if (idx >= 0) {
                   if (areEquivalentContent(heroAspects.aspectos[idx], aspectoWithId)) {
                     itemsRepeated++;
@@ -3767,7 +3912,10 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 tablerosEquipados.forEach((board: any) => {
                   const idx = heroBoards.tableros.findIndex((b: any) => b.nombre === board.nombre);
                   const boardId = idx >= 0 ? heroBoards.tableros[idx].id : (board.id || `tablero_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-                  const boardWithId = { ...board, id: boardId };
+                  
+                  // 🔧 USAR smartMerge para preservar datos existentes
+                  const boardBase = idx >= 0 ? heroBoards.tableros[idx] : { id: boardId };
+                  const boardWithId = WorkspaceService.smartMerge(boardBase, { ...board, id: boardId }) as any;
                   
                   if (idx >= 0) {
                     if (areEquivalentContent(heroBoards.tableros[idx], boardWithId)) {
@@ -4044,7 +4192,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         
         setJsonText('');
-        if (shouldReload) {
+        // Refrescar siempre después de importación exitosa
+        if (itemsImported > 0 || itemsUpdated > 0 || fieldsAdded.length > 0) {
           await refreshPersonajes();
         }
         setImporting(false);
@@ -4090,8 +4239,27 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       // Guardar imagen
       const nombre = await ImageService.saveImage(image, resolvedCategory, imageName.replace(/\.png$/, ''));
       
-      // Guardar JSON asociado
-      await ImageService.saveImageJSON(json, resolvedCategory, nombre);
+      // ✅ CONSTRUIR METADATA con todos los inputs actuales
+      const personajeSeleccionado = promptType === 'personaje' ? personajes.find(p => p.id === selectedPersonajeId) : undefined;
+      const metadata: import('../../services/ImageService').JSONMetadata = {
+        categoria: resolvedCategory,
+        timestamp: new Date().toISOString(),
+        destino: promptType,
+        clase: promptType === 'heroe' ? selectedClase : undefined,
+        personajeId: promptType === 'personaje' ? (selectedPersonajeId || undefined) : undefined,
+        personajeNombre: personajeSeleccionado?.nombre,
+        personajeNivel: personajeSeleccionado?.nivel,
+        personajeClase: personajeSeleccionado?.clase,
+        paragonType: selectedCategory === 'paragon' ? paragonType : undefined,
+        runaGemaType: selectedCategory === 'runas' ? runaGemaType : undefined,
+        mundoType: selectedCategory === 'mundo' ? mundoType : undefined,
+        talismanType: selectedCategory === 'talismanes' ? talismanType : undefined,
+        manualElementCount: manualElementCount,
+        version: '0.8.7'
+      };
+      
+      // Guardar JSON asociado con metadata
+      await ImageService.saveImageJSON(json, resolvedCategory, nombre, metadata);
       
       showToast(`✅ Imagen y JSON guardados para revisión: ${resolvedCategory}/${nombre}`, 'success');
       
@@ -4114,6 +4282,23 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
+  // 🔄 Handlers para modal de restauración de personaje
+  const handleRestoreModalConfirm = (applyToAll: boolean) => {
+    if (pendingRestoreData) {
+      pendingRestoreData.resolve({ useExisting: true, applyToAll });
+      setShowRestoreModal(false);
+      setPendingRestoreData(null);
+    }
+  };
+
+  const handleRestoreModalCancel = () => {
+    if (pendingRestoreData) {
+      pendingRestoreData.resolve({ useExisting: false, applyToAll: false });
+      setShowRestoreModal(false);
+      setPendingRestoreData(null);
+    }
+  };
+
   // Ejecutar un JSON individual desde la galería
   const executeImageJSON = async (imageName: string) => {
     try {
@@ -4125,20 +4310,79 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         selectedPersonajeContext: selectedPersonaje?.id || null
       });
 
-      if (promptType === 'personaje' && !selectedPersonajeId) {
-        if (selectedPersonaje?.id) {
-          console.warn('⚠️ [executeImageJSON] Sin personaje seleccionado, usando selectedPersonaje del contexto:', selectedPersonaje.id);
-          setSelectedPersonajeId(selectedPersonaje.id);
-        } else {
-          console.error('❌ [executeImageJSON] No hay personaje seleccionado para importar en modo personaje');
+      // 🆕 CARGAR METADATA DEL ARCHIVO Y AUTO-CREAR PERSONAJE SI NO EXISTE
+      const entry = galleryImages.find(img => img.nombre === imageName);
+      if (entry?.metadata) {
+        console.log('📋 [executeImageJSON] Metadata encontrada:', entry.metadata);
+        
+        // Si es modo personaje, verificar y crear personaje si no existe
+        if (entry.metadata.destino === 'personaje' && entry.metadata.personajeId) {
+          // 🆕 LEER JSON PRIMERO PARA OBTENER DATOS COMPLETOS DEL PERSONAJE
+          let personajeDataFromJSON: { id: string; nombre: string; clase: string; nivel: number } | undefined;
+          
+          try {
+            const jsonTextForPersonaje = await ImageService.loadJSONText(selectedCategory, imageName);
+            if (jsonTextForPersonaje) {
+              const parsedJSON = JSON.parse(jsonTextForPersonaje);
+              if (parsedJSON.id && parsedJSON.nombre && parsedJSON.clase) {
+                personajeDataFromJSON = {
+                  id: parsedJSON.id,
+                  nombre: parsedJSON.nombre,
+                  clase: parsedJSON.clase,
+                  nivel: parsedJSON.nivel || 1
+                };
+                console.log('📄 [executeImageJSON] Datos del personaje desde JSON:', personajeDataFromJSON);
+              }
+            }
+          } catch (jsonError) {
+            console.warn('⚠️ No se pudo parsear JSON para obtener datos del personaje:', jsonError);
+          }
+
+          try {
+            const { created, personaje } = await ensurePersonajeExists(entry.metadata, personajeDataFromJSON);
+            if (created) {
+              showToast(`🆕 Personaje "${personaje.nombre}" creado automáticamente`, 'info');
+            }
+            // Configurar los inputs correctamente
+            setPromptType('personaje');
+            // ⚠️ USAR EL ID DEL PERSONAJE DEVUELTO (no el del metadata)
+            setSelectedPersonajeId(personaje.id);
+          } catch (error) {
+            console.error('❌ Error verificando/creando personaje:', error);
+            showToast(`❌ Error verificando/creando personaje: ${error instanceof Error ? error.message : String(error)}`, 'error');
+            return;
+          }
+        } else if (entry.metadata.destino === 'heroe' && entry.metadata.clase) {
+          setPromptType('heroe');
+          setSelectedClase(entry.metadata.clase);
         }
-      }
-      if (promptType === 'heroe' && !selectedClase) {
-        if (selectedPersonaje?.clase) {
-          console.warn('⚠️ [executeImageJSON] Sin clase seleccionada, usando clase del personaje actual:', selectedPersonaje.clase);
-          setSelectedClase(selectedPersonaje.clase);
-        } else {
-          console.error('❌ [executeImageJSON] No hay clase seleccionada para importar en modo héroe');
+        
+        // Configurar otros inputs desde metadata
+        if (entry.metadata.paragonType) setParagonType(entry.metadata.paragonType);
+        if (entry.metadata.runaGemaType) setRunaGemaType(entry.metadata.runaGemaType);
+        if (entry.metadata.mundoType) setMundoType(entry.metadata.mundoType);
+        if (entry.metadata.talismanType) setTalismanType(entry.metadata.talismanType);
+        if (entry.metadata.manualElementCount) setManualElementCount(entry.metadata.manualElementCount);
+        
+        // Dar tiempo para que los estados se actualicen
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        // Sin metadata, usar lógica anterior
+        if (promptType === 'personaje' && !selectedPersonajeId) {
+          if (selectedPersonaje?.id) {
+            console.warn('⚠️ [executeImageJSON] Sin personaje seleccionado, usando selectedPersonaje del contexto:', selectedPersonaje.id);
+            setSelectedPersonajeId(selectedPersonaje.id);
+          } else {
+            console.error('❌ [executeImageJSON] No hay personaje seleccionado para importar en modo personaje');
+          }
+        }
+        if (promptType === 'heroe' && !selectedClase) {
+          if (selectedPersonaje?.clase) {
+            console.warn('⚠️ [executeImageJSON] Sin clase seleccionada, usando clase del personaje actual:', selectedPersonaje.clase);
+            setSelectedClase(selectedPersonaje.clase);
+          } else {
+            console.error('❌ [executeImageJSON] No hay clase seleccionada para importar en modo héroe');
+          }
         }
       }
       
@@ -4178,9 +4422,82 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   // Iniciar batch con selección de personaje
-  const startBatchJSON = (scope: 'category' | 'all') => {
-    setPendingBatchScope(scope);
-    setShowBatchPersonajeModal(true);
+  const startBatchJSON = async (scope: 'category' | 'all') => {
+    // ✅ Verificar si todos los JSONs tienen metadata completa
+    const categories: ImageCategory[] = scope === 'category'
+      ? [selectedCategory]
+      : ['skills', 'glifos', 'aspectos', 'estadisticas', 'runas', 'build', 'otros'];
+
+    let allEntries: Array<{ entry: GalleryEntry; cat: ImageCategory }> = [];
+    
+    // ✅ SI ES CARGA POR CATEGORÍA, USAR SOLO ELEMENTOS FILTRADOS VISIBLES
+    if (scope === 'category') {
+      const filteredImages = getFilteredGalleryEntries(galleryImages);
+      console.log('📋 [startBatchJSON] Usando elementos filtrados de la galería:', filteredImages.length, 'de', galleryImages.length);
+      
+      // Convertir GalleryImage[] a formato esperado
+      for (const img of filteredImages) {
+        if (!img.metadata) continue; // Solo procesar elementos con JSON
+        
+        const entry: GalleryEntry = {
+          nombre: img.nombre,
+          categoria: selectedCategory,
+          fecha: img.fecha,
+          blob: null, // No necesitamos el blob aquí
+          hasJSON: true,
+          isJSONOnly: img.isJSONOnly || false,
+          metadata: img.metadata
+        };
+        
+        allEntries.push({ entry, cat: selectedCategory });
+      }
+    } else {
+      // CARGA GLOBAL: Cargar todas las entradas de todas las categorías
+      for (const cat of categories) {
+        const entries = (await ImageService.listGalleryEntries(cat)).filter(entry => entry.hasJSON);
+        allEntries.push(...entries.map(entry => ({ entry, cat })));
+      }
+    }
+
+    if (allEntries.length === 0) {
+      showToast('ℹ️ No hay JSONs guardados para importar', 'info');
+      return;
+    }
+
+    // Verificar cuántos tienen metadata completa
+    const entriesWithMetadata = allEntries.filter(e => {
+      if (!e.entry.metadata) return false;
+      
+      // Verificar que tenga destino
+      if (!e.entry.metadata.destino) return false;
+      
+      // Si es héroe, debe tener clase
+      if (e.entry.metadata.destino === 'heroe' && !e.entry.metadata.clase) return false;
+      
+      // Si es personaje, debe tener personajeId
+      if (e.entry.metadata.destino === 'personaje' && !e.entry.metadata.personajeId) return false;
+      
+      return true;
+    });
+
+    console.log('📋 [startBatchJSON] Análisis de metadata:', {
+      total: allEntries.length,
+      conMetadata: entriesWithMetadata.length,
+      sinMetadata: allEntries.length - entriesWithMetadata.length,
+      scope: scope,
+      filtrosAplicados: scope === 'category'
+    });
+
+    // Si todos tienen metadata, ejecutar directamente sin modal
+    if (entriesWithMetadata.length === allEntries.length) {
+      console.log('✅ Todos los JSONs tienen metadata completa, ejecutando directamente...');
+      await executeBatchJSONWithMetadata(scope, entriesWithMetadata);
+    } else {
+      // Si algunos no tienen metadata, mostrar modal como antes
+      console.log('⚠️ Algunos JSONs no tienen metadata, mostrando modal de selección...');
+      setPendingBatchScope(scope);
+      setShowBatchPersonajeModal(true);
+    }
   };
 
   // Ejecutar múltiples JSONs (batch) con personaje seleccionado
@@ -4203,7 +4520,7 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         : ['skills', 'glifos', 'aspectos', 'estadisticas', 'runas', 'build', 'otros'];
       const originalCategory = selectedCategory;
 
-      const allEntries: Array<{ entry: { nombre: string }; cat: ImageCategory }> = [];
+      const allEntries: Array<{ entry: GalleryEntry; cat: ImageCategory }> = [];
       for (const cat of categories) {
         const entries = (await ImageService.listGalleryEntries(cat)).filter(entry => entry.hasJSON);
         allEntries.push(...entries.map(entry => ({ entry, cat })));
@@ -4244,6 +4561,40 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         setSelectedCategory(cat);
         await new Promise(resolve => setTimeout(resolve, 50));
+
+        // ✅ SI HAY METADATA, USARLA PARA CONFIGURAR INPUTS
+        if (entry.metadata) {
+          console.log('📋 [executeBatchJSON] Metadata encontrada para:', entry.nombre, entry.metadata);
+          
+          // Configurar inputs desde metadata
+          if (entry.metadata.destino) {
+            setPromptType(entry.metadata.destino);
+          }
+          if (entry.metadata.clase && entry.metadata.destino === 'heroe') {
+            setSelectedClase(entry.metadata.clase);
+          }
+          if (entry.metadata.personajeId && entry.metadata.destino === 'personaje') {
+            setSelectedPersonajeId(entry.metadata.personajeId);
+          }
+          if (entry.metadata.paragonType) {
+            setParagonType(entry.metadata.paragonType);
+          }
+          if (entry.metadata.runaGemaType) {
+            setRunaGemaType(entry.metadata.runaGemaType);
+          }
+          if (entry.metadata.mundoType) {
+            setMundoType(entry.metadata.mundoType);
+          }
+          if (entry.metadata.talismanType) {
+            setTalismanType(entry.metadata.talismanType);
+          }
+          if (entry.metadata.manualElementCount) {
+            setManualElementCount(entry.metadata.manualElementCount);
+          }
+          
+          // Dar un pequeño tiempo para que los estados se actualicen
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
 
         // Usar personaje destino seleccionado en el modal
         const effectivePersonajeId = targetPersonajeId;
@@ -4423,6 +4774,695 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       );
     } catch (error) {
       console.error('Error en ejecución batch:', error);
+      showToast('❌ Error al ejecutar batch de JSONs', 'error');
+    } finally {
+      setExecutingBatch(false);
+      setBatchProgress({ current: 0, total: 0, category: '', message: '', processedJsons: 0, processedItems: 0 });
+    }
+  };
+
+  // 🔧 HELPER: Asegurar que el personaje existe, crearlo si no existe
+  const ensurePersonajeExists = async (
+    metadata: JSONMetadata,
+    personajeData?: { id: string; nombre: string; clase: string; nivel: number }
+  ): Promise<{ created: boolean; personaje: Personaje }> => {
+    // Solo aplicable a modo personaje
+    if (metadata.destino !== 'personaje' || !metadata.personajeId) {
+      throw new Error('Metadata no es válida para personaje');
+    }
+
+    // Determinar el ID correcto: priorizar el del JSON si está disponible
+    const personajeId = personajeData?.id || metadata.personajeId;
+    const personajeNombre = personajeData?.nombre || metadata.personajeNombre || `Personaje ${personajeId}`;
+    const personajeClase = personajeData?.clase || metadata.personajeClase || 'Bárbaro';
+    const personajeNivel = personajeData?.nivel || metadata.personajeNivel || 1;
+
+    // Verificar si el personaje existe con el mismo ID del metadata
+    const existingPersonaje = await WorkspaceService.loadPersonaje(personajeId);
+    
+    if (existingPersonaje) {
+      console.log('✅ [ensurePersonajeExists] Personaje encontrado con ID del metadata:', personajeId);
+      return { created: false, personaje: existingPersonaje };
+    }
+
+    // 🔍 BUSCAR PERSONAJE EXISTENTE CON MISMO NOMBRE (DIFERENTE ID)
+    const personajeConMismoNombre = personajes.find(
+      p => p.nombre === personajeNombre && p.id !== personajeId
+    );
+
+    if (personajeConMismoNombre) {
+      console.log('🔄 [ensurePersonajeExists] Personaje con mismo nombre encontrado:', {
+        existente: { id: personajeConMismoNombre.id, nombre: personajeConMismoNombre.nombre, clase: personajeConMismoNombre.clase, nivel: personajeConMismoNombre.nivel },
+        metadata: { id: personajeId, nombre: personajeNombre, clase: personajeClase, nivel: personajeNivel }
+      });
+
+      // 📝 Verificar si ya hay una decisión "aplicar a todos" activa
+      if (applyToAllDecision) {
+        const previousDecision = personajeDecisions.get(personajeNombre);
+        
+        if (previousDecision === 'use-existing') {
+          console.log('✅ [ensurePersonajeExists] Aplicando decisión "usar existente" (aplicar a todos)');
+          console.log(`🔄 [PASO 1/5] Cambiando ID automáticamente: ${personajeConMismoNombre.id} → ${personajeId}`);
+          
+          // 🔄 CAMBIAR EL ID DEL PERSONAJE EXISTENTE AL ID DEL METADATA
+          const personajeCompleto = await WorkspaceService.loadPersonaje(personajeConMismoNombre.id);
+          if (!personajeCompleto) {
+            throw new Error(`No se pudo cargar personaje ${personajeConMismoNombre.id}`);
+          }
+
+          console.log(`🔄 [PASO 2/5] Personaje cargado del disco`);
+
+          // Crear personaje con nuevo ID del metadata (manteniendo clase y nivel actuales)
+          const personajeConNuevoId: Personaje = {
+            ...personajeCompleto,
+            id: personajeId, // 🆕 Cambiar al ID del metadata
+            fecha_actualizacion: new Date().toISOString()
+          };
+
+          console.log(`🔄 [PASO 3/5] Guardando personaje con nuevo ID: ${personajeId}`);
+          // Guardar con nuevo ID
+          await WorkspaceService.savePersonaje(personajeConNuevoId);
+
+          console.log(`🔄 [PASO 4/5] Eliminando archivo antiguo: ${personajeConMismoNombre.id}`);
+          // Eliminar archivo con ID antiguo
+          await WorkspaceService.deletePersonaje(personajeConMismoNombre.id);
+
+          console.log(`🔄 [PASO 5/5] Actualizando contexto de React`);
+          // Actualizar contexto (reemplazar en array)
+          const updatedPersonajes = personajes.map(p =>
+            p.id === personajeConMismoNombre.id ? personajeConNuevoId : p
+          );
+          setPersonajes(updatedPersonajes);
+
+          // ⏱️ ESPERAR A QUE EL CAMBIO SE COMPLETE
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // ✅ VERIFICAR QUE EL ARCHIVO EXISTE ANTES DE CONTINUAR
+          console.log(`✅ [VERIFICACIÓN] Verificando que el personaje con nuevo ID existe en disco...`);
+          const verificacion = await WorkspaceService.loadPersonaje(personajeId);
+          if (!verificacion) {
+            throw new Error(`Error: El personaje con ID ${personajeId} no se encuentra en disco después del cambio`);
+          }
+          console.log(`✅ [VERIFICACIÓN] Personaje con ID ${personajeId} confirmado en disco`);
+
+          console.log(`✅ ID cambiado automáticamente: ${personajeConMismoNombre.id} → ${personajeId}`);
+          showToast(`🔄 Personaje "${personajeConNuevoId.nombre}" actualizado con nuevo ID`, 'info');
+          
+          return { created: false, personaje: personajeConNuevoId };
+        } else if (previousDecision === 'create-new') {
+          console.log('🆕 Creando nuevo personaje (decisión "aplicar a todos")');
+          // Continuar con creación de nuevo personaje abajo
+        }
+      }
+
+      // No hay decisión previa o no es "aplicar a todos", preguntar al usuario
+      if (!applyToAllDecision) {
+        console.log('❓ [ensurePersonajeExists] Sin decisión previa, mostrando modal...');
+        
+        const result = await new Promise<{ useExisting: boolean; applyToAll: boolean }>((resolve) => {
+          setPendingRestoreData({
+            existingPersonaje: {
+              nombre: personajeConMismoNombre.nombre,
+              clase: personajeConMismoNombre.clase,
+              nivel: personajeConMismoNombre.nivel,
+              id: personajeConMismoNombre.id
+            },
+            incomingData: {
+              clase: personajeClase,
+              nivel: personajeNivel,
+              id: personajeId
+            },
+            resolve
+          });
+          setShowRestoreModal(true);
+        });
+
+        // Guardar decisión si el usuario eligió "aplicar a todos"
+        if (result.applyToAll) {
+          console.log('📌 Usuario activó "aplicar a todos"');
+          setApplyToAllDecision(true);
+          
+          const decision = result.useExisting ? 'use-existing' : 'create-new';
+          setPersonajeDecisions(prev => {
+            const newMap = new Map(prev);
+            newMap.set(personajeNombre, decision);
+            return newMap;
+          });
+        }
+
+        if (result.useExisting) {
+          console.log('✅ Usuario confirmó usar personaje existente');
+          console.log(`🔄 [PASO 1/5] Cambiando ID: ${personajeConMismoNombre.id} → ${personajeId}`);
+          
+          // 🔄 CAMBIAR EL ID DEL PERSONAJE EXISTENTE AL ID DEL METADATA
+          const personajeCompleto = await WorkspaceService.loadPersonaje(personajeConMismoNombre.id);
+          if (!personajeCompleto) {
+            throw new Error(`No se pudo cargar personaje ${personajeConMismoNombre.id}`);
+          }
+
+          console.log(`🔄 [PASO 2/5] Personaje cargado del disco`);
+
+          // Crear personaje con nuevo ID del metadata (manteniendo clase y nivel actuales)
+          const personajeConNuevoId: Personaje = {
+            ...personajeCompleto,
+            id: personajeId, // 🆕 Cambiar al ID del metadata
+            fecha_actualizacion: new Date().toISOString()
+          };
+
+          console.log(`🔄 [PASO 3/5] Guardando personaje con nuevo ID: ${personajeId}`);
+          // Guardar con nuevo ID
+          await WorkspaceService.savePersonaje(personajeConNuevoId);
+
+          console.log(`🔄 [PASO 4/5] Eliminando archivo antiguo: ${personajeConMismoNombre.id}`);
+          // Eliminar archivo con ID antiguo
+          await WorkspaceService.deletePersonaje(personajeConMismoNombre.id);
+
+          console.log(`🔄 [PASO 5/5] Actualizando contexto de React`);
+          // Actualizar contexto (reemplazar en array)
+          const updatedPersonajes = personajes.map(p =>
+            p.id === personajeConMismoNombre.id ? personajeConNuevoId : p
+          );
+          setPersonajes(updatedPersonajes);
+
+          // ⏱️ ESPERAR A QUE EL CAMBIO SE COMPLETE
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          // ✅ VERIFICAR QUE EL ARCHIVO EXISTE ANTES DE CONTINUAR
+          console.log(`✅ [VERIFICACIÓN] Verificando que el personaje con nuevo ID existe en disco...`);
+          const verificacion = await WorkspaceService.loadPersonaje(personajeId);
+          if (!verificacion) {
+            throw new Error(`Error: El personaje con ID ${personajeId} no se encuentra en disco después del cambio`);
+          }
+          console.log(`✅ [VERIFICACIÓN] Personaje con ID ${personajeId} confirmado en disco`);
+
+          console.log(`✅ ID cambiado exitosamente: ${personajeConMismoNombre.id} → ${personajeId}`);
+          showToast(`🔄 Personaje "${personajeConNuevoId.nombre}" actualizado con nuevo ID`, 'info');
+          
+          return { created: false, personaje: personajeConNuevoId };
+        } else {
+          console.log('ℹ️ Usuario eligió crear nuevo personaje');
+          // Continuar con creación de nuevo personaje abajo
+        }
+      }
+    }
+
+    // El personaje no existe, crearlo con datos del JSON o del metadata
+    const personajeInfo = {
+      id: personajeId,
+      nombre: personajeNombre,
+      clase: personajeClase,
+      nivel: personajeNivel
+    };
+
+    console.log('🆕 [ensurePersonajeExists] Creando personaje automáticamente:', personajeInfo);
+
+    const newPersonaje: Personaje = {
+      id: personajeInfo.id,
+      nombre: personajeInfo.nombre,
+      clase: personajeInfo.clase,
+      nivel: personajeInfo.nivel,
+      fecha_creacion: new Date().toISOString(),
+      fecha_actualizacion: new Date().toISOString()
+    };
+
+    await WorkspaceService.savePersonaje(newPersonaje);
+    
+    // Agregar al contexto
+    const updatedPersonajes = [...personajes, newPersonaje];
+    setPersonajes(updatedPersonajes);
+    
+    showToast(`🆕 Personaje "${newPersonaje.nombre}" creado automáticamente`, 'info');
+    
+    return { created: true, personaje: newPersonaje };
+  };
+
+  // 🔧 HELPER: Filtrar galería según filtros actuales
+  const getFilteredGalleryEntries = (images: GalleryImage[]): GalleryImage[] => {
+    return images.filter(img => {
+      // Si no hay metadata, incluir solo si todos los filtros están en "all"
+      if (!img.metadata) {
+        return galleryFilterDestino === 'all' && 
+               galleryFilterClase === 'all' && 
+               galleryFilterPersonaje === 'all' && 
+               galleryFilterType === 'all';
+      }
+
+      // Filtro por destino
+      if (galleryFilterDestino !== 'all' && img.metadata.destino !== galleryFilterDestino) {
+        return false;
+      }
+
+      // Filtro por clase (solo para héroes)
+      if (galleryFilterClase !== 'all') {
+        if (img.metadata.destino !== 'heroe' || img.metadata.clase !== galleryFilterClase) {
+          return false;
+        }
+      }
+
+      // Filtro por personaje (solo para personajes)
+      if (galleryFilterPersonaje !== 'all') {
+        if (img.metadata.destino !== 'personaje' || img.metadata.personajeId !== galleryFilterPersonaje) {
+          return false;
+        }
+      }
+
+      // Filtro por tipo específico según categoría
+      if (galleryFilterType !== 'all') {
+        if (selectedCategory === 'paragon' && img.metadata.paragonType !== galleryFilterType) {
+          return false;
+        }
+        if (selectedCategory === 'runas' && img.metadata.runaGemaType !== galleryFilterType) {
+          return false;
+        }
+        if (selectedCategory === 'mundo' && img.metadata.mundoType !== galleryFilterType) {
+          return false;
+        }
+        if (selectedCategory === 'talismanes' && img.metadata.talismanType !== galleryFilterType) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  // 🔧 HELPER: Obtener opciones de filtro desde metadata de galería
+  const getGalleryFilterOptions = (images: GalleryImage[]) => {
+    const clases = new Set<string>();
+    const personajesMap = new Map<string, { id: string; nombre: string; clase: string }>();
+
+    images.forEach(img => {
+      if (img.metadata) {
+        // Recopilar clases de héroes
+        if (img.metadata.destino === 'heroe' && img.metadata.clase) {
+          clases.add(img.metadata.clase);
+        }
+        // Recopilar personajes
+        if (img.metadata.destino === 'personaje' && img.metadata.personajeId && img.metadata.personajeNombre) {
+          // Intentar obtener la clase del personaje guardado, si no existe usar el metadata
+          const personajeGuardado = personajes.find(p => p.id === img.metadata!.personajeId);
+          personajesMap.set(img.metadata.personajeId, {
+            id: img.metadata.personajeId,
+            nombre: img.metadata.personajeNombre,
+            clase: personajeGuardado?.clase || 'Desconocida'
+          });
+        }
+      }
+    });
+
+    return {
+      clases: Array.from(clases).sort(),
+      personajes: Array.from(personajesMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+    };
+  };
+
+  // ✅ NUEVA FUNCIÓN: Ejecutar batch usando metadata de cada JSON (sin modal de selección)
+  const executeBatchJSONWithMetadata = async (scope: 'category' | 'all', filteredEntries?: Array<{ entry: GalleryEntry; cat: ImageCategory }>) => {
+    try {
+      setExecutingBatch(true);
+      console.log('🚀 [executeBatchJSONWithMetadata] Inicio con metadata automática:', { scope });
+      
+      // 🧹 Limpiar decisiones previas al iniciar nuevo batch
+      setPersonajeDecisions(new Map());
+      setApplyToAllDecision(false);
+      console.log('🧹 Decisiones de personajes y "aplicar a todos" limpiadas para nuevo batch');
+      
+      const executionResults: Array<{ cat: ImageCategory; entryName: string; result: ImportResultDetails }> = [];
+      const categories: ImageCategory[] = scope === 'category'
+        ? [selectedCategory]
+        : ['skills', 'glifos', 'aspectos', 'estadisticas', 'runas', 'build', 'otros'];
+      const originalCategory = selectedCategory;
+
+      // ✅ USAR ENTRADAS FILTRADAS SI SE PASAN, SINO CARGAR TODAS
+      let allEntries: Array<{ entry: GalleryEntry; cat: ImageCategory }> = [];
+      
+      if (filteredEntries) {
+        allEntries = filteredEntries;
+        console.log('📋 [executeBatchJSONWithMetadata] Usando elementos filtrados:', allEntries.length);
+      } else {
+        for (const cat of categories) {
+          const entries = (await ImageService.listGalleryEntries(cat)).filter(entry => entry.hasJSON);
+          allEntries.push(...entries.map(entry => ({ entry, cat })));
+        }
+        console.log('📋 [executeBatchJSONWithMetadata] Cargando todos los elementos:', allEntries.length);
+      }
+
+      // 🔄 ORDENAR POR FECHA: MÁS ANTIGUO PRIMERO
+      // Esto asegura que los datos se acumulen en el orden correcto
+      allEntries.sort((a, b) => {
+        const dateA = new Date(a.entry.fecha).getTime();
+        const dateB = new Date(b.entry.fecha).getTime();
+        return dateA - dateB; // Ascendente: más antiguo primero
+      });
+      console.log('🔄 [executeBatchJSONWithMetadata] Entradas ordenadas por fecha (más antiguo primero)');
+
+      if (allEntries.length === 0) {
+        showToast('ℹ️ No hay JSONs guardados para importar', 'info');
+        setBatchProgress({ current: 0, total: 0, category: '', message: '', processedJsons: 0, processedItems: 0 });
+        return;
+      }
+
+      let totalItems = 0;
+      let totalImported = 0;
+      let totalUpdated = 0;
+      let totalInputItems = 0;
+      let totalSuccess = 0;
+      let totalFail = 0;
+      let totalRepeated = 0;
+      const processedPersonajes = new Set<string>(); // Para recargar personajes al final
+      const createdPersonajes: Array<{ id: string; nombre: string; clase: string }> = []; // Rastrear personajes creados
+
+      setBatchProgress({
+        current: 0,
+        total: allEntries.length,
+        category: scope === 'category' ? selectedCategory : 'todas',
+        message: 'Preparando importación masiva con metadata...',
+        processedJsons: 0,
+        processedItems: 0
+      });
+
+      for (let i = 0; i < allEntries.length; i++) {
+        const { entry, cat } = allEntries[i];
+
+        setBatchProgress(prev => ({
+          ...prev,
+          current: i + 1,
+          category: cat,
+          message: `Procesando ${entry.nombre} (${i + 1}/${allEntries.length})...`
+        }));
+
+        setSelectedCategory(cat);
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // ✅ USAR METADATA PARA CONFIGURAR INPUTS
+        if (!entry.metadata) {
+          console.error('❌ [executeBatchJSONWithMetadata] Sin metadata:', entry.nombre);
+          totalFail++;
+          executionResults.push({
+            cat,
+            entryName: entry.nombre,
+            result: {
+              success: false,
+              category: cat,
+              promptType: 'heroe',
+              targetName: 'Desconocido',
+              validationErrors: [],
+              rawJSON: '',
+              errorMessage: 'Falta metadata para importación automática'
+            }
+          });
+          continue;
+        }
+
+        console.log('📋 [executeBatchJSONWithMetadata] Aplicando metadata:', {
+          archivo: entry.nombre,
+          metadata: entry.metadata
+        });
+
+        // Configurar inputs desde metadata
+        setPromptType(entry.metadata.destino);
+        
+        // 🆕 Variable para guardar el ID del personaje a usar en la importación
+        let personajeIdParaImportar: string | undefined = undefined;
+        
+        if (entry.metadata.clase && entry.metadata.destino === 'heroe') {
+          setSelectedClase(entry.metadata.clase);
+        }
+        
+        if (entry.metadata.personajeId && entry.metadata.destino === 'personaje') {
+          // 🆕 LEER JSON PRIMERO PARA OBTENER DATOS COMPLETOS DEL PERSONAJE
+          let personajeDataFromJSON: { id: string; nombre: string; clase: string; nivel: number } | undefined;
+          
+          try {
+            const jsonTextForPersonaje = await ImageService.loadJSONText(cat, entry.nombre);
+            if (jsonTextForPersonaje) {
+              const parsedJSON = JSON.parse(jsonTextForPersonaje);
+              if (parsedJSON.id && parsedJSON.nombre && parsedJSON.clase) {
+                personajeDataFromJSON = {
+                  id: parsedJSON.id,
+                  nombre: parsedJSON.nombre,
+                  clase: parsedJSON.clase,
+                  nivel: parsedJSON.nivel || 1
+                };
+                console.log('📄 [executeBatchJSONWithMetadata] Datos del personaje desde JSON:', personajeDataFromJSON);
+              }
+            }
+          } catch (jsonError) {
+            console.warn('⚠️ No se pudo parsear JSON para obtener datos del personaje:', jsonError);
+          }
+
+          // 🆕 VERIFICAR Y CREAR PERSONAJE SI NO EXISTE
+          
+          try {
+            const { created, personaje } = await ensurePersonajeExists(entry.metadata, personajeDataFromJSON);
+            if (created) {
+              createdPersonajes.push({
+                id: personaje.id,
+                nombre: personaje.nombre,
+                clase: personaje.clase
+              });
+            }
+            // ✅ GUARDAR EL ID DEL PERSONAJE DEVUELTO (puede ser diferente al del metadata si se cambió)
+            personajeIdParaImportar = personaje.id;
+            setSelectedPersonajeId(personaje.id);
+            processedPersonajes.add(personaje.id);
+            
+            // ⏱️ ESPERA ADICIONAL PARA ASEGURAR SINCRONIZACIÓN
+            console.log(`⏱️ [executeBatchJSONWithMetadata] Esperando sincronización del personaje...`);
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
+          } catch (error) {
+            console.error('❌ Error verificando/creando personaje:', error);
+            totalFail++;
+            executionResults.push({
+              cat,
+              entryName: entry.nombre,
+              result: {
+                success: false,
+                category: cat,
+                promptType: entry.metadata.destino,
+                targetName: entry.metadata.personajeNombre || 'Desconocido',
+                validationErrors: [],
+                rawJSON: '',
+                errorMessage: `Error verificando/creando personaje: ${error instanceof Error ? error.message : String(error)}`
+              }
+            });
+            continue;
+          }
+        }
+        
+        if (entry.metadata.paragonType) {
+          setParagonType(entry.metadata.paragonType);
+        }
+        
+        if (entry.metadata.runaGemaType) {
+          setRunaGemaType(entry.metadata.runaGemaType);
+        }
+        
+        if (entry.metadata.mundoType) {
+          setMundoType(entry.metadata.mundoType);
+        }
+        
+        if (entry.metadata.talismanType) {
+          setTalismanType(entry.metadata.talismanType);
+        }
+        
+        if (entry.metadata.manualElementCount) {
+          setManualElementCount(entry.metadata.manualElementCount);
+        }
+
+        // ⏱️ Dar tiempo para que los estados se actualicen (solo si no es personaje, ya esperamos arriba)
+        if (entry.metadata.destino !== 'personaje') {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Determinar nombre del destino para logging
+        let targetName = 'Desconocido';
+        if (entry.metadata.destino === 'heroe' && entry.metadata.clase) {
+          targetName = entry.metadata.clase;
+        } else if (entry.metadata.destino === 'personaje') {
+          targetName = entry.metadata.personajeNombre || 'Desconocido';
+        }
+
+        console.log('✅ [executeBatchJSONWithMetadata] Importando para:', {
+          destino: entry.metadata.destino,
+          nombre: targetName,
+          categoria: cat,
+          personajeId: personajeIdParaImportar
+        });
+
+        // Leer y ejecutar JSON
+        const jsonTextFromFile = await ImageService.loadJSONText(cat, entry.nombre);
+        if (!jsonTextFromFile) {
+          console.error('❌ [executeBatchJSONWithMetadata] JSON no legible:', { categoria: cat, archivo: entry.nombre });
+          totalFail++;
+          executionResults.push({
+            cat,
+            entryName: entry.nombre,
+            result: {
+              success: false,
+              category: cat,
+              promptType: entry.metadata.destino,
+              targetName,
+              validationErrors: [],
+              rawJSON: '',
+              errorMessage: 'No se pudo leer el archivo JSON desde galería'
+            }
+          });
+          continue;
+        }
+
+        setJsonText(jsonTextFromFile);
+        
+        // 🆕 PASAR EL ID CORRECTO DEL PERSONAJE A handleImportJSON
+        const result = await handleImportJSON({ 
+          jsonOverride: jsonTextFromFile, 
+          skipAutoSave: true,
+          personajeIdOverride: personajeIdParaImportar // ✅ Usar el ID devuelto por ensurePersonajeExists
+        });
+        executionResults.push({ cat, entryName: entry.nombre, result });
+
+        const imported = result.itemsImported || 0;
+        const updated = result.itemsUpdated || 0;
+        const repeated = result.itemsSkipped || 0;
+        const inputItems = result.totalInputItems || 0;
+        totalItems += imported + updated;
+        totalImported += imported;
+        totalUpdated += updated;
+        totalInputItems += inputItems;
+        totalRepeated += repeated;
+
+        if (result.success) {
+          totalSuccess++;
+        } else {
+          totalFail++;
+        }
+
+        setBatchProgress(prev => ({
+          ...prev,
+          processedJsons: i + 1,
+          processedItems: totalItems,
+          message: result.success
+            ? `Importado ${entry.nombre}: ${imported + updated} elementos`
+            : `Error en ${entry.nombre}: ${result.errorMessage || 'falló validación'}`
+        }));
+      }
+
+      setSelectedCategory(originalCategory);
+
+      // Resumen por categoría
+      const summaryByCategory = categories.map(cat => {
+        const rows = executionResults.filter(r => r.cat === cat);
+        const ok = rows.filter(r => r.result.success).length;
+        const fail = rows.length - ok;
+        const imported = rows.reduce((acc, r) => acc + (r.result.itemsImported || 0), 0);
+        const updated = rows.reduce((acc, r) => acc + (r.result.itemsUpdated || 0), 0);
+        const repeated = rows.reduce((acc, r) => acc + (r.result.itemsSkipped || 0), 0);
+        return `${getImportCategoryLabel(cat)}: ${ok}/${rows.length} JSONs, nuevos ${imported}, actualizados ${updated}, repetidos ${repeated}${fail > 0 ? `, ${fail} errores` : ''}`;
+      });
+
+      const validationErrors = executionResults
+        .filter(r => !r.result.success || (r.result.validationErrors && r.result.validationErrors.some(e => e.severity === 'error')))
+        .flatMap(r => {
+          const base = (r.result.validationErrors || []).map(e => ({
+            field: `${r.cat}/${r.entryName} - ${e.field}`,
+            expected: e.expected,
+            received: e.received,
+            severity: e.severity
+          }));
+          if (r.result.errorMessage) {
+            base.push({
+              field: `${r.cat}/${r.entryName}`,
+              expected: 'Importación correcta',
+              received: r.result.errorMessage,
+              severity: 'error' as const
+            });
+          }
+          return base;
+        });
+
+      const batchSummary: ImportResultDetails = {
+        success: totalFail === 0,
+        category: scope === 'all' ? 'todas' : selectedCategory,
+        promptType: 'personaje', // Puede variar por JSON
+        targetName: scope === 'all' ? 'Múltiples destinos (automático)' : `Categoría ${getImportCategoryLabel(selectedCategory)}`,
+        jsonInputsProcessed: allEntries.length,
+        totalInputItems,
+        itemsImported: totalImported,
+        itemsUpdated: totalUpdated,
+        itemsSkipped: totalRepeated,
+        fieldsAdded: [
+          `JSONs procesados: ${allEntries.length}`,
+          `Exitosos: ${totalSuccess}`,
+          `Con error: ${totalFail}`,
+          ...(createdPersonajes.length > 0 ? [
+            `🆕 Personajes creados automáticamente: ${createdPersonajes.length}`,
+            ...createdPersonajes.map(p => `   • ${p.nombre} (${p.clase}) - ID: ${p.id}`)
+          ] : []),
+          ...summaryByCategory
+        ],
+        processedJsons: executionResults.map(r => ({
+          categoria: r.cat,
+          archivo: r.entryName,
+          totalInputItems: r.result.totalInputItems || 0,
+          imported: r.result.itemsImported || 0,
+          updated: r.result.itemsUpdated || 0,
+          repeated: r.result.itemsSkipped || 0,
+          success: r.result.success,
+          error: r.result.errorMessage
+        })),
+        itemDetails: executionResults.flatMap(r =>
+          (r.result.itemDetails || []).map(detail => ({
+            ...detail,
+            category: `${detail.category} / ${r.entryName}`
+          }))
+        ),
+        validationErrors,
+        rawJSON: JSON.stringify(
+          executionResults.map(r => ({
+            categoria: r.cat,
+            archivo: r.entryName,
+            success: r.result.success,
+            imported: r.result.itemsImported || 0,
+            updated: r.result.itemsUpdated || 0,
+            error: r.result.errorMessage || null
+          })),
+          null,
+          2
+        ),
+        errorMessage: totalFail > 0 ? `Se detectaron ${totalFail} errores durante la importación masiva` : undefined
+      };
+
+      // 🔄 RECARGAR PERSONAJES ACTUALIZADOS DEL DISCO
+      console.log('🔄 Recargando personajes actualizados del disco:', Array.from(processedPersonajes));
+      for (const personajeId of processedPersonajes) {
+        try {
+          const updatedPersonaje = await WorkspaceService.loadPersonaje(personajeId);
+          if (updatedPersonaje) {
+            console.log('✅ Personaje recargado:', updatedPersonaje.nombre);
+            syncUpdatedPersonajeInContext(updatedPersonaje);
+            
+            // Si es el personaje seleccionado actualmente, actualizar también
+            if (selectedPersonaje?.id === personajeId) {
+              setSelectedPersonaje(updatedPersonaje);
+            }
+          } else {
+            console.warn('⚠️ No se pudo recargar el personaje:', personajeId);
+          }
+        } catch (error) {
+          console.error('❌ Error recargando personaje:', personajeId, error);
+        }
+      }
+
+      showImportResultsModal(batchSummary);
+      showToast(
+        totalFail > 0
+          ? `⚠️ Batch completado con errores (${totalSuccess}/${allEntries.length} exitosos)`
+          : `✅ Batch completado automáticamente (${totalSuccess}/${allEntries.length} JSONs, ${totalItems} elementos)`,
+        totalFail > 0 ? 'info' : 'success'
+      );
+    } catch (error) {
+      console.error('Error en ejecución batch con metadata:', error);
       showToast('❌ Error al ejecutar batch de JSONs', 'error');
     } finally {
       setExecutingBatch(false);
@@ -6026,46 +7066,198 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </h3>
                 <button
                   onClick={() => startBatchJSON('category')}
-                  disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0 || personajes.length === 0}
+                  disabled={executingBatch || galleryImages.filter(img => img.hasJSON).length === 0}
                   className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
-                  title="Ejecutar todos los JSONs de esta categoría"
+                  title="Ejecutar todos los JSONs de esta categoría (crea personajes automáticamente si no existen)"
                 >
                   <PlayCircle size={16} />
                   <span>Importar Categoría ({galleryImages.filter(img => img.hasJSON).length})</span>
                 </button>
               </div>
               
-              {galleryImages.length === 0 ? (
-                <p className="text-d4-text-dim text-center py-8">
-                  No hay imágenes guardadas en esta categoría
-                </p>
-              ) : (
-                <>
-                  {/* Barra de progreso batch */}
-                  {executingBatch && (
-                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-blue-900">
-                          {batchProgress.message || `Procesando ${batchProgress.category}...`}
-                        </span>
-                        <span className="text-sm text-blue-700">
-                          {batchProgress.current} / {batchProgress.total}
-                        </span>
-                      </div>
-                      <div className="text-xs text-blue-800 mb-2">
-                        JSONs procesados: {batchProgress.processedJsons} | Elementos importados: {batchProgress.processedItems}
-                      </div>
-                      <div className="w-full bg-blue-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
-                        />
-                      </div>
+              {/* ✅ FILTROS DE GALERÍA POR METADATA */}
+              {galleryImages.length > 0 && (
+                <div className="mb-4 p-3 bg-d4-surface rounded border border-d4-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Filter className="w-4 h-4 text-d4-accent" />
+                    <span className="text-sm font-semibold text-d4-accent">Filtros</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Filtro por Destino */}
+                    <div>
+                      <label className="block text-xs text-d4-text-dim mb-1">Destino</label>
+                      <select
+                        value={galleryFilterDestino}
+                        onChange={(e) => setGalleryFilterDestino(e.target.value as 'all' | 'heroe' | 'personaje')}
+                        className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                      >
+                        <option value="all">Todos</option>
+                        <option value="heroe">Héroe</option>
+                        <option value="personaje">Personaje</option>
+                      </select>
                     </div>
-                  )}
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {galleryImages.map((img, index) => (
+                    {/* Filtro por Clase (solo si destino es heroe o all) */}
+                    {(galleryFilterDestino === 'all' || galleryFilterDestino === 'heroe') && (() => {
+                      const { clases } = getGalleryFilterOptions(galleryImages);
+                      return (
+                        <div>
+                          <label className="block text-xs text-d4-text-dim mb-1">Clase</label>
+                          <select
+                            value={galleryFilterClase}
+                            onChange={(e) => setGalleryFilterClase(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                          >
+                            <option value="all">Todas</option>
+                            {clases.map(clase => (
+                              <option key={clase} value={clase}>{clase}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Filtro por Personaje (solo si destino es personaje o all) */}
+                    {(galleryFilterDestino === 'all' || galleryFilterDestino === 'personaje') && (() => {
+                      const { personajes: personajesGaleria } = getGalleryFilterOptions(galleryImages);
+                      return (
+                        <div>
+                          <label className="block text-xs text-d4-text-dim mb-1">Personaje</label>
+                          <select
+                            value={galleryFilterPersonaje}
+                            onChange={(e) => setGalleryFilterPersonaje(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                          >
+                            <option value="all">Todos</option>
+                            {personajesGaleria.map(p => (
+                              <option key={p.id} value={p.id}>{p.nombre} ({p.clase})</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Filtro por Tipo específico según categoría */}
+                    {selectedCategory === 'paragon' && (
+                      <div>
+                        <label className="block text-xs text-d4-text-dim mb-1">Tipo de Paragon</label>
+                        <select
+                          value={galleryFilterType}
+                          onChange={(e) => setGalleryFilterType(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="tablero">Tablero</option>
+                          <option value="nodo">Nodo</option>
+                          <option value="atributos">Atributos</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {selectedCategory === 'runas' && (
+                      <div>
+                        <label className="block text-xs text-d4-text-dim mb-1">Tipo</label>
+                        <select
+                          value={galleryFilterType}
+                          onChange={(e) => setGalleryFilterType(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="runas">Runas</option>
+                          <option value="gemas">Gemas</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {selectedCategory === 'mundo' && (
+                      <div>
+                        <label className="block text-xs text-d4-text-dim mb-1">Tipo</label>
+                        <select
+                          value={galleryFilterType}
+                          onChange={(e) => setGalleryFilterType(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="eventos">Eventos</option>
+                          <option value="mazmorras_aspectos">Mazmorras</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {selectedCategory === 'talismanes' && (
+                      <div>
+                        <label className="block text-xs text-d4-text-dim mb-1">Tipo</label>
+                        <select
+                          value={galleryFilterType}
+                          onChange={(e) => setGalleryFilterType(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-d4-bg border border-d4-border rounded text-d4-text text-sm"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="charms">Charms</option>
+                          <option value="horadric_seal">Horadric Seal</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botón para limpiar filtros */}
+                  {(galleryFilterDestino !== 'all' || galleryFilterClase !== 'all' || galleryFilterPersonaje !== 'all' || galleryFilterType !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setGalleryFilterDestino('all');
+                        setGalleryFilterClase('all');
+                        setGalleryFilterPersonaje('all');
+                        setGalleryFilterType('all');
+                      }}
+                      className="mt-3 px-3 py-1 bg-d4-border hover:bg-d4-accent/20 text-d4-text text-xs rounded transition-colors"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              )}
+              
+              {(() => {
+                // ✅ APLICAR FILTROS A GALERÍA BASADOS EN METADATA
+                const filteredGalleryImages = getFilteredGalleryEntries(galleryImages);
+
+                return (
+                  <>
+                    {filteredGalleryImages.length === 0 ? (
+                      <p className="text-d4-text-dim text-center py-8">
+                        {galleryImages.length > 0 
+                          ? 'No hay imágenes que coincidan con los filtros seleccionados'
+                          : 'No hay imágenes guardadas en esta categoría'
+                        }
+                      </p>
+                    ) : (
+                      <>
+                        {/* Barra de progreso batch */}
+                        {executingBatch && (
+                          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-blue-900">
+                                {batchProgress.message || `Procesando ${batchProgress.category}...`}
+                              </span>
+                              <span className="text-sm text-blue-700">
+                                {batchProgress.current} / {batchProgress.total}
+                              </span>
+                            </div>
+                            <div className="text-xs text-blue-800 mb-2">
+                              JSONs procesados: {batchProgress.processedJsons} | Elementos importados: {batchProgress.processedItems}
+                            </div>
+                            <div className="w-full bg-blue-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {filteredGalleryImages.map((img, index) => (
                       <div 
                         key={index} 
                         className={`bg-d4-surface p-2 rounded border relative group transition-all ${
@@ -6169,6 +7361,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   </div>
                 </>
               )}
+            </>
+          );
+        })()}
             </div>
 
             <div className="mt-3 flex justify-end">
@@ -6215,6 +7410,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         onSaveAndContinue={handleSaveEmptyImport}
         category={CATEGORIES.find(c => c.value === selectedCategory)?.label || selectedCategory}
         hasImage={!!composedImageUrl}
+      />
+
+      <PersonajeRestoreModal
+        isOpen={showRestoreModal}
+        onConfirm={handleRestoreModalConfirm}
+        onCancel={handleRestoreModalCancel}
+        existingPersonaje={pendingRestoreData?.existingPersonaje || { nombre: '', clase: '', nivel: 0, id: '' }}
+        incomingData={pendingRestoreData?.incomingData || { clase: '', nivel: 0, id: '' }}
       />
       
       {/* Modal de Configuración AI */}

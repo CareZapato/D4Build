@@ -6,9 +6,8 @@ import {
 } from 'lucide-react';
 import { ProfileAPIService, ProfileData, UsageHistory } from '../../services/ApiService';
 import { useAuth } from '../../context/AuthContext';
-import { ProfileTestingSection } from './ProfileTestingSection';
 
-type TabView = 'profile' | 'usage' | 'history' | 'subscription' | 'testing';
+type TabView = 'profile' | 'usage' | 'history' | 'subscription';
 
 export const ProfilePage: React.FC = () => {
   const { user, refreshUser, isPremium, isAdmin } = useAuth();
@@ -303,22 +302,6 @@ export const ProfilePage: React.FC = () => {
             Suscripción
           </div>
         </button>
-        {(isPremium() || isAdmin()) && (
-          <button
-            onClick={() => setCurrentTab('testing')}
-            className={`px-4 py-2 font-semibold transition-colors ${
-              currentTab === 'testing'
-                ? 'text-d4-accent border-b-2 border-d4-accent'
-                : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <FlaskConical size={18} />
-              Testing
-              <span className="text-xs px-2 py-0.5 bg-purple-600 rounded-full">Premium</span>
-            </div>
-          </button>
-        )}
       </div>
 
       {/* Tab Content */}
@@ -669,10 +652,7 @@ export const ProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Testing Tab (Premium/Admin Only) */}
-      {currentTab === 'testing' && (isPremium() || isAdmin()) && (
-        <ProfileTestingSection />
-      )}
+
 
       {/* Password Change Modal */}
       {showPasswordModal && (

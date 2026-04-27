@@ -1,7 +1,7 @@
 # 🎮 D4Builds - Contexto y Arquitectura de la Aplicación
 
-> **Última actualización:** 25 de abril de 2026  
-> **Versión:** 0.8.6  
+> **Última actualización:** 26 de abril de 2026  
+> **Versión:** 0.8.8  
 > **Propósito:** Documentación completa del funcionamiento, procesos y formatos de datos
 
 ---
@@ -31,11 +31,16 @@ La aplicación utiliza un **modelo de referencias** para evitar duplicación de 
 └─────────────────┘         └──────────────────┘
   ↓                           ↓
   • Habilidades (completas)   • habilidades_refs: ["id1", "id2"]
-  • Glifos (completos)         • glifos_refs: [{id, nivel}]
+  • Glifos (completos)         • glifos_refs: [{id, nivel_actual, nivel_maximo}]
   • Aspectos (completos)       • aspectos_refs: ["id1", "id2"]
   • Runas (completas)          • runas_refs: ["id1", "id2"]
   • Gemas (completas)          • gemas_refs: ["id1", "id2"]
 ```
+
+**Nota importante sobre Glifos (v0.8.8):**
+- **Héroe**: Guarda el catálogo completo del glifo (nombre, descripción, efectos, bonificaciones) **SIN** campos de nivel (`nivel_actual`, `nivel_maximo`)
+- **Personaje**: Guarda solo la referencia con `{id, nivel_actual, nivel_maximo}` específica del build
+- **Beneficio**: Múltiples personajes pueden usar el mismo glifo a diferentes niveles sin duplicar datos maestros
 
 **Beneficios:**
 - ✅ Sin duplicación de datos
@@ -98,8 +103,9 @@ interface Personaje {
   };
   
   glifos_refs?: Array<{
-    id: string;                  // ID del glifo
-    nivel_actual: number;        // Nivel equipado
+    id: string;                  // ID del glifo en catálogo héroe
+    nivel_actual: number;        // Nivel equipado (1-150 en Temporada 7)
+    nivel_maximo?: number;       // Nivel máximo (150 por defecto)
   }>;
   
   aspectos_refs?: string[];      // ["aspect_id_1", "aspect_id_2"]
@@ -178,6 +184,9 @@ interface HeroGlifos {
     estado: "Encontrado" | "No encontrado";
     tamano_radio: number;
     nivel_requerido?: number;
+    
+    // ⚠️ IMPORTANTE (v0.8.8): El catálogo de héroe NO debe incluir
+    // nivel_actual ni nivel_maximo. Estos campos solo van en personaje.
     
     efecto_base?: {
       descripcion: string;
@@ -547,6 +556,98 @@ Diablo IV muestra detalles de UN atributo a la vez:
 4. Importar todos los JSONs → Sistema los combina automáticamente
 
 **INCORRECTO:** Intentar extraer todos los atributos de una sola imagen
+
+---
+
+## ⚙️ Constantes Configurables (v0.8.8)
+
+### src/config/constants.ts
+
+Archivo centralizado con constantes de configuración para valores que pueden cambiar según la temporada o actualizaciones del juego.
+
+```typescript
+/**
+ * Nivel máximo de glifos en la temporada actual
+ * 
+ * - Temporada 7: 150
+ * - Temporadas anteriores: 100
+ * 
+ * Este valor se usa para:
+ * - Límite superior en inputs de nivel de glifo
+ * - Valor por defecto en nivel_maximo al importar glifos
+ * - Validaciones en la UI
+ */
+export const MAX_GLYPH_LEVEL = 150;
+
+/**
+ * Nivel máximo de aspectos legendarios
+ * 
+ * Los aspectos pueden mejorarse hasta nivel 21
+ */
+export const MAX_ASPECT_LEVEL = 21;
+
+/**
+ * Nivel máximo de personaje base (sin Paragon)
+ */
+export const MAX_CHARACTER_LEVEL = 60;
+
+/**
+ * Nivel máximo de Paragon
+ */
+export const MAX_PARAGON_LEVEL = 300;
+
+/**
+ * Cantidad máxima de habilidades activas equipables
+ */
+export const MAX_ACTIVE_SKILLS = 6;
+
+/**
+ * Cantidad máxima de glifos equipables
+ */
+export const MAX_EQUIPPED_GLYPHS = 4;
+
+/**
+ * Cantidad máxima de runas equipables
+ */
+export const MAX_EQUIPPED_RUNES = 4;
+```
+
+### Uso de Constantes
+
+**Importación:**
+```typescript
+import { MAX_GLYPH_LEVEL } from '../../config/constants';
+```
+
+**Aplicaciones:**
+1. **ImageCaptureModal.tsx**: Al crear referencias de glifos para personaje
+   ```typescript
+   nivel_maximo: prev?.nivel_maximo ?? MAX_GLYPH_LEVEL
+   ```
+
+2. **CharacterGlyphs.tsx**: Al agregar nuevos glifos al personaje
+   ```typescript
+   { id: glyph.id, nivel_actual: 1, nivel_maximo: MAX_GLYPH_LEVEL }
+   ```
+
+3. **Validaciones**: Límites en inputs numéricos
+   ```typescript
+   <input type="number" max={MAX_GLYPH_LEVEL} />
+   ```
+
+### Actualización para Nuevas Temporadas
+
+Los administradores pueden modificar `src/config/constants.ts` según los cambios de temporada:
+
+```typescript
+// Antes (Temporada 6)
+export const MAX_GLYPH_LEVEL = 100;
+
+// Después (Temporada 7)
+export const MAX_GLYPH_LEVEL = 150;
+```
+
+El cambio se propaga automáticamente a todos los componentes que usan la constante.
 
 ---
 

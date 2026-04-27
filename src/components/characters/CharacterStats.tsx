@@ -20,6 +20,25 @@ interface Props {
   ) => void;
 }
 
+// Función helper para comparación profunda de objetos
+const deepEqual = (obj1: any, obj2: any): boolean => {
+  if (obj1 === obj2) return true;
+  if (obj1 == null || obj2 == null) return false;
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  for (const key of keys1) {
+    if (!keys2.includes(key)) return false;
+    if (!deepEqual(obj1[key], obj2[key])) return false;
+  }
+  
+  return true;
+};
+
 const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const modal = useModal();
   const [importing, setImporting] = useState(false);
@@ -31,6 +50,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<any>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const isSaving = useRef(false); // Prevenir guardados concurrentes
   
   // Helper para extraer el valor de moneda (solo para mostrar, no para guardar)
   const getMonedaValue = (field: any): string | number => {
@@ -89,8 +109,12 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
 
   // Sincronizar estadísticas cuando cambia el personaje (desde fuera) y normalizar campos
   useEffect(() => {
-    setEstadisticas(normalizeAllStats(personaje.estadisticas));
-  }, [personaje.id]);
+    // Evitar bucle infinito: solo actualizar si realmente cambió
+    const normalized = normalizeAllStats(personaje.estadisticas);
+    if (!deepEqual(normalized, estadisticas)) {
+      setEstadisticas(normalized);
+    }
+  }, [personaje.estadisticas]);
 
   // Complementar tooltips con detalles del JSON del personaje (sin depender solo del héroe)
   useEffect(() => {
@@ -775,13 +799,37 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
     }
   };
 
+  // useRef para callback para evitar dependencia directa
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Auto-save con debounce y prevención de concurrencia
   useEffect(() => {
-    // No disparar en el primer render para no sobreescribir datos guardados
+    // No disparar en el primer render
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    onChange(estadisticas);
+    
+    // Prevenir guardados concurrentes
+    if (isSaving.current) {
+      return;
+    }
+    
+    // Debounce de 500ms para evitar guardados excesivos
+    const timeoutId = setTimeout(async () => {
+      isSaving.current = true;
+      try {
+        onChangeRef.current(estadisticas);
+      } finally {
+        // Esperar un poco antes de permitir otro guardado
+        setTimeout(() => {
+          isSaving.current = false;
+        }, 100);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
   }, [estadisticas]);
 
   const handleCopyPrompt = async () => {
@@ -1035,21 +1083,21 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <StatField 
               label="Vida Máxima" 
-              value={estadisticas.defensivo?.vidaMaxima || ''} 
+              value={estadisticas.defensivo?.vidaMaxima ?? ''} 
               onChange={(v) => updateDefensivo('vidaMaxima', v)}
               descripcion={heroStats.get('vida máxima')?.descripcion}
               detalles={heroStats.get('vida máxima')?.detalles}
             />
             <StatField 
               label="Cant. Pociones" 
-              value={estadisticas.defensivo?.cantidadPociones || ''} 
+              value={estadisticas.defensivo?.cantidadPociones ?? ''} 
               onChange={(v) => updateDefensivo('cantidadPociones', v)}
               descripcion={heroStats.get('cantidad pociones')?.descripcion}
               detalles={heroStats.get('cantidad pociones')?.detalles}
             />
             <StatField 
               label="Sanación %" 
-              value={estadisticas.defensivo?.sanacionRecibida || ''} 
+              value={estadisticas.defensivo?.sanacionRecibida ?? ''} 
               onChange={(v) => updateDefensivo('sanacionRecibida', v)}
               type="number"
               step="0.1"
@@ -1058,21 +1106,21 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Vida/Elim" 
-              value={estadisticas.defensivo?.vidaPorEliminacion || ''} 
+              value={estadisticas.defensivo?.vidaPorEliminacion ?? ''} 
               onChange={(v) => updateDefensivo('vidaPorEliminacion', v)}
               descripcion={heroStats.get('vida por eliminación')?.descripcion}
               detalles={heroStats.get('vida por eliminación')?.detalles}
             />
             <StatField 
               label="Vida/5s" 
-              value={estadisticas.defensivo?.vidaCada5Segundos || ''} 
+              value={estadisticas.defensivo?.vidaCada5Segundos ?? ''} 
               onChange={(v) => updateDefensivo('vidaCada5Segundos', v)}
               descripcion={heroStats.get('vida cada 5 segundos')?.descripcion}
               detalles={heroStats.get('vida cada 5 segundos')?.detalles}
             />
             <StatField 
               label="Prob. Bloqueo %" 
-              value={estadisticas.defensivo?.probabilidadBloqueo || ''} 
+              value={estadisticas.defensivo?.probabilidadBloqueo ?? ''} 
               onChange={(v) => updateDefensivo('probabilidadBloqueo', v)}
               type="number"
               step="0.1"
@@ -1081,7 +1129,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Red. Bloqueo %" 
-              value={estadisticas.defensivo?.reduccionBloqueo || ''} 
+              value={estadisticas.defensivo?.reduccionBloqueo ?? ''} 
               onChange={(v) => updateDefensivo('reduccionBloqueo', v)}
               type="number"
               step="0.1"
@@ -1090,7 +1138,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Bonif. Fortif. %" 
-              value={estadisticas.defensivo?.bonificacionFortificacion || ''} 
+              value={estadisticas.defensivo?.bonificacionFortificacion ?? ''} 
               onChange={(v) => updateDefensivo('bonificacionFortificacion', v)}
               type="number"
               step="0.1"
@@ -1099,7 +1147,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Bonif. Barrera %" 
-              value={estadisticas.defensivo?.bonificacionBarrera || ''} 
+              value={estadisticas.defensivo?.bonificacionBarrera ?? ''} 
               onChange={(v) => updateDefensivo('bonificacionBarrera', v)}
               type="number"
               step="0.1"
@@ -1108,7 +1156,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Prob. Esquivar %" 
-              value={estadisticas.defensivo?.probabilidadEsquivar || ''} 
+              value={estadisticas.defensivo?.probabilidadEsquivar ?? ''} 
               onChange={(v) => updateDefensivo('probabilidadEsquivar', v)}
               type="number"
               step="0.1"
@@ -1122,14 +1170,14 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <StatField 
               label="Daño Base Arma" 
-              value={estadisticas.ofensivo?.danioBaseArma || ''} 
+              value={estadisticas.ofensivo?.danioBaseArma ?? ''} 
               onChange={(v) => updateOfensivo('danioBaseArma', v)}
               descripcion={heroStats.get('daño base arma')?.descripcion}
               detalles={heroStats.get('daño base arma')?.detalles}
             />
             <StatField 
               label="Vel. Arma" 
-              value={estadisticas.ofensivo?.velocidadArma || ''} 
+              value={estadisticas.ofensivo?.velocidadArma ?? ''} 
               onChange={(v) => updateOfensivo('velocidadArma', v)}
               type="number"
               step="0.1"
@@ -1138,7 +1186,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Vel. Ataque %" 
-              value={estadisticas.ofensivo?.bonificacionVelocidadAtaque || ''} 
+              value={estadisticas.ofensivo?.bonificacionVelocidadAtaque ?? ''} 
               onChange={(v) => updateOfensivo('bonificacionVelocidadAtaque', v)}
               type="number"
               step="0.1"
@@ -1147,7 +1195,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Prob. Crítico %" 
-              value={estadisticas.ofensivo?.probabilidadGolpeCritico || ''} 
+              value={estadisticas.ofensivo?.probabilidadGolpeCritico ?? ''} 
               onChange={(v) => updateOfensivo('probabilidadGolpeCritico', v)}
               type="number"
               step="0.1"
@@ -1156,7 +1204,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Daño Crítico %" 
-              value={estadisticas.ofensivo?.danioGolpeCritico || ''} 
+              value={estadisticas.ofensivo?.danioGolpeCritico ?? ''} 
               onChange={(v) => updateOfensivo('danioGolpeCritico', v)}
               type="number"
               step="0.1"
@@ -1165,7 +1213,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Prob. Abrumar %" 
-              value={estadisticas.ofensivo?.probabilidadAbrumar || ''} 
+              value={estadisticas.ofensivo?.probabilidadAbrumar ?? ''} 
               onChange={(v) => updateOfensivo('probabilidadAbrumar', v)}
               type="number"
               step="0.1"
@@ -1174,7 +1222,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Daño Abrumador %" 
-              value={estadisticas.ofensivo?.danioAbrumador || ''} 
+              value={estadisticas.ofensivo?.danioAbrumador ?? ''} 
               onChange={(v) => updateOfensivo('danioAbrumador', v)}
               type="number"
               step="0.1"
@@ -1183,7 +1231,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Daño vs Vuln. %" 
-              value={estadisticas.ofensivo?.danioContraEnemigosVulnerables || ''} 
+              value={estadisticas.ofensivo?.danioContraEnemigosVulnerables ?? ''} 
               onChange={(v) => updateOfensivo('danioContraEnemigosVulnerables', v)}
               type="number"
               step="0.1"
@@ -1192,7 +1240,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Todo Daño %" 
-              value={estadisticas.ofensivo?.todoElDanio || ''} 
+              value={estadisticas.ofensivo?.todoElDanio ?? ''} 
               onChange={(v) => updateOfensivo('todoElDanio', v)}
               type="number"
               step="0.1"
@@ -1201,7 +1249,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Sangrado %" 
-              value={estadisticas.ofensivo?.danioConSangrado || ''} 
+              value={estadisticas.ofensivo?.danioConSangrado ?? ''} 
               onChange={(v) => updateOfensivo('danioConSangrado', v)}
               type="number"
               step="0.1"
@@ -1210,7 +1258,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Quemadura %" 
-              value={estadisticas.ofensivo?.danioConQuemadura || ''} 
+              value={estadisticas.ofensivo?.danioConQuemadura ?? ''} 
               onChange={(v) => updateOfensivo('danioConQuemadura', v)}
               type="number"
               step="0.1"
@@ -1219,7 +1267,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Veneno %" 
-              value={estadisticas.ofensivo?.danioConVeneno || ''} 
+              value={estadisticas.ofensivo?.danioConVeneno ?? ''} 
               onChange={(v) => updateOfensivo('danioConVeneno', v)}
               type="number"
               step="0.1"
@@ -1228,7 +1276,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Corrupción %" 
-              value={estadisticas.ofensivo?.danioConCorrupcion || ''} 
+              value={estadisticas.ofensivo?.danioConCorrupcion ?? ''} 
               onChange={(v) => updateOfensivo('danioConCorrupcion', v)}
               type="number"
               step="0.1"
@@ -1237,7 +1285,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="vs Elite %" 
-              value={estadisticas.ofensivo?.danioVsEnemigosElite || ''} 
+              value={estadisticas.ofensivo?.danioVsEnemigosElite ?? ''} 
               onChange={(v) => updateOfensivo('danioVsEnemigosElite', v)}
               type="number"
               step="0.1"
@@ -1246,7 +1294,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="vs Saludables %" 
-              value={estadisticas.ofensivo?.danioVsEnemigosSaludables || ''} 
+              value={estadisticas.ofensivo?.danioVsEnemigosSaludables ?? ''} 
               onChange={(v) => updateOfensivo('danioVsEnemigosSaludables', v)}
               type="number"
               step="0.1"
@@ -1255,7 +1303,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Espinas" 
-              value={estadisticas.ofensivo?.espinas || ''} 
+              value={estadisticas.ofensivo?.espinas ?? ''} 
               onChange={(v) => updateOfensivo('espinas', v)}
               descripcion={heroStats.get('espinas')?.descripcion}
               detalles={heroStats.get('espinas')?.detalles}
@@ -1274,49 +1322,49 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Armadura" 
-              value={estadisticas.armaduraYResistencias?.armadura || ''} 
+              value={estadisticas.armaduraYResistencias?.armadura ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('armadura', v)}
               descripcion={heroStats.get('armadura')?.descripcion}
               detalles={heroStats.get('armadura')?.detalles}
             />
             <StatField 
               label="Res. Físico" 
-              value={estadisticas.armaduraYResistencias?.resistenciaDanioFisico || ''} 
+              value={estadisticas.armaduraYResistencias?.resistenciaDanioFisico ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('resistenciaDanioFisico', v)}
               descripcion={heroStats.get('resistencia al daño físico')?.descripcion}
               detalles={heroStats.get('resistencia al daño físico')?.detalles}
             />
             <StatField 
               label="Res. Fuego" 
-              value={estadisticas.armaduraYResistencias?.resistenciaFuego || ''} 
+              value={estadisticas.armaduraYResistencias?.resistenciaFuego ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('resistenciaFuego', v)}
               descripcion={heroStats.get('resistencia al fuego')?.descripcion}
               detalles={heroStats.get('resistencia al fuego')?.detalles}
             />
             <StatField 
               label="Res. Rayo" 
-              value={estadisticas.armaduraYResistencias?.resistenciaRayo || ''} 
+              value={estadisticas.armaduraYResistencias?.resistenciaRayo ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('resistenciaRayo', v)}
               descripcion={heroStats.get('resistencia al rayo')?.descripcion}
               detalles={heroStats.get('resistencia al rayo')?.detalles}
             />
             <StatField 
               label="Res. Frío" 
-              value={estadisticas.armaduraYResistencias?.resistenciaFrio || ''} 
+              value={estadisticas.armaduraYResistencias?.resistenciaFrio ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('resistenciaFrio', v)}
               descripcion={heroStats.get('resistencia al frío')?.descripcion}
               detalles={heroStats.get('resistencia al frío')?.detalles}
             />
             <StatField 
               label="Res. Veneno" 
-              value={estadisticas.armaduraYResistencias?.resistenciaVeneno || ''} 
+              value={estadisticas.armaduraYResistencias?.resistenciaVeneno ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('resistenciaVeneno', v)}
               descripcion={heroStats.get('resistencia al veneno')?.descripcion}
               detalles={heroStats.get('resistencia al veneno')?.detalles}
             />
             <StatField 
               label="Res. Sombra" 
-              value={estadisticas.armaduraYResistencias?.resistenciaSombra || ''} 
+              value={estadisticas.armaduraYResistencias?.resistenciaSombra ?? ''} 
               onChange={(v) => updateArmaduraYResistencias('resistenciaSombra', v)}
               descripcion={heroStats.get('resistencia a la sombra')?.descripcion}
               detalles={heroStats.get('resistencia a la sombra')?.detalles}
@@ -1328,14 +1376,14 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <StatField 
               label="Máximo Fe" 
-              value={estadisticas.utilidad?.maximoFe || ''} 
+              value={estadisticas.utilidad?.maximoFe ?? ''} 
               onChange={(v) => updateUtilidad('maximoFe', v)}
               descripcion={heroStats.get('máximo fe')?.descripcion}
               detalles={heroStats.get('máximo fe')?.detalles}
             />
             <StatField 
               label="Red. Costo Fe %" 
-              value={estadisticas.utilidad?.reduccionCostoFe || ''} 
+              value={estadisticas.utilidad?.reduccionCostoFe ?? ''} 
               onChange={(v) => updateUtilidad('reduccionCostoFe', v)}
               type="number"
               step="0.1"
@@ -1344,7 +1392,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Regen. Fe" 
-              value={estadisticas.utilidad?.regeneracionFe || ''} 
+              value={estadisticas.utilidad?.regeneracionFe ?? ''} 
               onChange={(v) => updateUtilidad('regeneracionFe', v)}
               type="number"
               step="0.1"
@@ -1353,14 +1401,14 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Fe/Elim" 
-              value={estadisticas.utilidad?.feConCadaEliminacion || ''} 
+              value={estadisticas.utilidad?.feConCadaEliminacion ?? ''} 
               onChange={(v) => updateUtilidad('feConCadaEliminacion', v)}
               descripcion={heroStats.get('fe con cada eliminación')?.descripcion}
               detalles={heroStats.get('fe con cada eliminación')?.detalles}
             />
             <StatField 
               label="Vel. Movimiento %" 
-              value={estadisticas.utilidad?.velocidadMovimiento || ''} 
+              value={estadisticas.utilidad?.velocidadMovimiento ?? ''} 
               onChange={(v) => updateUtilidad('velocidadMovimiento', v)}
               type="number"
               step="0.1"
@@ -1369,7 +1417,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Red. Recup. %" 
-              value={estadisticas.utilidad?.reduccionRecuperacion || ''} 
+              value={estadisticas.utilidad?.reduccionRecuperacion ?? ''} 
               onChange={(v) => updateUtilidad('reduccionRecuperacion', v)}
               type="number"
               step="0.1"
@@ -1378,7 +1426,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Golpe Afort. %" 
-              value={estadisticas.utilidad?.bonificacionProbabilidadGolpeAfortunado || ''} 
+              value={estadisticas.utilidad?.bonificacionProbabilidadGolpeAfortunado ?? ''} 
               onChange={(v) => updateUtilidad('bonificacionProbabilidadGolpeAfortunado', v)}
               type="number"
               step="0.1"
@@ -1387,7 +1435,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
             />
             <StatField 
               label="Bonif. Exp. %" 
-              value={estadisticas.utilidad?.bonificacionExperiencia || ''} 
+              value={estadisticas.utilidad?.bonificacionExperiencia ?? ''} 
               onChange={(v) => updateUtilidad('bonificacionExperiencia', v)}
               type="number"
               step="0.1"
@@ -1401,35 +1449,35 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <StatField 
               label="Nivel" 
-              value={estadisticas.atributosPrincipales?.nivel || ''} 
+              value={estadisticas.atributosPrincipales?.nivel ?? ''} 
               onChange={(v) => updateAtributosPrincipales('nivel', v)}
               descripcion={heroStats.get('nivel')?.descripcion}
               detalles={heroStats.get('nivel')?.detalles}
             />
             <StatField 
               label="Fuerza" 
-              value={estadisticas.atributosPrincipales?.fuerza || ''} 
+              value={estadisticas.atributosPrincipales?.fuerza ?? ''} 
               onChange={(v) => updateAtributosPrincipales('fuerza', v)}
               descripcion={heroStats.get('fuerza')?.descripcion}
               detalles={heroStats.get('fuerza')?.detalles}
             />
             <StatField 
               label="Inteligencia" 
-              value={estadisticas.atributosPrincipales?.inteligencia || ''} 
+              value={estadisticas.atributosPrincipales?.inteligencia ?? ''} 
               onChange={(v) => updateAtributosPrincipales('inteligencia', v)}
               descripcion={heroStats.get('inteligencia')?.descripcion}
               detalles={heroStats.get('inteligencia')?.detalles}
             />
             <StatField 
               label="Voluntad" 
-              value={estadisticas.atributosPrincipales?.voluntad || ''} 
+              value={estadisticas.atributosPrincipales?.voluntad ?? ''} 
               onChange={(v) => updateAtributosPrincipales('voluntad', v)}
               descripcion={heroStats.get('voluntad')?.descripcion}
               detalles={heroStats.get('voluntad')?.detalles}
             />
             <StatField 
               label="Destreza" 
-              value={estadisticas.atributosPrincipales?.destreza || ''} 
+              value={estadisticas.atributosPrincipales?.destreza ?? ''} 
               onChange={(v) => updateAtributosPrincipales('destreza', v)}
               descripcion={heroStats.get('destreza')?.descripcion}
               detalles={heroStats.get('destreza')?.detalles}
@@ -1441,7 +1489,7 @@ const CharacterStats: React.FC<Props> = ({ personaje, onChange }) => {
           <div className="grid grid-cols-2 gap-2">
             <StatField 
               label="Reducción Daño %" 
-              value={estadisticas.jcj?.reduccionDanio || ''} 
+              value={estadisticas.jcj?.reduccionDanio ?? ''} 
               onChange={(v) => updateJcJ('reduccionDanio', v)}
               type="number"
               step="0.1"

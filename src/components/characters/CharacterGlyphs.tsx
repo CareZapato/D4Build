@@ -7,6 +7,7 @@ import { ImageExtractionPromptService } from '../../services/ImageExtractionProm
 import { TagBadge } from '../tags/TagBadge';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
+import { MAX_GLYPH_LEVEL } from '../../config/constants';
 
 interface Props {
   personaje: Personaje;
@@ -218,7 +219,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
         updatedRefs.push({
           id: heroGlyph.id,
           nivel_actual: glyph.nivel_actual || 1,
-          nivel_maximo: 100
+          nivel_maximo: MAX_GLYPH_LEVEL
         });
       }
     });
@@ -243,7 +244,7 @@ const CharacterGlyphs: React.FC<Props> = ({ personaje, onChange }) => {
       return;
     }
 
-    const newRefs = [...glyphsRefs, { id: glyph.id, nivel_actual: 1, nivel_maximo: 100 }];
+    const newRefs = [...glyphsRefs, { id: glyph.id, nivel_actual: 1, nivel_maximo: MAX_GLYPH_LEVEL }];
     setGlyphsRefs(newRefs);
     onChange(newRefs);
     setShowAddModal(false);

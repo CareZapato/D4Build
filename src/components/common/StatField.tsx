@@ -112,7 +112,7 @@ const StatField: React.FC<StatFieldProps> = ({
       
       <input
         type={type}
-        value={value || ''}
+        value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         step={step}
         className="input w-full text-sm py-1.5"

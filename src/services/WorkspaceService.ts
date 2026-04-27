@@ -258,13 +258,145 @@ export class WorkspaceService {
 
   // Guardar personaje con merge seguro (lee el archivo actual primero)
   // Helpers de merge para estadísticas con detalles
-  private static deepMergeStats(target: any, source: any): any {
-    // Caso base: Si source es null o undefined, mantener target
-    if (source === null || source === undefined) {
+  /**
+   * 🔍 HELPER: Detecta si un valor está "vacío" de forma significativa
+   * Un valor vacío NO debería sobrescribir datos existentes
+   */
+  private static isEmptyValue(value: any): boolean {
+    // Primitivos vacíos
+    if (value === null || value === undefined || value === '') {
+      return true;
+    }
+    
+    // Arrays vacíos
+    if (Array.isArray(value) && value.length === 0) {
+      return true;
+    }
+    
+    // Objetos vacíos o con solo propiedades vacías
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      const keys = Object.keys(value);
+      
+      // Objeto sin propiedades
+      if (keys.length === 0) {
+        return true;
+      }
+      
+      // Objeto con "valor" vacío y sin detalles significativos
+      if ('valor' in value) {
+        const valorEmpty = value.valor === null || value.valor === undefined || value.valor === '';
+        const noDetalles = !value.detalles || (Array.isArray(value.detalles) && value.detalles.length === 0);
+        
+        if (valorEmpty && noDetalles) {
+          return true;
+        }
+      }
+      
+      // Verificar si todas las propiedades están vacías (recursivo)
+      const allEmpty = keys.every(key => this.isEmptyValue(value[key]));
+      if (allEmpty) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🔧 SMART MERGE: Mergea dos objetos preservando datos existentes cuando los nuevos están vacíos
+   * Esta función es genérica y se usa para todos los elementos del juego: aspectos, habilidades, glifos, etc.
+   * 
+   * REGLAS:
+   * - Si source[key] está vacío (null, undefined, "", [], {}), mantener target[key]
+   * - Si target[key] tiene detalles y source[key] no, mantener target[key]
+   * - Si ambos tienen detalles, acumular (merge deep)
+   * - Para arrays de detalles, acumular evitando duplicados
+   * - Para valores numéricos, usar el mayor
+   * 
+   * @param target - Objeto base (existente en disco)
+   * @param source - Objeto nuevo (del JSON importado)
+   * @returns Objeto mergeado con datos preservados
+   */
+  public static smartMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+    // Si source está completamente vacío, retornar target
+    if (this.isEmptyValue(source)) {
       return target;
     }
 
-    // Caso base: Si target es null o undefined, usar source
+    // Si target está vacío, retornar source
+    if (this.isEmptyValue(target)) {
+      return source as T;
+    }
+
+    const result = { ...target };
+
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        const sourceValue = source[key];
+        const targetValue = target[key];
+
+        // 🛡️ Si el valor source está vacío, NO sobrescribir target
+        if (this.isEmptyValue(sourceValue)) {
+          continue; // Mantener el valor target existente
+        }
+
+        // Arrays especiales: detalles, tags, etc.
+        if (key === 'detalles' || key === 'tags') {
+          if (Array.isArray(sourceValue) && Array.isArray(targetValue)) {
+            // Acumular arrays evitando duplicados
+            const combined = [...targetValue];
+            sourceValue.forEach((item: any) => {
+              const exists = combined.some((existing: any) => {
+                if (typeof item === 'string') {
+                  return existing === item;
+                }
+                return JSON.stringify(existing) === JSON.stringify(item);
+              });
+              if (!exists) {
+                combined.push(item);
+              }
+            });
+            (result as any)[key] = combined;
+          } else if (Array.isArray(sourceValue)) {
+            (result as any)[key] = sourceValue;
+          }
+          continue;
+        }
+
+        // Objetos anidados: hacer merge recursivo
+        if (
+          typeof sourceValue === 'object' &&
+          sourceValue !== null &&
+          !Array.isArray(sourceValue) &&
+          typeof targetValue === 'object' &&
+          targetValue !== null &&
+          !Array.isArray(targetValue)
+        ) {
+          (result as any)[key] = this.smartMerge(targetValue, sourceValue);
+          continue;
+        }
+
+        // Valores numéricos: usar el mayor
+        if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
+          (result as any)[key] = Math.max(targetValue, sourceValue);
+          continue;
+        }
+
+        // Para otros valores primitivos, usar source (más reciente)
+        (result as any)[key] = sourceValue;
+      }
+    }
+
+    return result;
+  }
+
+  private static deepMergeStats(target: any, source: any): any {
+    // 🛡️ REGLA PRINCIPAL: Si source está vacío, SIEMPRE mantener target
+    if (this.isEmptyValue(source)) {
+      return target;
+    }
+
+    // Caso base: Si target es null o undefined, usar source (solo si source NO está vacío)
     if (target === null || target === undefined) {
       return source;
     }
@@ -277,33 +409,139 @@ export class WorkspaceService {
     const isSourcePrimitive = typeof source === 'number' || typeof source === 'string' || typeof source === 'boolean';
     const isTargetPrimitive = typeof target === 'number' || typeof target === 'string' || typeof target === 'boolean';
 
-    // CASO 1: Target enriquecido + Source primitivo
-    // Preservar estructura enriquecida, solo actualizar el valor
+    // ✅ CASO 1: Target enriquecido + Source primitivo
+    // Preservar estructura enriquecida, actualizar valor si es mayor
     if (isTargetEnriched && isSourcePrimitive) {
-      return {
-        ...target,
-        valor: source
-      };
+      const currentValue = parseFloat(String(target.valor || target));
+      const newValue = parseFloat(String(source));
+      
+      // Si el nuevo valor es mayor o no hay valor previo, actualizar
+      if (isNaN(currentValue) || !isNaN(newValue) && newValue > currentValue) {
+        return {
+          ...target,
+          valor: source
+        };
+      }
+      // Mantener valor existente si es mayor o igual
+      return target;
     }
 
-    // CASO 2: Target primitivo + Source enriquecido
+    // ✅ CASO 2: Target primitivo + Source enriquecido
     // Usar la estructura enriquecida completa
     if (isTargetPrimitive && isSourceEnriched) {
       return source;
     }
 
-    // CASO 3: Ambos son primitivos
+    // ✅ CASO 3: Target enriquecido + Source enriquecido
+    // REGLA: Priorizar el que tenga más detalles, pero actualizar valor si el nuevo es mayor
+    if (isTargetEnriched && isSourceEnriched) {
+      const targetValue = parseFloat(String(target.valor !== undefined ? target.valor : target));
+      const sourceValue = parseFloat(String(source.valor !== undefined ? source.valor : source));
+      
+      const targetHasDetails = Array.isArray(target.detalles) && target.detalles.length > 0;
+      const sourceHasDetails = Array.isArray(source.detalles) && source.detalles.length > 0;
+      
+      // Si ambos tienen detalles, acumular y usar el valor mayor
+      if (targetHasDetails && sourceHasDetails) {
+        const targetDetalles = target.detalles || [];
+        const sourceDetalles = source.detalles || [];
+        const combined = [...targetDetalles];
+        
+        // Acumular detalles evitando duplicados exactos
+        sourceDetalles.forEach((newDetalle: any) => {
+          const exists = combined.some((existing: any) => 
+            existing.atributo_ref === newDetalle.atributo_ref && 
+            existing.texto === newDetalle.texto &&
+            existing.valor === newDetalle.valor
+          );
+          
+          if (!exists) {
+            combined.push(newDetalle);
+          }
+        });
+        
+        // Usar el valor mayor o el más reciente si son iguales
+        const useSourceValue = !isNaN(sourceValue) && (isNaN(targetValue) || sourceValue > targetValue);
+        
+        // ✅ COMBINAR PROPIEDADES CUIDADOSAMENTE
+        // NO usar ...source que sobrescribiría propiedades de target
+        const merged: any = { ...target };
+        
+        // Agregar propiedades de source que no existan en target
+        Object.keys(source).forEach(key => {
+          if (key !== 'detalles' && key !== 'valor') {
+            // Si la propiedad no existe en target, agregarla
+            if (!(key in merged)) {
+              merged[key] = source[key];
+            }
+            // Si ambos tienen la propiedad y son números, usar el mayor
+            else if (typeof merged[key] === 'number' && typeof source[key] === 'number') {
+              merged[key] = Math.max(merged[key], source[key]);
+            }
+            // Para otras propiedades, mantener target (más completo por ser el acumulado)
+          }
+        });
+        
+        merged.valor = useSourceValue ? (source.valor !== undefined ? source.valor : sourceValue) : (target.valor !== undefined ? target.valor : targetValue);
+        merged.detalles = combined;
+        
+        return merged;
+      }
+      
+      // Si solo source tiene detalles, usarlo completo (más información)
+      if (!targetHasDetails && sourceHasDetails) {
+        return source;
+      }
+      
+      // Si solo target tiene detalles, mantenerlo pero actualizar valor si el nuevo es mayor
+      if (targetHasDetails && !sourceHasDetails) {
+        const useSourceValue = !isNaN(sourceValue) && (isNaN(targetValue) || sourceValue > targetValue);
+        return {
+          ...target,
+          valor: useSourceValue ? (source.valor !== undefined ? source.valor : sourceValue) : (target.valor !== undefined ? target.valor : targetValue)
+        };
+      }
+      
+      // Si ninguno tiene detalles, usar el que tenga valor mayor o el source si son iguales
+      const useSourceValue = !isNaN(sourceValue) && (isNaN(targetValue) || sourceValue >= targetValue);
+      return useSourceValue ? source : target;
+    }
+
+    // ✅ CASO 4: Ambos son primitivos
+    // Comparar valores y usar el mayor
     if (isTargetPrimitive && isSourcePrimitive) {
+      const targetNum = parseFloat(String(target));
+      const sourceNum = parseFloat(String(source));
+      
+      // Si ambos son números válidos, usar el mayor
+      if (!isNaN(targetNum) && !isNaN(sourceNum)) {
+        return sourceNum >= targetNum ? source : target;
+      }
+      
+      // 🛡️ Si source está vacío, mantener target
+      if (this.isEmptyValue(source)) {
+        return target;
+      }
+      
+      // Si no son números comparables, usar source (más reciente) solo si no está vacío
       return source;
     }
 
-    // Arrays: reemplazar directamente (no mergear arrays)
+    // Arrays: caso especial
     if (Array.isArray(source)) {
+      // 🛡️ Si el array source está vacío, mantener target
+      if (source.length === 0 && target !== null && target !== undefined) {
+        return target;
+      }
       return source;
     }
 
-    // Si alguno no es objeto, retornar source
+    // Si alguno no es objeto
     if (typeof target !== 'object' || typeof source !== 'object') {
+      // 🛡️ Si source está vacío, mantener target
+      if (this.isEmptyValue(source)) {
+        return target;
+      }
       return source;
     }
 
@@ -313,18 +551,26 @@ export class WorkspaceService {
     // Mergear cada propiedad del source
     for (const key in source) {
       if (source.hasOwnProperty(key)) {
+        const sourceValue = source[key];
+        const targetValue = target[key];
+        
+        // 🛡️ Si el valor source está vacío, NO sobrescribir target
+        if (this.isEmptyValue(sourceValue)) {
+          // Mantener el valor target existente (no hacer nada, ya está en result)
+          continue;
+        }
+        
         // ✅ CASO ESPECIAL: Arrays de "detalles" → ACUMULAR en lugar de reemplazar
-        if (key === 'detalles' && Array.isArray(source[key]) && Array.isArray(target[key])) {
-          // Combinar arrays evitando duplicados (por atributo_ref + texto)
-          const targetDetalles = target[key];
-          const sourceDetalles = source[key];
-          const combined = [...targetDetalles];
+        if (key === 'detalles' && Array.isArray(sourceValue) && Array.isArray(targetValue)) {
+          // Combinar arrays evitando duplicados exactos (atributo_ref + texto + valor)
+          const combined = [...targetValue];
           
-          sourceDetalles.forEach((newDetalle: any) => {
-            // Buscar si ya existe este detalle (mismo atributo_ref + texto)
+          sourceValue.forEach((newDetalle: any) => {
+            // Buscar si ya existe este detalle exacto
             const exists = combined.some((existing: any) => 
               existing.atributo_ref === newDetalle.atributo_ref && 
-              existing.texto === newDetalle.texto
+              existing.texto === newDetalle.texto &&
+              existing.valor === newDetalle.valor
             );
             
             if (!exists) {
@@ -333,12 +579,220 @@ export class WorkspaceService {
           });
           
           result[key] = combined;
-        } else if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+        } else if (typeof sourceValue === 'object' && sourceValue !== null && !Array.isArray(sourceValue)) {
           // Si es objeto, hacer merge recursivo
-          result[key] = this.deepMergeStats(target[key], source[key]);
+          result[key] = this.deepMergeStats(targetValue, sourceValue);
         } else {
-          // Si es valor primitivo o array (que no sea detalles), reemplazar
-          result[key] = source[key];
+          // Si es valor primitivo o array (que no sea detalles), reemplazar solo si NO está vacío
+          // La validación de isEmpty ya se hizo arriba, así que aquí podemos reemplazar
+          result[key] = sourceValue;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Extrae valores de detalles[] y los promueve a propiedades directas cuando faltan
+   * Ejemplo: atributosPrincipales puede tener voluntad/destreza en detalles pero no como propiedades
+   * @param section Sección de estadísticas (defensivo, ofensivo, etc.)
+   * @returns Sección con valores extraídos de detalles
+   */
+  private static extractValuesFromDetails(section: any): any {
+    if (!section || typeof section !== 'object' || Array.isArray(section)) {
+      return section;
+    }
+
+    const result = { ...section };
+    
+    // Si no hay detalles, devolver tal cual
+    if (!Array.isArray(result.detalles) || result.detalles.length === 0) {
+      return result;
+    }
+
+    // Mapeo de atributo_ref a nombre de campo en camelCase
+    const fieldMapping: Record<string, string> = {
+      // AtributosPrincipales
+      'voluntad': 'voluntad',
+      'destreza': 'destreza',
+      'fuerza': 'fuerza',
+      'inteligencia': 'inteligencia',
+      'nivel': 'nivel',
+      'nivel_paragon': 'nivelParagon',
+      
+      // Defensivo
+      'vida_maxima': 'vidaMaxima',
+      'cantidad_pociones': 'cantidadPociones',
+      'sanacion_recibida': 'sanacionRecibida',
+      'vida_por_eliminacion': 'vidaPorEliminacion',
+      'vida_cada_5_segundos': 'vidaCada5Segundos',
+      'probabilidad_bloqueo': 'probabilidadBloqueo',
+      'reduccion_bloqueo': 'reduccionBloqueo',
+      'bonificacion_fortificacion': 'bonificacionFortificacion',
+      'bonificacion_barrera': 'bonificacionBarrera',
+      'reduccion_danio_cercanos': 'reduccionDanioCercanos',
+      'probabilidad_esquivar': 'probabilidadEsquivar',
+      
+      // Ofensivo
+      'danio_base_arma': 'danioBaseArma',
+      'velocidad_arma': 'velocidadArma',
+      'bonificacion_velocidad_ataque': 'bonificacionVelocidadAtaque',
+      'probabilidad_golpe_critico': 'probabilidadGolpeCritico',
+      'danio_golpe_critico': 'danioGolpeCritico',
+      'probabilidad_abrumar': 'probabilidadAbrumar',
+      'danio_abrumador': 'danioAbrumador',
+      'danio_contra_enemigos_vulnerables': 'danioContraEnemigosVulnerables',
+      'todo_el_danio': 'todoElDanio',
+      'danio_con_sangrado': 'danioConSangrado',
+      'danio_con_quemadura': 'danioConQuemadura',
+      'danio_con_veneno': 'danioConVeneno',
+      'danio_con_corrupcion': 'danioConCorrupcion',
+      'danio_vs_enemigos_elite': 'danioVsEnemigosElite',
+      'danio_vs_enemigos_cercanos': 'danioVsEnemigosCercanos',
+      'danio_vs_enemigos_saludables': 'danioVsEnemigosSaludables',
+      'espinas': 'espinas',
+      'danio_fisico': 'danioFisico',
+      
+      // Utilidad
+      'maximo_fe': 'maximoFe',
+      'reduccion_costo_fe': 'reduccionCostoFe',
+      'regeneracion_fe': 'regeneracionFe',
+      'fe_con_cada_eliminacion': 'feConCadaEliminacion',
+      'velocidad_movimiento': 'velocidadMovimiento',
+      'reduccion_recarga': 'reduccionRecarga',
+      'bonificacion_experiencia': 'bonificacionExperiencia',
+      
+      // Armadura y Resistencias
+      'armadura': 'armadura',
+      'aguante': 'aguante',
+      'resistencia_danio_fisico': 'resistenciaDanioFisico',
+      'resistencia_fuego': 'resistenciaFuego',
+      'resistencia_rayo': 'resistenciaRayo',
+      'resistencia_frio': 'resistenciaFrio',
+      'resistencia_veneno': 'resistenciaVeneno',
+      'resistencia_sombra': 'resistenciaSombra',
+      
+      // JcJ
+      'reduccion_danio': 'reduccionDanio'
+    };
+
+    /**
+     * Convierte snake_case a camelCase
+     * Ejemplo: "vida_maxima" -> "vidaMaxima"
+     */
+    const snakeToCamel = (str: string): string => {
+      return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    };
+
+    /**
+     * Busca si ya existe una propiedad con el mismo nombre (case-insensitive)
+     * Retorna el nombre de la propiedad existente o null
+     */
+    const findExistingProperty = (obj: any, targetName: string): string | null => {
+      const targetLower = targetName.toLowerCase();
+      for (const key of Object.keys(obj)) {
+        if (key.toLowerCase() === targetLower && key !== 'detalles' && key !== 'palabras_clave' && key !== 'valor') {
+          return key;
+        }
+      }
+      return null;
+    };
+
+    // Recorrer detalles y extraer valores
+    result.detalles.forEach((detalle: any) => {
+      if (!detalle.atributo_ref) return;
+      
+      const atributoRef = detalle.atributo_ref.toLowerCase().replace(/ /g, '_');
+      // Intentar usar el mapping primero
+      let fieldName = fieldMapping[atributoRef];
+      
+      // Si no está en el mapping, convertir a camelCase
+      if (!fieldName) {
+        fieldName = snakeToCamel(atributoRef);
+      }
+
+      // Verificar si ya existe una propiedad con este nombre (case-insensitive)
+      const existingField = findExistingProperty(result, fieldName);
+      if (existingField) {
+        // Si existe, usar ese nombre en lugar de crear un duplicado
+        fieldName = existingField;
+      }
+      
+      // Solo promover si no existe como propiedad directa o está vacío
+      if (result[fieldName] === undefined || result[fieldName] === null || result[fieldName] === '') {
+        // Extraer valor numérico si es posible
+        if (detalle.valor !== undefined && detalle.valor !== null) {
+          let extractedValue = detalle.valor;
+          
+          // Si el valor es string con porcentaje, extraer el número
+          if (typeof extractedValue === 'string') {
+            const match = extractedValue.match(/^([\d.,-]+)%?$/);
+            if (match) {
+              extractedValue = parseFloat(match[1].replace(',', ''));
+            }
+          }
+          
+          result[fieldName] = extractedValue;
+          console.log(`  🔍 [extractValuesFromDetails] Extraído de detalles: ${fieldName} = ${extractedValue} (ref: ${detalle.atributo_ref})`);
+        }
+      } else {
+        console.log(`  ⚠️ [extractValuesFromDetails] Campo ya existe: ${fieldName} = ${result[fieldName]}, omitiendo valor de detalles: ${detalle.valor}`);
+      }
+    });
+
+    return result;
+  }
+
+  /**
+   * Versión pública de deepMergeStats para uso externo
+   * @param target Estadísticas base (existentes)
+   * @param source Estadísticas nuevas a mergear
+   * @returns Estadísticas mergeadas con lógica de priorización
+   */
+  public static deepMergeStatsPublic(target: any, source: any): any {
+    return this.deepMergeStats(target, source);
+  }
+
+  /**
+   * Elimina propiedades duplicadas en lowercase que tienen una versión en camelCase
+   * Ejemplo: Elimina "vidamaxima" si existe "vidaMaxima"
+   */
+  private static removeLowercaseDuplicates(section: any): any {
+    if (!section || typeof section !== 'object' || Array.isArray(section)) {
+      return section;
+    }
+
+    const result = { ...section };
+    const metadataKeys = new Set(['detalles', 'palabras_clave', 'valor', 'atributo_ref', 'atributo_nombre']);
+    
+    // Obtener todas las propiedades no-metadata
+    const allKeys = Object.keys(result).filter(k => !metadataKeys.has(k));
+    
+    // Crear un mapa de lowercase -> camelCase
+    const lowercaseMap = new Map<string, string[]>();
+    for (const key of allKeys) {
+      const lowercase = key.toLowerCase();
+      if (!lowercaseMap.has(lowercase)) {
+        lowercaseMap.set(lowercase, []);
+      }
+      lowercaseMap.get(lowercase)!.push(key);
+    }
+
+    // Para cada grupo de keys con el mismo lowercase
+    for (const [lowercase, keys] of lowercaseMap.entries()) {
+      if (keys.length <= 1) continue; // No hay duplicados
+
+      // Encontrar la versión en camelCase correcta (la que tiene mayúsculas)
+      const camelCaseKey = keys.find(k => k !== lowercase && /[A-Z]/.test(k));
+      
+      if (camelCaseKey) {
+        // Eliminar todas las versiones que NO sean la camelCase correcta
+        for (const key of keys) {
+          if (key !== camelCaseKey) {
+            console.log(`  🧹 [removeLowercaseDuplicates] Eliminando duplicado: ${key} (mantiene ${camelCaseKey})`);
+            delete result[key];
+          }
         }
       }
     }
@@ -493,8 +947,84 @@ export class WorkspaceService {
       const normalizedBase = this.normalizeStatsFieldNames(personajeFromDisk.estadisticas || {});
       const normalizedNew = this.normalizeStatsFieldNames(statsToSave);
 
+      console.log('📊 [importStatsToPersonaje] ANTES DEL MERGE:', {
+        personajeId,
+        seccionesBase: Object.keys(normalizedBase),
+        seccionesNuevas: Object.keys(normalizedNew)
+      });
+
+      // Mostrar campos detallados de cada sección BASE
+      Object.keys(normalizedBase).forEach(seccion => {
+        if (typeof normalizedBase[seccion] === 'object' && !Array.isArray(normalizedBase[seccion])) {
+          const campos = Object.keys(normalizedBase[seccion]).filter(k => k !== 'detalles' && k !== 'palabras_clave');
+          const valores = campos.reduce((acc, campo) => {
+            acc[campo] = normalizedBase[seccion][campo];
+            return acc;
+          }, {} as any);
+          console.log(`  📦 BASE[${seccion}]:`, valores);
+        }
+      });
+
+      // Mostrar campos detallados de cada sección NUEVA
+      Object.keys(normalizedNew).forEach(seccion => {
+        if (typeof normalizedNew[seccion] === 'object' && !Array.isArray(normalizedNew[seccion])) {
+          const campos = Object.keys(normalizedNew[seccion]).filter(k => k !== 'detalles' && k !== 'palabras_clave');
+          const valores = campos.reduce((acc, campo) => {
+            acc[campo] = normalizedNew[seccion][campo];
+            return acc;
+          }, {} as any);
+          console.log(`  📥 NUEVO[${seccion}]:`, valores);
+        }
+      });
+
       // 4️⃣ DEEP MERGE (preserva detalles acumulados)
       const mergedEstadisticas = this.deepMergeStats(normalizedBase, normalizedNew);
+
+      console.log('📊 [importStatsToPersonaje] DESPUÉS DEL MERGE:', {
+        seccionesMergeadas: Object.keys(mergedEstadisticas)
+      });
+
+      // Mostrar campos detallados de cada sección MERGEADA
+      Object.keys(mergedEstadisticas).forEach(seccion => {
+        if (typeof mergedEstadisticas[seccion] === 'object' && !Array.isArray(mergedEstadisticas[seccion])) {
+          const campos = Object.keys(mergedEstadisticas[seccion]).filter(k => k !== 'detalles' && k !== 'palabras_clave');
+          const valores = campos.reduce((acc, campo) => {
+            acc[campo] = mergedEstadisticas[seccion][campo];
+            return acc;
+          }, {} as any);
+          console.log(`  ✅ MERGED[${seccion}]:`, valores);
+        }
+      });
+
+      // 4️⃣bis: EXTRAER VALORES DE DETALLES[] QUE FALTAN COMO PROPIEDADES DIRECTAS
+      // Esto promueve campos como voluntad/destreza con valor 0 que solo están en detalles[]
+      console.log('🔍 [importStatsToPersonaje] Extrayendo valores de detalles...');
+      Object.keys(mergedEstadisticas).forEach(seccion => {
+        if (typeof mergedEstadisticas[seccion] === 'object' && !Array.isArray(mergedEstadisticas[seccion])) {
+          mergedEstadisticas[seccion] = this.extractValuesFromDetails(mergedEstadisticas[seccion]);
+        }
+      });
+
+      // 4️⃣ter: LIMPIAR DUPLICADOS EN LOWERCASE
+      console.log('🧹 [importStatsToPersonaje] Limpiando duplicados en lowercase...');
+      Object.keys(mergedEstadisticas).forEach(seccion => {
+        if (typeof mergedEstadisticas[seccion] === 'object' && !Array.isArray(mergedEstadisticas[seccion])) {
+          mergedEstadisticas[seccion] = this.removeLowercaseDuplicates(mergedEstadisticas[seccion]);
+        }
+      });
+
+      // Mostrar resultado DESPUÉS de extraer valores y limpiar duplicados
+      console.log('📊 [importStatsToPersonaje] DESPUÉS DE EXTRAER Y LIMPIAR:');
+      Object.keys(mergedEstadisticas).forEach(seccion => {
+        if (typeof mergedEstadisticas[seccion] === 'object' && !Array.isArray(mergedEstadisticas[seccion])) {
+          const campos = Object.keys(mergedEstadisticas[seccion]).filter(k => k !== 'detalles' && k !== 'palabras_clave');
+          const valores = campos.reduce((acc, campo) => {
+            acc[campo] = mergedEstadisticas[seccion][campo];
+            return acc;
+          }, {} as any);
+          console.log(`  ✨ FINAL[${seccion}]:`, valores);
+        }
+      });
 
       // 5️⃣ ACTUALIZAR PERSONAJE
       const updatedPersonaje = {
@@ -505,14 +1035,23 @@ export class WorkspaceService {
         fecha_actualizacion: new Date().toISOString()
       };
 
-      // 6️⃣ GUARDAR CON MERGE
+      // 6️⃣ GUARDAR DIRECTAMENTE (sin merge adicional, ya lo hicimos arriba)
+      // Reutilizar personajesDir ya obtenido en línea 733
+      const fileHandleToSave = await personajesDir.getFileHandle(`${personajeId}.json`, { create: true });
+      const writable = await fileHandleToSave.createWritable();
+      await writable.write(JSON.stringify(updatedPersonaje, null, 2));
+      await writable.close();
+
+      // Actualizar fecha de modificación del workspace
       const originalHandle = this.fileSystemHandle;
-      this.fileSystemHandle = handle; // Temporal para savePersonajeMerge
-      
+      this.fileSystemHandle = handle;
       try {
-        await this.savePersonajeMerge(updatedPersonaje);
+        if (this.workspaceConfig) {
+          this.workspaceConfig.ultima_actualizacion = new Date().toISOString();
+          await this.saveWorkspaceConfig();
+        }
       } finally {
-        this.fileSystemHandle = originalHandle; // Restaurar
+        this.fileSystemHandle = originalHandle;
       }
 
       // 7️⃣ CALCULAR CAMPOS ACTUALIZADOS

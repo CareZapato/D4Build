@@ -967,8 +967,8 @@ export function validateJSONByCategory(
     case 'glifos':
       return validateGlyphsJSON(data);
     case 'aspectos':
-      return validateAspectsJSON(data);    case 'mecanicas':
-      return validateMecanicasJSON(data);    case 'mecanicas':
+      return validateAspectsJSON(data);
+    case 'mecanicas':
       return validateMecanicasJSON(data);
     case 'mundo':
       return validateMundoJSON(data);

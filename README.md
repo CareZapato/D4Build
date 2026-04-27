@@ -1,6 +1,6 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.8.4-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.8.8-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
@@ -11,7 +11,17 @@ Una aplicación web moderna y reactiva full-stack para gestionar y optimizar tus
 
 ## ✨ Características Principales
 
-### 🧪 Testing de Integridad (v0.8.4 - NUEVO)
+### 💎 Sistema de Glifos Mejorado (v0.8.8 - NUEVO)
+- 🔢 **Nivel Máximo 150**: Actualizado para Temporada 7 de Diablo 4
+- ⚙️ **Constante Configurable**: `MAX_GLYPH_LEVEL` en configuración para ajustes futuros
+- 🎯 **Separación de Datos**: 
+  - **Héroe**: Guarda catálogo completo (nombre, descripción, efectos) sin niveles
+  - **Personaje**: Guarda solo referencias `{id, nivel_actual, nivel_maximo}` específicas del build
+- 📋 **Metadata Estandarizada**: Incluye `personajeId`, `personajeNombre`, `personajeNivel` en todos los imports
+- 🔄 **Importación Mejorada**: Elimina `nivel_actual` al guardar en catálogo de héroe
+- 📊 **Auto-refresh**: Los cambios se reflejan automáticamente en la UI después de importar
+
+### 🧪 Testing de Integridad (v0.8.4)
 - 🔬 **Panel Premium/Admin**: Sección exclusiva en perfil de usuario
 - 🗂️ **Workspace Temporal**: Crea carpeta `Tests/` sin afectar workspace actual
 - 📊 **Validación Automática**: Ejecuta TODOS los JSONs guardados en galería

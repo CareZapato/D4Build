@@ -72,32 +72,47 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
     );
   }
 
-  const countNonEmptyStatFields = (value: any): number => {
-    if (value === null || value === undefined || value === '') return 0;
-    if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return 1;
-    if (Array.isArray(value)) return value.reduce((acc, item) => acc + countNonEmptyStatFields(item), 0);
-    if (typeof value === 'object') {
-      // Soporta estructuras enriquecidas como { valor, atributo_ref, detalles }
-      if ('valor' in value) {
-        return countNonEmptyStatFields(value.valor);
+  // Cuenta solo campos de estadística principales (excluye detalles, palabras_clave, metadatos)
+  const countStatFields = (sectionData: any): number => {
+    if (!sectionData || typeof sectionData !== 'object') return 0;
+    
+    let count = 0;
+    const excludedKeys = ['detalles', 'palabras_clave', 'valor', 'atributo_ref', 'atributo_nombre', 
+                          'aguante_definicion', 'nivel_paragon'];
+    
+    for (const [key, value] of Object.entries(sectionData)) {
+      // Saltar campos de metadatos
+      if (excludedKeys.includes(key)) continue;
+      
+      // Para campos de moneda, verificar si tiene valor
+      if (typeof value === 'object' && value !== null && 'valor' in value) {
+        const valorActual = (value as any).valor;
+        if (valorActual !== null && valorActual !== undefined && valorActual !== '') {
+          count++;
+        }
       }
-      return Object.values(value).reduce<number>((acc, item) => acc + countNonEmptyStatFields(item), 0);
+      // Para campos normales
+      else if (value !== null && value !== undefined && value !== '') {
+        count++;
+      }
     }
-    return 0;
+    
+    return count;
   };
 
   const getStatsFillPercentage = (personaje: Personaje): number => {
     if (!personaje.estadisticas) return 0;
 
+    // Valores esperados realistas basados en lo que se puede capturar
     const expectedFieldsBySection: Record<string, number> = {
-      personaje: 2,
-      atributosPrincipales: 6,
-      defensivo: 12,
-      ofensivo: 18,
-      utilidad: 16,
-      armaduraYResistencias: 6,
-      jcj: 4,
-      moneda: 4
+      personaje: 4,              // danioArma, aguante, vidamaxima, armadura
+      atributosPrincipales: 5,   // nivel, fuerza, inteligencia, voluntad, destreza
+      defensivo: 11,             // reduccionDanioCercanos, bonificacionFortificacion, bonificacionBarrera, probabilidadEsquivar, vidaMaxima, cantidadPociones, sanacionRecibida, vidaPorEliminacion, vidaCada5Segundos, probabilidadBloqueo, reduccionBloqueo
+      ofensivo: 17,              // danioVsEnemigosCercanos, danioVsEnemigosElite, danioVsEnemigosSaludables, danioConCorrupcion, espinas, danioContraEnemigosVulnerables, todoElDanio, danioFisico, danioConSangrado, danioConQuemadura, danioConVeneno, danioBaseArma, velocidadArma, bonificacionVelocidadAtaque, probabilidadGolpeCritico, danioGolpeCritico, probabilidadAbrumar, danioAbrumador
+      utilidad: 8,               // maximoFe, reduccionCostoFe, regeneracionFe, feConCadaEliminacion, velocidadMovimiento, reduccionRecuperacion, bonificacionProbabilidadGolpeAfortunado, bonificacionExperiencia
+      armaduraYResistencias: 7,  // aguante, armadura, resistenciaDanioFisico, resistenciaFuego, resistenciaFrio, resistenciaRayo, resistenciaVeneno, resistenciaSombra
+      jcj: 1,                    // reduccionDanio (solo 1 campo capturado)
+      moneda: 7                  // oro, obolos, polvoRojo, marcasPalidas, monedasDelAlcazar, favor, carneFresca
     };
 
     let filled = 0;
@@ -107,7 +122,8 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
       expected += expectedCount;
       const sectionData = (personaje.estadisticas as any)?.[section];
       if (!sectionData) return;
-      const sectionFilled = countNonEmptyStatFields(sectionData);
+      
+      const sectionFilled = countStatFields(sectionData);
       filled += Math.min(sectionFilled, expectedCount);
     });
 

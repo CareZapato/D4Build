@@ -1,11 +1,30 @@
 export type ImageCategory = 'skills' | 'glifos' | 'aspectos' | 'mecanicas' | 'estadisticas' | 'paragon' | 'otros' | 'runas' | 'gemas' | 'build' | 'mundo' | 'talismanes';
 
+/** Metadata que acompaña a cada JSON guardado en galería */
+export interface JSONMetadata {
+  categoria: string;
+  timestamp: string;
+  destino: 'heroe' | 'personaje';
+  clase?: string;
+  personajeId?: string;
+  personajeNombre?: string;
+  personajeNivel?: number;
+  personajeClase?: string;
+  paragonType?: 'tablero' | 'nodo' | 'atributos';
+  runaGemaType?: 'runas' | 'gemas';
+  mundoType?: 'eventos' | 'mazmorras_aspectos';
+  talismanType?: 'charms' | 'horadric_seal';
+  manualElementCount?: number | null;
+  version?: string;
+}
+
 export interface SavedImage {
   nombre: string;
   categoria: ImageCategory;
   fecha: string;
   blob: Blob;
-  hasJSON?: boolean; // Indica si existe un JSON asociado
+  hasJSON?: boolean;
+  metadata?: JSONMetadata; // ✅ Nueva propiedad para metadata
 }
 
 /** Entrada de galería: imagen con/sin JSON, o JSON solo (sin imagen) */
@@ -16,6 +35,7 @@ export interface GalleryEntry {
   blob: Blob | null;
   hasJSON: boolean;
   isJSONOnly: boolean;
+  metadata?: JSONMetadata; // ✅ Nueva propiedad para metadata
 }
 
 /**
@@ -115,11 +135,12 @@ export class ImageService {
     return nombreArchivo;
   }
 
-  // Guardar JSON asociado a una imagen
+  // Guardar JSON asociado a una imagen (con metadata opcional)
   static async saveImageJSON(
     jsonContent: string,
     categoria: ImageCategory,
-    imageName: string
+    imageName: string,
+    metadata?: JSONMetadata
   ): Promise<string> {
     const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
     
@@ -133,7 +154,61 @@ export class ImageService {
     await writable.close();
     
     console.log(`✅ JSON guardado: imagenes/${categoria}/${jsonFileName}`);
+
+    // Si hay metadata, guardarla en archivo separado
+    if (metadata) {
+      await this.saveMetadata(categoria, imageName, metadata);
+    }
+    
     return jsonFileName;
+  }
+
+  // ✅ NUEVO: Guardar metadata asociada a un JSON
+  static async saveMetadata(
+    categoria: ImageCategory,
+    imageName: string,
+    metadata: JSONMetadata
+  ): Promise<void> {
+    try {
+      const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
+      const metaFileName = imageName.replace(/\.png$/, '.meta.json');
+      
+      const fileHandle = await categoryFolder.getFileHandle(metaFileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(metadata, null, 2));
+      await writable.close();
+      
+      console.log(`✅ Metadata guardada: imagenes/${categoria}/${metaFileName}`);
+    } catch (error) {
+      console.error('❌ Error guardando metadata:', error);
+    }
+  }
+
+  // ✅ NUEVO: Leer metadata asociada a un JSON
+  static async loadMetadata(
+    categoria: ImageCategory,
+    imageName: string
+  ): Promise<JSONMetadata | null> {
+    try {
+      const metaFileName = imageName.replace(/\.png$/, '.meta.json');
+      const folders = await this.getReadCategoryFolders(categoria);
+
+      for (const folder of folders) {
+        try {
+          const fileHandle = await folder.handle.getFileHandle(metaFileName);
+          const file = await fileHandle.getFile();
+          const content = await file.text();
+          return JSON.parse(content) as JSONMetadata;
+        } catch {
+          // probar siguiente carpeta
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Error cargando metadata:', error);
+      return null;
+    }
   }
 
   // Verificar si existe JSON para una imagen
@@ -308,7 +383,8 @@ export class ImageService {
   static async saveJSONOnly(
     jsonContent: string,
     categoria: ImageCategory,
-    baseName: string = 'dato'
+    baseName: string = 'dato',
+    metadata?: JSONMetadata
   ): Promise<string> {
     const categoryFolder = await this.ensureCategoryImagesFolder(categoria);
     const timestamp = Date.now();
@@ -318,6 +394,13 @@ export class ImageService {
     await writable.write(jsonContent);
     await writable.close();
     console.log(`✅ JSON independiente guardado: imagenes/${categoria}/${jsonFileName}`);
+    
+    // Si hay metadata, guardarla
+    if (metadata) {
+      const fakeImageName = jsonFileName.replace(/\.json$/, '.png');
+      await this.saveMetadata(categoria, fakeImageName, metadata);
+    }
+    
     return jsonFileName;
   }
 
@@ -360,7 +443,8 @@ export class ImageService {
               if (!pngMap.has(entry.name)) {
                 try { pngMap.set(entry.name, await entry.getFile()); } catch { /* skip */ }
               }
-            } else if (entry.name.endsWith('.json')) {
+            } else if (entry.name.endsWith('.json') && !entry.name.endsWith('.meta.json')) {
+              // ✅ Filtrar archivos .meta.json de la galería
               jsonSet.add(entry.name);
             }
           }
@@ -374,7 +458,19 @@ export class ImageService {
         const blob = new Blob([await file.arrayBuffer()], { type: 'image/png' });
         const timestamp = this.extractTimestampFromFileName(pngName) || file.lastModified;
         const hasJSON = jsonSet.has(pngName.replace(/\.png$/, '.json'));
-        entries.push({ nombre: pngName, categoria, fecha: new Date(timestamp).toISOString(), blob, hasJSON, isJSONOnly: false });
+        
+        // ✅ Cargar metadata si existe
+        const metadata = await this.loadMetadata(categoria, pngName);
+        
+        entries.push({ 
+          nombre: pngName, 
+          categoria, 
+          fecha: new Date(timestamp).toISOString(), 
+          blob, 
+          hasJSON, 
+          isJSONOnly: false,
+          metadata: metadata || undefined // ✅ Convertir null a undefined
+        });
       }
 
       // JSONs huérfanos (sin PNG correspondiente)
@@ -382,7 +478,19 @@ export class ImageService {
         const correspondingPng = jsonName.replace(/\.json$/, '.png');
         if (!pngMap.has(correspondingPng)) {
           const timestamp = this.extractTimestampFromFileName(jsonName) || Date.now();
-          entries.push({ nombre: jsonName, categoria, fecha: new Date(timestamp).toISOString(), blob: null, hasJSON: true, isJSONOnly: true });
+          
+          // ✅ Cargar metadata si existe (usar nombre fake .png)
+          const metadata = await this.loadMetadata(categoria, correspondingPng);
+          
+          entries.push({ 
+            nombre: jsonName, 
+            categoria, 
+            fecha: new Date(timestamp).toISOString(), 
+            blob: null, 
+            hasJSON: true, 
+            isJSONOnly: true,
+            metadata: metadata || undefined // ✅ Convertir null a undefined
+          });
         }
       }
 

@@ -7,6 +7,26 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.8.8] - 2026-04-26
+
+### 🔧 Fixed (Corregido)
+
+#### Sistema de Glifos
+- **Nivel máximo actualizado**: Glifos ahora soportan nivel 150 (Temporada 7)
+- **Constante configurable**: Nueva constante `MAX_GLYPH_LEVEL` en `src/config/constants.ts`
+- **Separación de datos**:
+  - **Héroe**: Guarda solo detalles del glifo (nombre, descripción, efectos) SIN `nivel_actual`
+  - **Personaje**: Guarda referencias `{id, nivel_actual, nivel_maximo}` con niveles específicos del build
+- **Importación mejorada**:
+  - Elimina `nivel_actual` al guardar en héroe (modo héroe y personaje)
+  - Usa `MAX_GLYPH_LEVEL` como nivel máximo por defecto
+  - Metadata estandarizada con `personajeId`, `personajeNombre`, `personajeNivel`
+- **Componentes actualizados**:
+  - `ImageCaptureModal.tsx`: Importación corregida
+  - `CharacterGlyphs.tsx`: Uso de constante para nivel máximo
+
+---
+
 ## [0.8.0] - 2026-04-19
 
 ### ✨ Added (Agregado)
