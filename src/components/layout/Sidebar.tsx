@@ -153,28 +153,29 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
   const showPremiumButton = !isPremium();
 
   return (
-    <aside className="w-72 h-screen bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl overflow-hidden sticky top-0 z-10">
-      <div className="p-4 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden flex-shrink-0">
+    <aside className="w-16 lg:w-72 h-screen bg-gradient-to-b from-d4-surface to-d4-bg border-r-2 border-d4-accent/30 flex flex-col shadow-2xl overflow-hidden sticky top-0 z-10">
+      <div className="p-2 lg:p-4 border-b-2 border-d4-accent/40 bg-gradient-to-r from-d4-surface to-d4-bg relative overflow-hidden flex-shrink-0">
         <div className="absolute top-0 right-0 w-32 h-32 bg-d4-accent/10 rounded-full blur-3xl"></div>
         
         <div className="relative flex items-start justify-between gap-2">
-          <div className="flex-1">
-            <h1 className="text-2xl font-black text-d4-accent leading-tight tracking-wide drop-shadow-lg">
-              D4 BUILDS
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg lg:text-2xl font-black text-d4-accent leading-tight tracking-wide drop-shadow-lg truncate">
+              <span className="hidden lg:inline">D4 BUILDS</span>
+              <span className="lg:hidden">D4</span>
             </h1>
-            <div className="mt-2">
+            <div className="mt-1 lg:mt-2 hidden lg:block">
               <span className="season-text text-lg font-black uppercase tracking-wider drop-shadow-lg">
                 ⚡ Temporada 13
               </span>
             </div>
-            <p className="text-sm text-d4-text-dim mt-2 uppercase tracking-widest font-semibold">
+            <p className="text-xs lg:text-sm text-d4-text-dim mt-1 lg:mt-2 uppercase tracking-widest font-semibold hidden lg:block">
               Build Manager
             </p>
             {user && (
-              <div className="mt-2.5 flex items-center gap-2.5">
+              <div className="mt-2.5 flex flex-col lg:flex-row items-start lg:items-center gap-1 lg:gap-2.5">
                 <button
                   onClick={() => setShowSubscribeModal(true)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all hover:scale-105 cursor-pointer ${
+                  className={`inline-flex items-center justify-center lg:justify-start gap-1 px-1.5 lg:px-2 py-0.5 rounded-md text-[10px] lg:text-xs font-bold uppercase tracking-wide transition-all hover:scale-105 cursor-pointer w-full lg:w-auto ${
                   isPremium()
                     ? 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/20 hover:from-yellow-500/30 hover:to-amber-500/30'
                     : 'bg-gradient-to-r from-gray-500/20 to-gray-600/20 text-gray-300 border-2 border-gray-500/50 hover:from-gray-500/30 hover:to-gray-600/30'
@@ -186,22 +187,26 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                 >
                   {isPremium() ? (
                     <>
-                      <Crown className="w-3.5 h-3.5" />
-                      <span>Premium</span>
+                      <Crown className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+                      <span className="hidden lg:inline">Premium</span>
                     </>
                   ) : (
-                    <span>Basic</span>
+                    <>
+                      <span className="hidden lg:inline">Basic</span>
+                      <span className="lg:hidden text-[8px]">B</span>
+                    </>
                   )}
                 </button>
                 {isPremium() && creditInfo && (
                   <button
                     onClick={() => setShowAddCreditsModal(true)}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-300 border-2 border-green-500/50 hover:from-green-500/30 hover:to-emerald-500/30 transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center lg:justify-start gap-0.5 lg:gap-1 px-1.5 lg:px-2 py-0.5 rounded-md text-[10px] lg:text-xs font-bold bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-300 border-2 border-green-500/50 hover:from-green-500/30 hover:to-emerald-500/30 transition-all cursor-pointer w-full lg:w-auto"
                     title="Click para recargar créditos"
                   >
-                    <DollarSign className="w-3 h-3" />
-                    <span>${creditInfo.remaining.toFixed(2)}</span>
-                    <Plus className="w-3 h-3" />
+                    <DollarSign className="w-2.5 lg:w-3 h-2.5 lg:h-3" />
+                    <span className="hidden lg:inline">${creditInfo.remaining.toFixed(2)}</span>
+                    <span className="lg:hidden text-[8px]">${creditInfo.remaining.toFixed(0)}</span>
+                    <Plus className="w-2.5 lg:w-3 h-2.5 lg:h-3" />
                   </button>
                 )}
               </div>
@@ -209,10 +214,10 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           </div>
           <button
             onClick={() => setShowChangelog(true)}
-            className="mt-0.5 px-3 py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-sm font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg"
+            className="mt-0.5 px-1.5 lg:px-3 py-1 lg:py-1.5 bg-gradient-to-r from-d4-accent/20 to-d4-accent/30 text-d4-accent text-[10px] lg:text-sm font-bold rounded-md border-2 border-d4-accent/50 hover:bg-d4-accent/40 hover:border-d4-accent transition-all hover:scale-105 active:scale-95 shadow-lg hidden lg:block"
             title="Ver registro de cambios"
           >
-            v0.8.9
+            v0.9.0
           </button>
         </div>
       </div>
@@ -220,8 +225,8 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
       <ImageCaptureModal isOpen={showImageCapture} onClose={() => setShowImageCapture(false)} />
 
-      <nav className="flex-1 p-4 overflow-y-auto min-h-0">
-        <ul className="space-y-2.5">
+      <nav className="flex-1 p-1 lg:p-4 overflow-y-auto min-h-0">
+        <ul className="space-y-1 lg:space-y-2.5">
           {menuItems.map(item => {
             const isPremiumItem = item.premiumOnly && !isPremium();
             return (
@@ -234,7 +239,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                     onViewChange(item.id);
                   }
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide relative ${
+                className={`w-full flex items-center justify-center lg:justify-start gap-2 lg:gap-3 px-2 lg:px-4 py-2 lg:py-3.5 rounded-lg transition-all duration-200 font-bold text-xs lg:text-sm uppercase tracking-wide relative ${
                   currentView === item.id
                     ? 'bg-gradient-to-r from-d4-accent to-d4-accent-hover text-black shadow-lg shadow-d4-accent/30 scale-105'
                     : isPremiumItem
@@ -243,8 +248,8 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                 }`}
                 title={isPremiumItem ? 'Requiere Premium' : ''}
               >
-                <item.icon className={`w-5 h-5 ${currentView === item.id ? 'drop-shadow-md' : ''}`} />
-                <span>{item.label}</span>
+                <item.icon className={`w-4 lg:w-5 h-4 lg:h-5 flex-shrink-0 ${currentView === item.id ? 'drop-shadow-md' : ''}`} />
+                <span className="hidden lg:inline">{item.label}</span>
                 {isPremiumItem && (
                   <Crown className="w-3.5 h-3.5 text-yellow-400 absolute top-1 right-1" />
                 )}
@@ -254,38 +259,38 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           })}
           
           {isAdmin() && (
-            <li className="pt-2 border-t border-d4-border/50">
+            <li className="pt-1 lg:pt-2 border-t border-d4-border/50">
               <button
                 onClick={() => onViewChange('admin')}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide ${
+                className={`w-full flex items-center justify-center lg:justify-start gap-2 lg:gap-3 px-2 lg:px-4 py-2 lg:py-3.5 rounded-lg transition-all duration-200 font-bold text-xs lg:text-sm uppercase tracking-wide ${
                   currentView === 'admin'
                     ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-500/30 scale-105'
                     : 'bg-gradient-to-r from-red-600/20 to-orange-600/20 text-red-300 border-2 border-red-500/50 hover:from-red-600/30 hover:to-orange-600/30 hover:scale-102'
                 }`}
               >
-                <Shield className={`w-5 h-5 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
-                <span>Admin</span>
+                <Shield className={`w-4 lg:w-5 h-4 lg:h-5 flex-shrink-0 ${currentView === 'admin' ? 'drop-shadow-md' : ''}`} />
+                <span className="hidden lg:inline">Admin</span>
               </button>
             </li>
           )}
           
           {showPremiumButton && (
-            <li className="pt-2 border-t border-d4-border/50">
+            <li className="pt-1 lg:pt-2 border-t border-d4-border/50">
               <button
                 onClick={() => onViewChange('premium')}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide ${
+                className={`w-full flex items-center justify-center lg:justify-start gap-2 lg:gap-3 px-2 lg:px-4 py-2 lg:py-3.5 rounded-lg transition-all duration-200 font-bold text-xs lg:text-sm uppercase tracking-wide ${
                   currentView === 'premium'
                     ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black shadow-lg shadow-yellow-500/30 scale-105'
                     : 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-2 border-yellow-500/50 hover:from-yellow-500/30 hover:to-amber-500/30 hover:scale-102'
                 }`}
               >
-                <Crown className={`w-5 h-5 ${currentView === 'premium' ? 'drop-shadow-md' : ''}`} />
-                <span>Actualizar</span>
+                <Crown className={`w-4 lg:w-5 h-4 lg:h-5 flex-shrink-0 ${currentView === 'premium' ? 'drop-shadow-md' : ''}`} />
+                <span className="hidden lg:inline">Actualizar</span>
               </button>
             </li>
           )}
           
-          <li className="pt-2 border-t border-d4-border/50">
+          <li className="pt-1 lg:pt-2 border-t border-d4-border/50">
             <button
               onClick={() => {
                 if (!isPremium()) {
@@ -294,15 +299,15 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                   setShowImageCapture(true);
                 }
               }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all duration-200 font-bold text-sm uppercase tracking-wide relative ${
+              className={`w-full flex items-center justify-center lg:justify-start gap-2 lg:gap-3 px-2 lg:px-4 py-2 lg:py-3.5 rounded-lg transition-all duration-200 font-bold text-xs lg:text-sm uppercase tracking-wide relative ${
                 isPremium()
                   ? 'bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:scale-105'
                   : 'bg-gradient-to-r from-purple-600/30 to-blue-600/30 text-purple-200 border-2 border-purple-500/40 hover:scale-105 opacity-70'
               }`}
               title={isPremium() ? '' : 'Requiere Premium'}
             >
-              <Camera className="w-5 h-5 drop-shadow-md" />
-              <span>Captura</span>
+              <Camera className="w-4 lg:w-5 h-4 lg:h-5 flex-shrink-0 drop-shadow-md" />
+              <span className="hidden lg:inline">Captura</span>
               {!isPremium() && (
                 <Crown className="w-3.5 h-3.5 text-yellow-400 absolute top-1 right-1" />
               )}
@@ -311,8 +316,8 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
         </ul>
       </nav>
 
-      <div className="p-3 border-t-2 border-d4-accent/40 bg-gradient-to-t from-d4-bg to-transparent flex-shrink-0 space-y-3">
-        <div className="text-xs text-d4-text-dim">
+      <div className="p-1.5 lg:p-3 border-t-2 border-d4-accent/40 bg-gradient-to-t from-d4-bg to-transparent flex-shrink-0 space-y-2 lg:space-y-3">
+        <div className="text-xs text-d4-text-dim hidden lg:block">
           <div className="flex items-center justify-between mb-1.5">
             <p className="uppercase tracking-wide font-semibold text-xs">Workspace</p>
             <button
@@ -337,12 +342,12 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-d4-surface border-2 border-d4-border hover:border-d4-accent/50 transition-all group"
+              className="w-full flex items-center justify-center lg:justify-start gap-2 px-1.5 lg:px-3 py-1.5 lg:py-2 rounded-lg bg-d4-surface border-2 border-d4-border hover:border-d4-accent/50 transition-all group"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-d4-accent to-d4-accent-hover flex items-center justify-center">
-                <User className="w-4 h-4 text-black" />
+              <div className="w-6 lg:w-8 h-6 lg:h-8 rounded-full bg-gradient-to-br from-d4-accent to-d4-accent-hover flex items-center justify-center flex-shrink-0">
+                <User className="w-3 lg:w-4 h-3 lg:h-4 text-black" />
               </div>
-              <div className="flex-1 text-left">
+              <div className="flex-1 text-left hidden lg:block">
                 <p className="text-xs font-bold text-d4-text group-hover:text-d4-accent transition-colors truncate">
                   {user.username}
                 </p>
@@ -353,13 +358,13 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
             </button>
 
             {showProfileMenu && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-d4-surface border-2 border-d4-accent/50 rounded-lg shadow-xl overflow-hidden z-20">
+              <div className="absolute bottom-full lg:left-0 lg:right-0 left-1/2 -translate-x-1/2 lg:translate-x-0 mb-2 bg-d4-surface border-2 border-d4-accent/50 rounded-lg shadow-xl overflow-hidden z-20 min-w-[160px] lg:w-full">
                 <button
                   onClick={() => {
                     onViewChange('profile');
                     setShowProfileMenu(false);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold border-b border-d4-border"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold border-b border-d4-border whitespace-nowrap"
                 >
                   <User className="w-3.5 h-3.5" />
                   <span>Mi Perfil</span>
@@ -369,7 +374,7 @@ const Sidebar: React.FC<Props> = ({ currentView, onViewChange }) => {
                     logout();
                     setShowProfileMenu(false);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-d4-text hover:bg-d4-accent hover:text-black transition-all font-semibold whitespace-nowrap"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Cerrar Sesión</span>

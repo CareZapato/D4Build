@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">28 de Abril, 2026 (v0.8.9)</p>
+                <p className="text-d4-text font-semibold">28 de Abril, 2026 (v0.9.0)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,74 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.9.0 - UI Responsive y Prompts Mejorados */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.9.0</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-green-600/20 to-emerald-600/20 text-green-300 px-2 py-1 rounded">📤 Extracción & UI</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📤 Prompts de Extracción de Información Completa</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Extracción Personajes</strong>: Nuevo prompt para extraer toda la información del personaje en formato JSON</li>
+                <li><strong>Extracción Héroes</strong>: Nuevo prompt para extraer el 100% de información de la clase (habilidades, glifos, aspectos, mecánicas)</li>
+                <li><strong>Formato estructurado</strong>: JSON válido listo para copiar y pegar, con jerarquía completa de categorías y subcategorías</li>
+                <li><strong>Datos completos</strong>: Incluye IDs, descripciones, tags, niveles, costos, efectos, modificadores, y pasivas relacionadas</li>
+                <li><strong>Casos de uso</strong>: Documentación, migración de datos, análisis externos, respaldos estructurados</li>
+                <li><strong>UI destacada</strong>: Botones con fondo verde y borde para identificar rápidamente los prompts de extracción</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔀 Generador de Prompts Unificado</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Toggle Personaje vs Héroe</strong>: Selector intuitivo con iconos (Users/Shield) para cambiar tipo de análisis</li>
+                <li><strong>Prompts específicos para Héroes</strong>: Análisis de Habilidades, Arquetipos Meta, y Sinergias con enfoque en clase completa</li>
+                <li><strong>Análisis de Stats</strong>: Cada prompt de héroe incluye prioridad de atributos (Fuerza, Destreza, Inteligencia, Voluntad)</li>
+                <li><strong>Recomendaciones de builds</strong>: Top 3-5 arquetipos con sinergias reales y stats óptimos por combo</li>
+                <li><strong>Prompts existentes mantenidos</strong>: Todos los prompts de personajes funcionan igual (Sinergias, Optimización, Análisis Profundo Premium)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📱 Interfaz Responsive Completa</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Sidebar icon-only</strong>: Menú lateral compacto en móvil (w-16) mostrando solo iconos, expandido en desktop (w-72)</li>
+                <li><strong>CharacterList adaptativo</strong>: Grid responsive 1-2-3-4 columnas, textos escalados, iconos ajustados, espaciado fluido</li>
+                <li><strong>HeroManager tabs compactos</strong>: Tabs más pequeños en mobile sin perder funcionalidad</li>
+                <li><strong>Profile submenu reposicionado</strong>: Centrado en mobile, alineado izquierda en desktop</li>
+                <li><strong>PromptGenerator responsive</strong>: Todos los elementos escalados, grid 2 columnas desktop / 1 columna mobile</li>
+                <li><strong>Patrón consistente</strong>: Base mobile-first con breakpoint lg: para desktop (text-xs lg:text-sm, px-2 lg:px-4)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔧 Correcciones de Compilación</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>PromptGenerator.tsx</strong>: Eliminado código duplicado (217 líneas) que causaba 50+ errores de compilación</li>
+                <li><strong>Referencias corregidas</strong>: Propiedades inexistentes en Personaje, Glifo, Aspecto, SeleccionMecanica actualizadas</li>
+                <li><strong>PromptService.ts</strong>: Corregido tipo de variable pasiva (null vs undefined) en generateBuildAnalysisPrompt</li>
+                <li><strong>Tipos actualizados</strong>: Adaptado a modelo de referencias (habilidades_refs, glifos_refs, estadisticas_refs)</li>
+                <li><strong>Compilación exitosa</strong>: 0 errores TypeScript, bundle 2,018.94 kB optimizado</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📚 Documentación Actualizada</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>CHANGELOG.md</strong>: Nueva entrada detallada 0.9.0 con todos los cambios (Added, Improved, Fixed)</li>
+                <li><strong>README.md</strong>: Badge de versión actualizado a 0.9.0</li>
+                <li><strong>CONTEXT.md</strong>: Versión en header actualizada</li>
+                <li><strong>package.json</strong>: Versión 0.9.0</li>
+                <li><strong>Sidebar.tsx</strong>: Footer con versión 0.9.0</li>
+                <li><strong>ChangelogModal.tsx</strong>: Nueva sección visible en la web con detalles completos</li>
+              </ul>
             </div>
           </div>
         </div>

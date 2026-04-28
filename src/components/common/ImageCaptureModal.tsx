@@ -5974,86 +5974,85 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
       <div className="absolute inset-0 bg-black/90" onClick={onClose}></div>
       
       {/* Modal Content */}
-      <div className="card max-w-7xl w-full max-h-[90vh] overflow-y-auto relative z-[1]">
+      <div className="card max-w-7xl w-full max-h-[95vh] overflow-y-auto relative z-[1]">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className={`absolute top-2 right-2 sm:top-4 sm:right-4 z-[100] p-2 sm:p-4 rounded-lg shadow-lg flex items-center gap-2 sm:gap-3 animate-slide-in-right ${
+          <div className={`absolute top-1 right-1 sm:top-2 sm:right-2 z-[100] p-1.5 sm:p-3 rounded-md shadow-lg flex items-center gap-1.5 sm:gap-2 animate-slide-in-right ${
             toastType === 'success' ? 'bg-green-600 text-white' :
             toastType === 'error' ? 'bg-red-600 text-white' :
             'bg-blue-600 text-white'
           }`}>
-            {toastType === 'success' && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
-            {toastType === 'error' && <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
-            {toastType === 'info' && <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
-            <span className="text-xs sm:text-sm font-semibold">{toastMessage}</span>
-            <button onClick={() => setToastMessage(null)} className="ml-1 sm:ml-2 hover:opacity-70">
-              <X className="w-3 h-3 sm:w-4 sm:h-4" />
+            {toastType === 'success' && <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />}
+            {toastType === 'error' && <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />}
+            {toastType === 'info' && <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />}
+            <span className="text-[10px] sm:text-xs font-semibold">{toastMessage}</span>
+            <button onClick={() => setToastMessage(null)} className="ml-1 hover:opacity-70">
+              <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             </button>
           </div>
         )}
 
-        {/* Header mejorado: Título + Botones principales + Cerrar */}
-        <div className="mb-6 sticky top-0 bg-d4-surface pb-4 border-b-2 border-d4-accent/30 z-[50]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-d4-accent/20 rounded-lg border border-d4-accent/40">
-                <Camera className="w-6 h-6 text-d4-accent" />
+        {/* Header compacto responsive */}
+        <div className="mb-2 sm:mb-3 sticky top-0 bg-d4-surface pb-2 sm:pb-3 border-b border-d4-accent/30 z-[50]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="p-1 sm:p-1.5 bg-d4-accent/20 rounded border border-d4-accent/40">
+                <Camera className="w-3 h-3 sm:w-4 sm:h-4 text-d4-accent" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-d4-accent">Captura de Datos</h2>
-                <p className="text-xs text-d4-text-dim">Importa información desde imágenes del juego</p>
+                <h2 className="text-xs sm:text-sm font-bold text-d4-accent">Captura</h2>
+                <p className="text-[9px] sm:text-[10px] text-d4-text-dim hidden sm:block">Importa desde imágenes</p>
               </div>
             </div>
             
-            <div className="flex gap-2 items-center">
-              {/* Botones Capturar/Galería mejorados */}
+            <div className="flex gap-1 sm:gap-1.5 items-center">
+              {/* Botones Capturar/Galería compactos */}
               <button
                 onClick={() => setShowGallery(false)}
-                className={`px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg ${
+                className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-all ${
                   !showGallery 
-                    ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-black hover:from-amber-500 hover:to-yellow-500 scale-105' 
+                    ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-black' 
                     : 'bg-d4-bg text-d4-text hover:bg-d4-border'
                 }`}
                 title="Capturar imágenes"
               >
-                <Camera className="w-5 h-5" />
-                <span>Capturar</span>
+                <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">Capturar</span>
               </button>
               <button
                 onClick={() => { setShowGallery(true); loadGallery(); }}
-                className={`px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg ${
+                className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-all ${
                   showGallery 
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 scale-105' 
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' 
                     : 'bg-d4-bg text-d4-text hover:bg-d4-border'
                 }`}
                 title="Ver galería"
               >
-                <ImageIcon className="w-5 h-5" />
-                <span>Galería</span>
+                <ImageIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">Galería</span>
                 {categoryCounts[selectedCategory] > 0 && (
-                  <span className="px-1.5 py-0.5 bg-white/20 rounded text-xs">
+                  <span className="px-1 py-0.5 bg-white/20 rounded text-[9px]">
                     {categoryCounts[selectedCategory]}
                   </span>
                 )}
               </button>
-              <div className="w-px h-8 bg-d4-border mx-1" />
               <button 
                 onClick={onClose} 
-                className="p-2 hover:bg-red-600/20 rounded-lg transition-colors border border-d4-border hover:border-red-600" 
+                className="p-1 sm:p-1.5 hover:bg-red-600/20 rounded transition-colors border border-d4-border hover:border-red-600" 
                 title="Cerrar"
               >
-                <X className="w-5 h-5 text-d4-text hover:text-red-400" />
+                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-d4-text hover:text-red-400" />
               </button>
             </div>
           </div>
           
-          {/* Selector de categorías - Carrusel horizontal minimalista */}
+          {/* Selector de categorías - Minimalista y compacto */}
           <div className="relative">
-            <div className="flex items-center gap-2 mb-2">
-              <Filter className="w-4 h-4 text-d4-accent" />
-              <span className="text-xs font-semibold text-d4-text-dim">Categoría</span>
+            <div className="flex items-center gap-1 mb-1">
+              <Filter className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-d4-accent" />
+              <span className="text-[9px] sm:text-[10px] font-semibold text-d4-text-dim">Categoría</span>
             </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-d4-accent scrollbar-track-d4-border">
+            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-d4-accent scrollbar-track-d4-border">
               {CATEGORIES.map(cat => {
                 const Icon = cat.icon;
                 const isSelected = selectedCategory === cat.value;
@@ -6062,19 +6061,19 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   <button
                     key={cat.value}
                     onClick={() => handleCategoryChange(cat.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 border whitespace-nowrap ${
+                    className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded transition-all duration-200 border whitespace-nowrap ${
                       isSelected
-                        ? 'bg-d4-accent text-black border-d4-accent shadow-md'
+                        ? 'bg-d4-accent text-black border-d4-accent'
                         : 'bg-d4-surface/50 text-d4-text-dim border-d4-border/50 hover:border-d4-accent/50 hover:text-d4-text'
                     }`}
                     title={cat.label}
                   >
-                    <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-black' : 'text-d4-text-dim'}`} />
-                    <span className={`text-xs font-medium ${isSelected ? 'text-black' : 'text-d4-text-dim'}`}>
+                    <Icon className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${isSelected ? 'text-black' : 'text-d4-text-dim'}`} />
+                    <span className={`text-[9px] sm:text-[10px] font-medium hidden sm:inline ${isSelected ? 'text-black' : 'text-d4-text-dim'}`}>
                       {cat.label}
                     </span>
                     {count > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                      <span className={`text-[8px] sm:text-[9px] px-1 py-0.5 rounded-full font-semibold ${
                         isSelected 
                           ? 'bg-black/20 text-black' 
                           : 'bg-d4-accent/20 text-d4-accent'
@@ -6198,136 +6197,134 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         {/* Contenido según tab */}
         {!showGallery && (
           <div className="space-y-6">
-            {/* ⚠️ ADVERTENCIA INTERMITENTE PARA SKILLS */}
-            {selectedCategory === 'skills' && (
-              <div className="bg-gradient-to-r from-yellow-900/30 via-yellow-800/20 to-yellow-900/30 border-2 border-yellow-500 rounded-lg p-4 animate-pulse">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center animate-bounce">
-                      <span className="text-2xl">⚠️</span>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold text-yellow-300 mb-2">
-                      📋 ORDEN CORRECTO DE CAPTURA - IMPORTANTE
-                    </h4>
-                    <div className="text-xs text-yellow-100 space-y-2">
-                      <p className="font-semibold">
-                        ✅ Para mejor precisión, organiza la captura de IZQUIERDA → DERECHA, ARRIBA → ABAJO:
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1 pl-2">
-                        <li><span className="font-semibold text-purple-300">Modificadores</span> primero (iconos rombo con mismo dibujo que la activa)</li>
-                        <li><span className="font-semibold text-cyan-300">Habilidad Activa</span> en medio (icono cuadrado)</li>
-                        <li><span className="font-semibold text-green-300">Pasivas</span> al final (iconos rombo con dibujo diferente)</li>
-                      </ol>
-                      <p className="text-yellow-200/80 mt-2 italic text-[11px]">
-                        💡 Si el orden no es posible, la IA usará las reglas de forma del icono y similitud visual.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Sin advertencia visual - ahora es tooltip en el preview */}
             
             {/* Preview de imagen compuesta con panel de prompt lateral */}
             <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
-              {/* Panel de Preview */}
-              <div className="bg-d4-bg p-4 rounded border-2 border-d4-accent/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-d4-accent flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4" />
+              {/* Panel de Preview con icono de info para skills */}
+              <div className="bg-d4-bg p-2 sm:p-3 rounded border-2 border-d4-accent/50">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[10px] sm:text-xs font-bold text-d4-accent flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     Preview
                   </h3>
+                  {/* Icono de advertencia para Skills - Tooltip al hover */}
+                  {selectedCategory === 'skills' && (
+                    <div className="relative group">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-yellow-500/20 flex items-center justify-center cursor-help animate-pulse hover:animate-none">
+                        <span className="text-sm sm:text-base">⚠️</span>
+                      </div>
+                      {/* Tooltip con instrucciones */}
+                      <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-gradient-to-br from-yellow-900/95 to-yellow-800/95 border-2 border-yellow-500 rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[70]">
+                        <h4 className="text-[10px] sm:text-xs font-bold text-yellow-300 mb-2">
+                          📋 ORDEN CORRECTO DE CAPTURA
+                        </h4>
+                        <div className="text-[9px] sm:text-[10px] text-yellow-100 space-y-1.5">
+                          <p className="font-semibold">
+                            ✅ Organiza: IZQUIERDA → DERECHA, ARRIBA → ABAJO:
+                          </p>
+                          <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                            <li><span className="font-semibold text-purple-300">Modificadores</span> primero (rombo, mismo dibujo)</li>
+                            <li><span className="font-semibold text-cyan-300">Activa</span> en medio (icono cuadrado)</li>
+                            <li><span className="font-semibold text-green-300">Pasivas</span> al final (rombo, dibujo diferente)</li>
+                          </ol>
+                          <p className="text-yellow-200/80 mt-1.5 italic">
+                            💡 Si no es posible, la IA usa reglas visuales del icono.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {composedImageUrl ? (
-                  <div className="bg-white p-4 rounded max-h-96 overflow-auto border-2 border-green-500/50 relative group">
+                  <div className="bg-white p-2 sm:p-4 rounded max-h-60 sm:max-h-96 overflow-auto border-2 border-green-500/50 relative group">
                     {/* Botón de vista ampliada */}
                     <button
                       onClick={() => setViewerImage({ url: composedImageUrl, name: 'Imagen compuesta' })}
-                      className="absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      className="absolute top-1 right-1 sm:top-2 sm:right-2 p-1 sm:p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
                       title="Ver imagen grande"
                     >
-                      <Maximize2 className="w-5 h-5" />
+                      <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" />
                     </button>
                     
                     {/* Botones de modo de captura flotantes */}
-                    <div className="absolute top-2 left-2 flex gap-2 z-10">
+                    <div className="absolute top-1 left-1 sm:top-2 sm:left-2 flex gap-1 sm:gap-2 z-10">
                       <button
                         onClick={() => setCaptureMode('new')}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                        className={`group/btn w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'new'
                             ? 'bg-gradient-to-r from-green-600 to-green-700 text-white scale-105'
                             : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
                         }`}
                         title="Nuevo Elemento - Agrega a la derecha (horizontal)"
                       >
-                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       <button
                         onClick={() => setCaptureMode('continue')}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                        className={`group/btn w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'continue'
                             ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
                             : 'bg-d4-surface/90 text-d4-text hover:bg-d4-border backdrop-blur-sm'
                         }`}
                         title="Completar - Agrega abajo (vertical)"
                       >
-                        <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <ArrowDown className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       <button
                         onClick={copyLastSavedImage}
                         disabled={!lastSavedImageUrl}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                        className={`group/btn w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           lastSavedImageUrl
                             ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
                             : 'bg-gray-600/90 text-gray-400 cursor-not-allowed backdrop-blur-sm'
                         }`}
                         title={lastSavedImageUrl ? 'Copiar última imagen guardada para pegarla' : 'No hay imagen guardada en esta categoría'}
                       >
-                        <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                     
                     <img src={composedImageUrl} alt="Composed" className="w-full h-auto object-contain" style={{ maxWidth: '100%', transform: 'scale(0.85)' }} />
                   </div>
                 ) : (
-                  <div className="bg-d4-surface p-8 rounded border-2 border-dashed border-d4-border flex flex-col items-center justify-center min-h-[200px] relative">
+                  <div className="bg-d4-surface p-4 sm:p-8 rounded border-2 border-dashed border-d4-border flex flex-col items-center justify-center min-h-[150px] sm:min-h-[200px] relative">
                     {/* Botones de modo de captura flotantes */}
-                    <div className="absolute top-2 left-2 flex gap-2 z-10">
+                    <div className="absolute top-1 left-1 sm:top-2 sm:left-2 flex gap-1 sm:gap-2 z-10">
                       <button
                         onClick={() => setCaptureMode('new')}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                        className={`group/btn w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'new'
                             ? 'bg-gradient-to-r from-green-600 to-green-700 text-white scale-105'
                             : 'bg-d4-surface text-d4-text hover:bg-d4-border'
                         }`}
                         title="Nuevo Elemento - Agrega a la derecha (horizontal)"
                       >
-                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       <button
                         onClick={() => setCaptureMode('continue')}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                        className={`group/btn w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           captureMode === 'continue'
                             ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white scale-105'
                             : 'bg-d4-surface text-d4-text hover:bg-d4-border'
                         }`}
                         title="Completar - Agrega abajo (vertical)"
                       >
-                        <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <ArrowDown className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       <button
                         onClick={copyLastSavedImage}
                         disabled={!lastSavedImageUrl}
-                        className={`group/btn w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
+                        className={`group/btn w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-full font-bold transition-all shadow-lg ${
                           lastSavedImageUrl
                             ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
                             : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                         }`}
                         title={lastSavedImageUrl ? 'Copiar última imagen guardada para pegarla' : 'No hay imagen guardada en esta categoría'}
                       >
-                        <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                     </div>
                     
@@ -6344,35 +6341,35 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 )}
 
                 {/* Opciones de guardado */}
-                <div className="mt-4 space-y-3">
-                  {/* Botones de acción - Diseño compacto y distribuido */}
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <div className="mt-2 sm:mt-3 space-y-2">
+                  {/* Botones de acción - Compactos en una fila */}
+                  <div className="flex flex-wrap gap-1 sm:gap-1.5">
                     {/* Guardar */}
                     <button 
                       onClick={saveComposedImage} 
                       disabled={!composedImageUrl}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                      className={`p-1.5 sm:p-2 rounded font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
-                          ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg'
+                          ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title="Guardar imagen en la galería"
                     >
-                      <Save className="w-5 h-5" />
+                      <Save className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </button>
                     
                     {/* Descargar */}
                     <button 
                       onClick={downloadComposedImage} 
                       disabled={!composedImageUrl}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                      className={`p-1.5 sm:p-2 rounded font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title="Descargar imagen a tu PC"
                     >
-                      <Download className="w-5 h-5" />
+                      <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </button>
                     
                     {/* Copiar */}
@@ -6392,14 +6389,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!composedImageUrl}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                      className={`p-1.5 sm:p-2 rounded font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-purple-600 hover:bg-purple-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title="Copiar imagen al portapapeles"
                     >
-                      <Copy className="w-5 h-5" />
+                      <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </button>
                     
                     {/* Eliminar */}
@@ -6412,14 +6409,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!composedImageUrl}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                      className={`p-1.5 sm:p-2 rounded font-semibold transition-all flex items-center justify-center ${
                         composedImageUrl
                           ? 'bg-red-600 hover:bg-red-700 text-white'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title="Eliminar imagen compuesta"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </button>
                     
                     {/* OpenAI GPT-4o - Premium Only */}
@@ -6442,21 +6439,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         }
                       }}
                       disabled={!(composedImageUrl || selectedGalleryImage) || openAiProcessing}
-                      className={`p-3 rounded-lg font-semibold transition-all flex items-center justify-center relative gap-2 ${
+                      className={`p-1.5 sm:p-2 rounded font-semibold transition-all flex items-center justify-center relative gap-1 ${
                         (composedImageUrl || selectedGalleryImage) && !openAiProcessing
                           ? isPremium()
-                            ? 'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-600 hover:from-teal-500 hover:via-teal-600 hover:to-emerald-700 text-white shadow-lg'
-                            : 'bg-gradient-to-br from-gray-600 to-gray-700 text-gray-300 cursor-not-allowed border-2 border-yellow-500/50'
+                            ? 'bg-gradient-to-br from-teal-400 via-teal-500 to-emerald-600 hover:from-teal-500 hover:via-teal-600 hover:to-emerald-700 text-white'
+                            : 'bg-gradient-to-br from-gray-600 to-gray-700 text-gray-300 cursor-not-allowed border border-yellow-500/50'
                           : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       }`}
                       title={isPremium() ? "Configurar y procesar con OpenAI GPT-4o" : "Función Premium - Actualiza para usar OpenAI"}
                     >
                       {openAiProcessing ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        <div className="animate-spin rounded-full h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent"></div>
                       ) : (
                         <>
-                          {!isPremium() && <Lock className="w-4 h-4" />}
-                          <Sparkles className="w-5 h-5" />
+                          {!isPremium() && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
+                          <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </>
                       )}
                     </button>
@@ -7152,9 +7149,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   <button
                     onClick={() => processWithAI()}
                     disabled={aiProcessing || !showPromptPanel || !hasEffectiveTargetSelection}
-                    className={`p-2.5 rounded-lg font-semibold transition-all ${
+                    className={`p-1.5 sm:p-2 rounded font-semibold transition-all flex items-center justify-center ${
                       !aiProcessing && showPromptPanel && hasEffectiveTargetSelection
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg'
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
                         : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     }`}
                     title={
@@ -7170,9 +7167,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     }
                   >
                     {aiProcessing ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent"></div>
                     ) : (
-                      <Zap className="w-4 h-4" />
+                      <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     )}
                   </button>
                 </div>
@@ -7394,21 +7391,21 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       <>
                         {/* Barra de progreso batch */}
                         {executingBatch && (
-                          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-blue-900">
+                          <div className="mb-2 sm:mb-4 p-2 sm:p-4 bg-blue-50 border border-blue-200 rounded">
+                            <div className="flex items-center justify-between mb-1 sm:mb-2">
+                              <span className="text-[10px] sm:text-sm font-medium text-blue-900">
                                 {batchProgress.message || `Procesando ${batchProgress.category}...`}
                               </span>
-                              <span className="text-sm text-blue-700">
+                              <span className="text-[10px] sm:text-sm text-blue-700">
                                 {batchProgress.current} / {batchProgress.total}
                               </span>
                             </div>
-                            <div className="text-xs text-blue-800 mb-2">
+                            <div className="text-[9px] sm:text-xs text-blue-800 mb-1 sm:mb-2">
                               JSONs procesados: {batchProgress.processedJsons} | Elementos importados: {batchProgress.processedItems}
                             </div>
-                            <div className="w-full bg-blue-200 rounded-full h-2">
+                            <div className="w-full bg-blue-200 rounded-full h-1.5 sm:h-2">
                               <div
-                                className="bg-blue-600 h-2 rounded-full transition-all"
+                                className="bg-blue-600 h-1.5 sm:h-2 rounded-full transition-all"
                                 style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
                               />
                             </div>
@@ -7416,40 +7413,43 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         )}
 
                         {/* 🗑️ Barra de acciones para multiselección (v0.8.9) */}
-                        <div className="mb-4 flex items-center justify-between flex-wrap gap-2 p-3 bg-d4-bg border border-d4-border rounded-lg">
-                          <div className="flex items-center gap-2">
+                        <div className="mb-2 sm:mb-4 flex items-center justify-between flex-wrap gap-1 sm:gap-2 p-1.5 sm:p-3 bg-d4-bg border border-d4-border rounded">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             <button
                               onClick={() => toggleSelectAll(filteredGalleryImages)}
-                              className="px-3 py-1.5 bg-d4-surface hover:bg-d4-border text-d4-text text-sm rounded transition-colors border border-d4-border flex items-center gap-2"
+                              className="px-2 py-1 sm:px-3 sm:py-1.5 bg-d4-surface hover:bg-d4-border text-d4-text text-[10px] sm:text-sm rounded transition-colors border border-d4-border flex items-center gap-1 sm:gap-2"
                               title={selectedGalleryItems.size === filteredGalleryImages.length ? "Deseleccionar todo" : "Seleccionar todo"}
                             >
                               <input
                                 type="checkbox"
                                 checked={selectedGalleryItems.size === filteredGalleryImages.length && filteredGalleryImages.length > 0}
                                 readOnly
-                                className="w-4 h-4"
+                                className="w-3 h-3 sm:w-4 sm:h-4"
                               />
-                              <span>
+                              <span className="hidden sm:inline">
                                 {selectedGalleryItems.size === filteredGalleryImages.length && filteredGalleryImages.length > 0
                                   ? 'Deseleccionar todo'
                                   : 'Seleccionar todo'
                                 }
                               </span>
+                              <span className="sm:hidden">
+                                Todo
+                              </span>
                             </button>
                             {selectedGalleryItems.size > 0 && (
-                              <span className="text-sm text-d4-text-dim">
-                                {selectedGalleryItems.size} elemento{selectedGalleryItems.size > 1 ? 's' : ''} seleccionado{selectedGalleryItems.size > 1 ? 's' : ''}
+                              <span className="text-[9px] sm:text-sm text-d4-text-dim">
+                                {selectedGalleryItems.size} elem.
                               </span>
                             )}
                           </div>
                           {selectedGalleryItems.size > 0 && (
                             <button
                               onClick={confirmDeleteSelected}
-                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                              className="px-2 py-1 sm:px-4 sm:py-1.5 bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-1 sm:gap-2"
                               title={`Eliminar ${selectedGalleryItems.size} elemento(s)`}
                             >
-                              <Trash2 className="w-4 h-4" />
-                              <span>Eliminar seleccionados</span>
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span className="text-[10px] sm:text-sm">Eliminar</span>
                             </button>
                           )}
                         </div>

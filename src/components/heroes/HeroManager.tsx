@@ -13,6 +13,7 @@ import HeroGems from './HeroGems';
 import HeroClassMechanics from './HeroClassMechanics';
 import HeroCharms from './HeroCharms';
 import HeroHoradricSeal from './HeroHoradricSeal';
+import HeroPrompts from './HeroPrompts';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
 import { useAppContext } from '../../context/AppContext';
@@ -22,7 +23,7 @@ const HeroManager: React.FC = () => {
   const { personajes, availableClasses } = useAppContext();
   const [selectedClass, setSelectedClass] = useState('Paladín');
   const [currentView, setCurrentView] = useState<'import' | 'manage'>('manage');
-  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'mecanicas' | 'paragon' | 'runas' | 'gemas' | 'talismanes'>('habilidades');
+  const [importType, setImportType] = useState<'habilidades' | 'glifos' | 'aspectos' | 'mecanicas' | 'paragon' | 'runas' | 'gemas' | 'talismanes' | 'prompts'>('habilidades');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jsonText, setJsonText] = useState('');
@@ -1002,10 +1003,10 @@ const HeroManager: React.FC = () => {
           ) : (
             <div className="space-y-6">
               {/* Data Type Tabs */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-1.5 lg:gap-2 flex-wrap">
                 <button
                   onClick={() => setImportType('habilidades')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'habilidades'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1015,7 +1016,7 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('glifos')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'glifos'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1025,7 +1026,7 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('aspectos')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'aspectos'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1035,7 +1036,7 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('paragon')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'paragon'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1045,7 +1046,7 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('runas')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'runas'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1055,7 +1056,7 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('mecanicas')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'mecanicas'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1065,7 +1066,7 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('gemas')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'gemas'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
@@ -1075,13 +1076,23 @@ const HeroManager: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setImportType('talismanes')}
-                  className={`px-4 py-2 rounded transition-colors ${
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
                     importType === 'talismanes'
                       ? 'bg-d4-accent text-black font-semibold'
                       : 'bg-d4-surface text-d4-text hover:bg-d4-border'
                   }`}
                 >
                   🔮 Talismanes
+                </button>
+                <button
+                  onClick={() => setImportType('prompts')}
+                  className={`px-2 lg:px-4 py-1.5 lg:py-2 rounded transition-colors text-xs lg:text-sm ${
+                    importType === 'prompts'
+                      ? 'bg-d4-accent text-black font-semibold'
+                      : 'bg-d4-surface text-d4-text hover:bg-d4-border'
+                  }`}
+                >
+                  ✨ Prompts IA
                 </button>
               </div>
 
@@ -1152,6 +1163,10 @@ const HeroManager: React.FC = () => {
                     />
                   )}
                 </div>
+              )}
+
+              {importType === 'prompts' && (
+                <HeroPrompts clase={selectedClass} />
               )}
 
               {/* No data message */}

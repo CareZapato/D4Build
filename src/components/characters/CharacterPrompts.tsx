@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Copy, Check, Sparkles, Shield, Target, TrendingUp, Calculator, BarChart3, GitCompare, AlertCircle, Lock, Search, Filter } from 'lucide-react';
+import { Copy, Check, Sparkles, Shield, Target, TrendingUp, Calculator, BarChart3, GitCompare, AlertCircle, Lock, Search, Filter, Zap } from 'lucide-react';
 import { Personaje, HabilidadActiva, HabilidadPasiva, Glifo, Aspecto, HabilidadesPersonaje, GlifosHeroe, AspectosHeroe, MecanicasClaseHeroe } from '../../types';
 import { WorkspaceService } from '../../services/WorkspaceService';
+import { AIReportService, AIReport } from '../../services/AIReportService';
+import AIReportModal from '../common/AIReportModal';
 import { useAuth } from '../../context/AuthContext';
 
 interface CharacterPromptsProps {
@@ -24,6 +26,11 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPromptCategory, setSelectedPromptCategory] = useState<string>('all');
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(false);
+  
+  // Estados para IA
+  const [showAIReportModal, setShowAIReportModal] = useState(false);
+  const [aiProcessing, setAiProcessing] = useState<string | null>(null);
+  const [latestReport, setLatestReport] = useState<AIReport | null>(null);
 
   useEffect(() => {
     loadCharacterData();
@@ -120,6 +127,39 @@ const CharacterPrompts: React.FC<CharacterPromptsProps> = ({ personaje }) => {
       setTimeout(() => setCopied(null), 2000);
     } catch (error) {
       console.error('Error copiando al portapapeles:', error);
+    }
+  };
+
+  // Ejecutar consulta con IA
+  const executeAIQuery = async (textOrPromise: string | Promise<string>, promptId: string, titulo: string, tipo: string) => {
+    try {
+      setAiProcessing(promptId);
+      
+      const promptText = typeof textOrPromise === 'string' ? textOrPromise : await textOrPromise;
+      const enrichedPrompt = enrichPromptForOptimization(promptText);
+      
+      const result = await AIReportService.executeAIQuery({
+        prompt: enrichedPrompt,
+        tipo_prompt: tipo,
+        titulo_prompt: titulo,
+        personaje_id: personaje.id,
+        personaje_nombre: personaje.nombre,
+        clase: personaje.clase,
+        modelo: 'gemini', // Puede ser 'gemini' u 'openai'
+        tags: [personaje.clase, tipo]
+      });
+      
+      if (result.success && result.report) {
+        setLatestReport(result.report);
+        setShowAIReportModal(true);
+      } else {
+        alert(`Error: ${result.error || 'No se pudo completar la consulta'}`);
+      }
+    } catch (error) {
+      console.error('Error ejecutando consulta IA:', error);
+      alert('Error al ejecutar consulta con IA');
+    } finally {
+      setAiProcessing(null);
     }
   };
 
@@ -1751,6 +1791,26 @@ ${getAllClassMechanicsContext()}
 - Las configuraciones alternativas propuestas
 - Los cambios prioritarios de mecánicas
 - El roadmap de optimización establecido`
+    },
+
+    // ========== ANÁLISIS COMPLETO DE BUILDS (NUEVO) ==========
+    {
+      id: 'build-complete-analysis',
+      title: '🎯 Análisis Completo de Builds Posibles',
+      category: 'Build y Optimización',
+      keywords: ['builds', 'arquetipos', 'completo', 'estratégico', 'combinaciones'],
+      icon: Sparkles,
+      color: 'text-pink-400',
+      bg: 'bg-pink-900/20',
+      border: 'border-pink-600',
+      description: 'Analiza TODAS las habilidades del héroe (100%) para sugerir arquetipos de build y combinaciones óptimas',
+      requiresHeroData: true,
+      requiresPremium: true,
+      requiredData: { skills: true },
+      generate: async () => {
+        const { PromptService } = await import('../../services/PromptService');
+        return await PromptService.generateBuildAnalysisPrompt(personaje);
+      }
     }
   ];
 
@@ -1982,24 +2042,40 @@ ${getAllClassMechanicsContext()}
                     <Lock className="w-4 h-4 text-gray-500" />
                   )}
                 </div>
-                <button
-                  onClick={() => !isDisabled && copyToClipboard(prompt.generate(), prompt.id)}
-                  disabled={isDisabled}
-                  className={`p-2 rounded transition-colors flex-shrink-0 ${
-                    isDisabled
-                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                      : copied === prompt.id
-                      ? 'bg-green-600 text-white'
-                      : 'bg-d4-surface hover:bg-d4-border text-d4-text'
-                  }`}
-                  title={isDisabled ? availability.reason : 'Copiar prompt'}
-                >
-                  {copied === prompt.id ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => !isDisabled && copyToClipboard(prompt.generate(), prompt.id)}
+                    disabled={isDisabled}
+                    className={`p-2 rounded transition-colors flex-shrink-0 ${
+                      isDisabled
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : copied === prompt.id
+                        ? 'bg-green-600 text-white'
+                        : 'bg-d4-surface hover:bg-d4-border text-d4-text'
+                    }`}
+                    title={isDisabled ? availability.reason : 'Copiar prompt'}
+                  >
+                    {copied === prompt.id ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => !isDisabled && executeAIQuery(prompt.generate(), prompt.id, prompt.title, prompt.category || 'General')}
+                    disabled={isDisabled || aiProcessing === prompt.id}
+                    className={`p-2 rounded transition-colors flex-shrink-0 ${
+                      isDisabled
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : aiProcessing === prompt.id
+                        ? 'bg-amber-600 text-white animate-pulse'
+                        : 'bg-purple-600 hover:bg-purple-500 text-white'
+                    }`}
+                    title={isDisabled ? availability.reason : 'Consultar con IA'}
+                  >
+                    <Zap className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-d4-text-dim mb-2">{prompt.description}</p>
               {isDisabled && availability.reason && (
@@ -2045,6 +2121,18 @@ ${getAllClassMechanicsContext()}
             {!allHeroAspects && <li>Ve a la sección <strong>Heroes</strong> e importa/gestiona aspectos del {personaje.clase}</li>}
           </ul>
         </div>
+      )}
+
+      {/* AI Report Modal */}
+      {showAIReportModal && (
+        <AIReportModal
+          isOpen={showAIReportModal}
+          onClose={() => {
+            setShowAIReportModal(false);
+            setLatestReport(null);
+          }}
+          initialReport={latestReport}
+        />
       )}
     </div>
   );

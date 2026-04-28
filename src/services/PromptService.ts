@@ -1518,5 +1518,246 @@ Proporciona:
 
     return prompt;
   }
+
+  /**
+   * Generar prompt de análisis completo de builds
+   * Carga TODAS las habilidades del héroe (100%) para análisis estratégico de posibles builds
+   * v0.8.10 - Nuevo prompt para análisis de combinaciones
+   */
+  static async generateBuildAnalysisPrompt(personaje: Personaje): Promise<string> {
+    let prompt = `# ANÁLISIS COMPLETO DE BUILDS - ${personaje.nombre} (${personaje.clase})\n\n`;
+    
+    prompt += `Eres un experto en teorycrafting de Diablo 4 con conocimiento completo del juego. Tu tarea es analizar TODAS las opciones disponibles para la clase ${personaje.clase} y sugerir las mejores combinaciones de builds.\n\n`;
+
+    prompt += `## ⚠️ ESTRUCTURA CRÍTICA DE HABILIDADES\n\n`;
+    prompt += `**SISTEMA ANIDADO**: Cada Habilidad Activa contiene:\n`;
+    prompt += `- **Modificadores** (🔷 rombo, mismo dibujo): Mejoras opcionales (solo 1 activo por activa)\n`;
+    prompt += `- **Pasivas Relacionadas** (🔸 rombo, dibujo diferente): Solo funcionan con esa activa\n\n`;
+    prompt += `**REGLAS DE DEPENDENCIA**:\n`;
+    prompt += `- ❌ NO se puede usar pasiva/modificador sin su habilidad activa\n`;
+    prompt += `- ⚠️ Solo 1 modificador activo por habilidad activa\n`;
+    prompt += `- ✅ Al recomendar pasiva/modificador, PRIMERO incluye su activa\n\n`;
+
+    prompt += `---\n\n`;
+
+    // Información del personaje actual
+    prompt += `## 📊 Estado Actual del Personaje\n\n`;
+    prompt += `- **Clase**: ${personaje.clase}\n`;
+    prompt += `- **Nivel**: ${personaje.nivel}`;
+    if (personaje.nivel_paragon) {
+      prompt += ` | **Paragon**: ${personaje.nivel_paragon}`;
+    }
+    prompt += `\n\n`;
+
+    // Habilidades actualmente equipadas
+    if (personaje.habilidades_refs) {
+      prompt += `### Habilidades Equipadas Actualmente\n`;
+      
+      if (personaje.habilidades_refs.activas && personaje.habilidades_refs.activas.length > 0) {
+        prompt += `**Activas (${personaje.habilidades_refs.activas.length}):**\n`;
+        try {
+          const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
+          if (heroSkills) {
+            personaje.habilidades_refs.activas.forEach(ref => {
+              const skill = heroSkills.habilidades_activas.find(s => s.id === ref.skill_id);
+              if (skill) {
+                prompt += `- **${skill.nombre}** (Nivel ${ref.nivel_actual || 1})\n`;
+                
+                // Modificadores activos
+                if (ref.modificadores_ids && ref.modificadores_ids.length > 0) {
+                  const modsActivos = skill.modificadores?.filter(m => ref.modificadores_ids.includes(m.id || ''));
+                  if (modsActivos && modsActivos.length > 0) {
+                    prompt += `  - ✅ Modificador activo: ${modsActivos[0].nombre}\n`;
+                  }
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error cargando habilidades:', error);
+        }
+      }
+      
+      if (personaje.habilidades_refs.pasivas && personaje.habilidades_refs.pasivas.length > 0) {
+        prompt += `\n**Pasivas (${personaje.habilidades_refs.pasivas.length}):**\n`;
+        try {
+          const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
+          if (heroSkills) {
+            personaje.habilidades_refs.pasivas.forEach(ref => {
+              const skillId = typeof ref === 'string' ? ref : ref.skill_id;
+              
+              // Buscar primero en pasivas relacionadas de activas
+              let pasiva: HabilidadPasiva | null = null;
+              for (const activa of heroSkills.habilidades_activas) {
+                if (activa.habilidades_pasivas) {
+                  pasiva = activa.habilidades_pasivas.find(p => p.id === skillId) || null;
+                  if (pasiva) {
+                    prompt += `- **${pasiva.nombre}** (vinculada a ${activa.nombre})\n`;
+                    break;
+                  }
+                }
+              }
+              
+              // Si no se encontró, buscar en pasivas independientes
+              if (!pasiva) {
+                pasiva = heroSkills.habilidades_pasivas.find(p => p.id === skillId) || null;
+                if (pasiva) {
+                  const puntos = typeof ref !== 'string' && ref.puntos_asignados ? ref.puntos_asignados : 1;
+                  prompt += `- **${pasiva.nombre}** (${puntos} puntos)\n`;
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error cargando pasivas:', error);
+        }
+      }
+      prompt += `\n`;
+    }
+
+    // CATÁLOGO COMPLETO de habilidades disponibles (100%)
+    prompt += `---\n\n`;
+    prompt += `## 🎯 CATÁLOGO COMPLETO DE HABILIDADES DEL ${personaje.clase.toUpperCase()}\n\n`;
+    prompt += `A continuación se lista el 100% de las habilidades disponibles para análisis estratégico:\n\n`;
+
+    try {
+      const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
+      
+      if (heroSkills) {
+        // Habilidades Activas (con modificadores y pasivas relacionadas)
+        if (heroSkills.habilidades_activas && heroSkills.habilidades_activas.length > 0) {
+          prompt += `### 🔷 Habilidades Activas (${heroSkills.habilidades_activas.length})\n\n`;
+          
+          heroSkills.habilidades_activas.forEach(skill => {
+            prompt += `#### ${skill.nombre}\n`;
+            prompt += `- **Categoría**: ${skill.categoria || 'N/A'}\n`;
+            prompt += `- **Tipo**: ${skill.tipo || 'N/A'}\n`;
+            if (skill.costo_recurso) {
+              prompt += `- **Costo**: ${skill.costo_recurso}\n`;
+            }
+            if (skill.nivel) {
+              prompt += `- **Nivel**: ${skill.nivel}\n`;
+            }
+            if (skill.descripcion) {
+              prompt += `- **Descripción**: ${skill.descripcion}\n`;
+            }
+            if (skill.tags && skill.tags.length > 0) {
+              prompt += `- **Tags**: ${skill.tags.join(', ')}\n`;
+            }
+            
+            // Modificadores disponibles
+            if (skill.modificadores && skill.modificadores.length > 0) {
+              prompt += `\n  **Modificadores (${skill.modificadores.length}) - Solo 1 activo:**\n`;
+              skill.modificadores.forEach(mod => {
+                prompt += `  - 🔷 **${mod.nombre}**\n`;
+                if (mod.descripcion) {
+                  prompt += `    - ${mod.descripcion}\n`;
+                }
+                if (mod.tags && mod.tags.length > 0) {
+                  prompt += `    - Tags: ${mod.tags.join(', ')}\n`;
+                }
+              });
+            }
+            
+            // Pasivas relacionadas
+            if (skill.habilidades_pasivas && skill.habilidades_pasivas.length > 0) {
+              prompt += `\n  **Pasivas Relacionadas (${skill.habilidades_pasivas.length}):**\n`;
+              skill.habilidades_pasivas.forEach(pas => {
+                prompt += `  - 🔸 **${pas.nombre}**\n`;
+                if (pas.descripcion) {
+                  prompt += `    - ${pas.descripcion}\n`;
+                }
+                if (pas.tags && pas.tags.length > 0) {
+                  prompt += `    - Tags: ${pas.tags.join(', ')}\n`;
+                }
+              });
+            }
+            
+            prompt += `\n`;
+          });
+        }
+        
+        // Habilidades Pasivas Independientes (no vinculadas a activas)
+        if (heroSkills.habilidades_pasivas && heroSkills.habilidades_pasivas.length > 0) {
+          prompt += `\n### 🔸 Habilidades Pasivas Independientes (${heroSkills.habilidades_pasivas.length})\n\n`;
+          prompt += `Estas pasivas funcionan independientemente de las habilidades activas:\n\n`;
+          
+          heroSkills.habilidades_pasivas.forEach(skill => {
+            prompt += `- **${skill.nombre}**`;
+            if (skill.categoria) {
+              prompt += ` (${skill.categoria})`;
+            }
+            prompt += `\n`;
+            if (skill.descripcion) {
+              prompt += `  - ${skill.descripcion}\n`;
+            }
+            if (skill.nivel) {
+              prompt += `  - Nivel máximo: ${skill.nivel}\n`;
+            }
+            if (skill.tags && skill.tags.length > 0) {
+              prompt += `  - Tags: ${skill.tags.join(', ')}\n`;
+            }
+            prompt += `\n`;
+          });
+        }
+      } else {
+        prompt += `No se pudo cargar el catálogo de habilidades del héroe.\n\n`;
+      }
+    } catch (error) {
+      console.error('Error cargando habilidades del héroe:', error);
+      prompt += `Error cargando catálogo de habilidades.\n\n`;
+    }
+
+    // Análisis solicitado
+    prompt += `---\n\n`;
+    prompt += `## 🎯 ANÁLISIS SOLICITADO\n\n`;
+    
+    prompt += `Basándote en el catálogo completo de habilidades, analiza y responde:\n\n`;
+    
+    prompt += `### 1. Arquetipos de Build Viables\n`;
+    prompt += `- Identifica 3-5 arquetipos de build viables para ${personaje.clase}\n`;
+    prompt += `- Para cada arquetipo, describe:\n`;
+    prompt += `  - **Nombre del Build**: Nombre descriptivo (ej: "Build de Torbellino Sangriento")\n`;
+    prompt += `  - **Habilidades Activas Core**: Las 3-6 activas principales\n`;
+    prompt += `  - **Modificadores Recomendados**: Qué modificador usar en cada activa\n`;
+    prompt += `  - **Pasivas Relacionadas**: Qué pasivas activar de cada activa\n`;
+    prompt += `  - **Pasivas Independientes**: Qué pasivas generales complementan\n`;
+    prompt += `  - **Estilo de Juego**: Cómo se juega (ofensivo, defensivo, híbrido, etc.)\n`;
+    prompt += `  - **Synergias Clave**: Qué tags/mecánicas conectan el build\n\n`;
+    
+    prompt += `### 2. Optimización del Build Actual\n`;
+    prompt += `- Evalúa el build equipado actualmente (0-10)\n`;
+    prompt += `- ¿Qué cambios mejorarían el build sin cambiar su arquetipo?\n`;
+    prompt += `- ¿Qué habilidades están subutilizadas?\n`;
+    prompt += `- ¿Hay habilidades equipadas que no aportan sinergia?\n\n`;
+    
+    prompt += `### 3. Transición Entre Arquetipos\n`;
+    prompt += `- Si quisiera cambiar a un arquetipo diferente, ¿cuál sería más fácil?\n`;
+    prompt += `- ¿Qué habilidades mantendría y cuáles cambiaría?\n`;
+    prompt += `- Plan de transición paso a paso\n\n`;
+    
+    prompt += `### 4. Meta Builds (Endgame)\n`;
+    prompt += `- ¿Cuáles son los builds más fuertes para endgame?\n`;
+    prompt += `- ¿El build actual tiene potencial competitivo?\n`;
+    prompt += `- Prioriza mejoras por impacto en poder del build\n\n`;
+    
+    prompt += `### 5. Combinaciones No Obvias\n`;
+    prompt += `- ¿Hay combinaciones de habilidades que la comunidad no usa pero podrían funcionar?\n`;
+    prompt += `- ¿Qué sinergias entre tags/mecánicas están infrautilizadas?\n`;
+    prompt += `- Sugiere al menos 2 combinaciones experimentales viables\n\n`;
+    
+    prompt += `---\n\n`;
+    prompt += `## 📋 FORMATO DE RESPUESTA\n\n`;
+    prompt += `Estructura tu análisis de forma clara y accionable:\n`;
+    prompt += `1. Resumen ejecutivo (2-3 párrafos)\n`;
+    prompt += `2. Arquetipos de build (desglosados)\n`;
+    prompt += `3. Recomendaciones específicas para el personaje actual\n`;
+    prompt += `4. Plan de acción inmediato (top 3 cambios a hacer ya)\n`;
+    prompt += `5. Plan a largo plazo (evolución del build)\n\n`;
+    
+    prompt += `**IMPORTANTE**: Recuerda siempre las reglas de dependencia entre activas, modificadores y pasivas relacionadas.\n`;
+
+    return prompt;
+  }
 }
 

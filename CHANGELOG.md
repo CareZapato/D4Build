@@ -7,6 +7,123 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.9.0] - 2026-04-28
+
+### ✨ Added (Agregado)
+
+#### Sistema de Prompts Mejorado - Extracción de Información Completa
+- **📤 Prompts de Extracción para Personajes**:
+  - Nuevo tipo de prompt "Extraer Información" en sección personajes
+  - Extrae toda la información del personaje en formato JSON estructurado
+  - Incluye: info básica, habilidades activas completas con modificadores, pasivas independientes, glifos con nivel, estadísticas, y mecánicas de clase
+  - Formato JSON listo para copiar y pegar en otros sistemas
+  - Útil para documentación, migración de datos, y análisis externos
+- **📤 Prompts de Extracción para Héroes**:
+  - Nuevo tipo de prompt "Extraer Información" en sección héroes
+  - Extrae el 100% de la información disponible de la clase
+  - Incluye: todas las habilidades activas (con TODOS los modificadores y pasivas relacionadas), todas las pasivas independientes, todos los glifos, todos los aspectos, todas las mecánicas de clase
+  - Cada elemento incluye IDs, descripciones completas, tags, niveles, costos, efectos
+  - Jerarquía completa de categorías y subcategorías mantenida
+- **🎨 Interfaz Visual Mejorada**:
+  - Botones de extracción destacados con fondo verde (`bg-green-900/20`) y borde verde
+  - Iconos 📤 para identificar rápidamente los prompts de extracción
+  - Descripciones claras sobre el contenido extraído
+  - Ubicados estratégicamente en ambas secciones (personajes y héroes)
+
+#### Generador de Prompts Unificado
+- **🔀 Toggle Personaje vs Héroe**:
+  - Nuevo selector con botones para cambiar entre análisis de personaje o héroe
+  - Iconos distintivos: `Users` para personajes, `Shield` para héroes
+  - Prompts específicos según tipo de entidad seleccionada
+  - Interfaz intuitiva con colores de acento para selección activa
+- **🎯 Prompts Específicos para Héroes**:
+  - **Análisis de Habilidades**: Analiza TODAS las habilidades (100%) con sinergias y prioridad de stats (Fuerza, Destreza, Inteligencia, Voluntad)
+  - **Arquetipos Meta**: Top 3-5 builds del meta actual con análisis de stats por arquetipo
+  - **Sinergias**: Combos poderosos de habilidades con atributos óptimos por combo
+  - **Personalizado**: Prompt customizable con contexto de héroe
+- **📊 Análisis de Stats y Atributos**:
+  - Cada prompt de héroe incluye sección de prioridad de atributos
+  - Análisis de qué stats maximizar por arquetipo
+  - Breakpoints importantes (crit chance, CDR, etc.)
+  - Recomendaciones de stats ofensivos y defensivos
+- **🎨 Prompts Existentes Mantenidos**:
+  - Todos los prompts de personajes funcionan igual (Sinergias, Optimización, Análisis Profundo, Comparación con Pool)
+  - Opciones Premium siguen protegidas con Lock
+  - Prompt personalizado con checkboxes para incluir habilidades, glifos, stats, mecánicas
+
+### 🎨 Improved (Mejorado)
+
+#### Interfaz Responsive Completa
+- **📱 Sidebar Responsive**:
+  - Modo icon-only en dispositivos móviles (`w-16` en mobile, `w-72` en desktop)
+  - Labels de navegación ocultos en mobile (`hidden lg:inline`)
+  - Iconos perfectamente centrados y visibles en todas las resoluciones
+  - Profile submenu reposicionado para modo icon-only (`left-1/2 -translate-x-1/2 lg:translate-x-0`)
+- **🃏 CharacterList Responsive**:
+  - Grid adaptativo: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`
+  - Textos escalados: `text-xs lg:text-sm`, `text-base lg:text-xl`
+  - Iconos ajustados: `w-3 lg:w-4 h-3 lg:h-4`
+  - Espaciado fluido: `gap-3 lg:gap-5`, `p-3 lg:p-4`
+  - Elementos más pequeños en mobile sin perder legibilidad
+- **📑 HeroManager Tabs Responsive**:
+  - Tabs compactos en mobile: `px-2 lg:px-4 py-1.5 lg:py-2`
+  - Texto adaptado: `text-xs lg:text-sm`
+  - Iconos escalados: `gap-1.5 lg:gap-2`
+  - Mejor aprovechamiento de espacio en pantallas estrechas
+- **🎯 PromptGenerator Responsive**:
+  - Todos los elementos escalados para mobile/desktop
+  - Botones compactos en mobile con texto oculto cuando necesario
+  - Grid de 2 columnas en desktop, 1 columna en mobile
+  - Textos: `text-[10px] lg:text-xs`, `text-xs lg:text-sm`
+  - Iconos: `w-3 lg:w-4 h-3 lg:h-4`
+
+### 🔧 Fixed (Corregido)
+
+#### Errores de Compilación
+- **PromptGenerator.tsx**:
+  - Eliminado código duplicado que causaba 50+ errores (líneas 844-1061 eran duplicadas del export)
+  - Archivo ahora termina correctamente en línea 844 con `export default PromptGenerator;`
+  - Corregidas referencias a propiedades inexistentes en tipo `Personaje`:
+    - `mundo_tier`, `pit_tier`, `descripcion`, `tags` → eliminadas o reemplazadas por propiedades correctas
+    - `modificadores_activos` → `modificadores_ids`
+    - `pasivas_relacionadas_activas` → eliminada (no existe en modelo)
+    - `glifo_id` → `id`
+    - `nivel` → `nivel_actual`
+    - `estadisticas_v2` → `estadisticas_refs`
+  - Corregidas propiedades de tipos `Glifo`, `Aspecto`, `SeleccionMecanica`:
+    - `bonos_nivel` no existe en Glifo (eliminado de extracción)
+    - `aspect.nombre` → `aspect.name`, `aspect.tipo` → `aspect.category`
+    - `aspect.efecto` → `aspect.effect`, `aspect.descripcion` no existe
+    - `sel.descripcion` → `sel.efecto` en SeleccionMecanica
+- **PromptService.ts**:
+  - Corregido tipo de variable `pasiva` en `generateBuildAnalysisPrompt()`:
+    - Líneas 1593, 1603: `let pasiva = null;` → `let pasiva: HabilidadPasiva | null = null;`
+    - Agregado `|| null` después de `find()` para convertir `undefined` a `null`
+    - Eliminados errores: "El tipo 'HabilidadPasiva | undefined' no se puede asignar al tipo 'null'"
+    - Eliminados errores: "La propiedad 'nombre' no existe en el tipo 'never'"
+
+#### Tipos y Modelos de Datos
+- **Extracción de Información**:
+  - Adaptado a modelo de referencias del personaje (usa `habilidades_refs`, `glifos_refs`, etc.)
+  - Carga de datos desde catálogo de héroe correcta
+  - Manejo apropiado de referencias string vs objetos complejos
+  - Verificación de existencia de propiedades opcionales antes de acceder
+
+### 📚 Documentation (Documentación)
+
+#### Changelog en la Web
+- **ChangelogModal.tsx**: Actualizado con nueva entrada v0.9.0
+- **Detalles Completos**: Todas las mejoras, agregados y correcciones documentadas
+- **Categorización Clara**: Fixed, Added, Improved con iconos y colores distintivos
+
+#### Archivos de Proyecto
+- **README.md**: Badge de versión actualizado a 0.9.0
+- **CONTEXT.md**: Versión actualizada en header
+- **package.json**: Versión 0.9.0
+- **Sidebar.tsx**: Versión mostrada en footer actualizada
+
+---
+
 ## [0.8.9] - 2026-04-28
 
 ### 🔧 Fixed (Corregido)
