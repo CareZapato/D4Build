@@ -22,7 +22,7 @@ const CharacterList: React.FC<Props> = ({ personajes, onSelect, onUpdate, loadin
   const [newCharLevel, setNewCharLevel] = useState(1);
   const [creating, setCreating] = useState(false);
 
-  const clases = ['Paladín', 'Bárbaro', 'Hechicero', 'Pícaro', 'Druida', 'Nigromante', 'Espiritista'];
+  const clases = ['Paladín', 'Bárbaro', 'Hechicero', 'Pícaro', 'Druida', 'Nigromante', 'Espiritista', 'Conjurador'];
 
   const handleCreateCharacter = async () => {
     if (!newCharName.trim()) return;

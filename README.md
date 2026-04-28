@@ -1,6 +1,6 @@
 # D4 Builds - Gestor de Builds para Diablo 4
 
-[![Version](https://img.shields.io/badge/version-0.8.8-gold.svg)](https://github.com/CareZapato/D4Build)
+[![Version](https://img.shields.io/badge/version-0.8.9-gold.svg)](https://github.com/CareZapato/D4Build)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
@@ -680,6 +680,14 @@ El panel de monitoreo de costos (v0.6.4) te permite:
 ## Estructura de Datos
 
 ### Formato de Habilidades
+
+**🔍 Jerarquía Visual (v0.8.9):**
+Las imágenes de habilidades siguen una estructura jerárquica basada en iconos:
+1. **UNA habilidad ACTIVA** (con "Rango X/Y")
+2. **MODIFICADORES** (mismo icono que la activa, puede variar color/tonalidad)
+3. **PASIVAS** (iconos completamente diferentes)
+
+Los modificadores se almacenan dentro del array `modificadores` de su habilidad activa.
 
 ```json
 {

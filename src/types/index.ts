@@ -200,7 +200,8 @@ export interface HabilidadActiva {
   tipo_danio?: string;
   requiere?: string;
   siguiente_rango?: SiguienteRango;
-  modificadores: Modificador[];
+  modificadores: Modificador[]; // Modificadores de la activa (mismo icono, diferente tono)
+  habilidades_pasivas?: HabilidadPasiva[]; // Pasivas relacionadas con esta activa (icono diferente)
   efectos_generados?: EfectoGenerado[];
   pasiva?: EfectoPasivo;
   activa?: EfectoActivo;
@@ -218,6 +219,7 @@ export interface HabilidadPasiva {
   tipo?: string;
   categoria?: 'activa' | 'pasiva';
   descripcion?: string;
+  habilidad_activa_vinculada?: string; // Nombre de la habilidad activa con la que está relacionada
   bonificaciones?: string[];
   bonificacion_danio_actual?: string;
   siguiente_rango?: SiguienteRango;
@@ -340,7 +342,7 @@ export interface MecanicaClase {
   id: string;                     // "mecanica_paladin_juramentos"
   nombre: string;                 // "Juramentos"
   tipo: 'mecanica_clase';         // Tipo fijo para identificación
-  clase: string;                  // "Paladín" | "Bárbaro" | "Hechicero" | etc.
+  clase: string;                  // "Paladín" | "Bárbaro" | "Hechicero" | "Pícaro" | "Druida" | "Nigromante" | "Espiritista" | "Conjurador"
   selecciones: SeleccionMecanica[]; // Array de opciones seleccionables
   palabras_clave?: PalabraClaveClase[]; // Glosario de términos (opcional en personaje)
 }

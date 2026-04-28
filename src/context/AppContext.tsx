@@ -18,7 +18,7 @@ import { WorkspaceService } from '../services/WorkspaceService';
  * 
  * 2. HÉROES (Clases Base)
  *    - Contiene la información maestra de cada clase de Diablo 4
- *    - Clases disponibles: Paladín, Bárbaro, Hechicero, Pícaro, Druida, Nigromante, Espiritista
+ *    - Clases disponibles: Paladín, Bárbaro, Hechicero, Pícaro, Druida, Nigromante, Espiritista, Conjurador
  *    - Datos por clase:
  *      a) Habilidades (heroes/{clase}_habilidades.json):
  *         - habilidades_activas: Skills que se activan manualmente
@@ -112,7 +112,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     'Pícaro',
     'Druida',
     'Nigromante',
-    'Espiritista'
+    'Espiritista',
+    'Conjurador'
   ];
 
   const refreshPersonajes = async () => {

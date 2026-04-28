@@ -38,7 +38,7 @@ const HeroManager: React.FC = () => {
   const [heroHoradricSeal, setHeroHoradricSeal] = useState<HoradricSealHeroe | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const clases = ['Paladín', 'Bárbaro', 'Hechicero', 'Pícaro', 'Druida', 'Nigromante', 'Espiritista'];
+  const clases = ['Paladín', 'Bárbaro', 'Hechicero', 'Pícaro', 'Druida', 'Nigromante', 'Espiritista', 'Conjurador'];
 
   // Cargar datos cuando cambia la clase o la vista
   useEffect(() => {

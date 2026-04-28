@@ -42,7 +42,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <Calendar className="w-5 h-5 text-d4-accent" />
               <div>
                 <p className="text-xs text-d4-text-dim">Última actualización</p>
-                <p className="text-d4-text font-semibold">26 de Abril, 2026 (v0.8.8)</p>
+                <p className="text-d4-text font-semibold">28 de Abril, 2026 (v0.8.9)</p>
               </div>
             </div>
           </div>
@@ -65,6 +65,94 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
               <span className="text-xs px-2 py-1 bg-d4-accent/20 text-d4-accent rounded border border-d4-accent/30">
                 Vite
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Version 0.8.9 - Sistema de Habilidades Mejorado */}
+        <div className="mb-6">
+          <div className="flex items-baseline gap-3 mb-3">
+            <h3 className="text-xl font-bold text-d4-accent">Versión 0.8.9</h3>
+            <span className="text-xs text-d4-text-dim bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 px-2 py-1 rounded">🎯 Skills Mejorados</span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-d4-bg border-l-4 border-blue-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">✅ Detección Correcta Activas vs Pasivas</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Regla principal</strong>: Habilidades CON RANGO (ej: "Rango 3/5") son ACTIVAS, SIN RANGO son PASIVAS</li>
+                <li><strong>Indicador visual clave</strong>: El prompt ahora identifica correctamente según la presencia de "Rango X/Y" en la UI</li>
+                <li><strong>Clasificación mejorada</strong>: Soluciona el problema de detectar muchas activas incorrectamente como pasivas</li>
+                <li><strong>Diagrama visual</strong>: Prompt incluye árbol de decisión para guiar correctamente a la IA</li>
+                <li><strong>Jerarquía por iconos</strong>: Una imagen = UNA activa + modificadores (mismo icono) + pasivas (iconos diferentes)</li>
+                <li><strong>Agrupación visual</strong>: Los modificadores comparten el MISMO ICONO que su habilidad activa (puede variar color/tonalidad)</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-cyan-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📊 Campos Nuevos Agregados</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>tipo_danio</strong>: Tipo de daño infligido (Físico, Sagrado, Sombra, Fuego, Hielo, Veneno, Rayo)</li>
+                <li><strong>requiere</strong>: Requisitos de nivel o equipo (ej: "Nivel 4", "Requiere Escudo")</li>
+                <li><strong>genera_recurso</strong>: Si la habilidad genera recurso <code>{'{ tipo, cantidad }'}</code></li>
+                <li><strong>costo_recurso</strong>: Si la habilidad consume recurso <code>{'{ tipo, cantidad }'}</code></li>
+                <li><strong>recuperacion_segundos</strong>: Cooldown de la habilidad si es visible</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-amber-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🎨 Visualización Mejorada de Atributos</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Badge tipo_danio</strong>: Badge rojo muestra tipo de daño (Físico, Sagrado, Sombra, etc.)</li>
+                <li><strong>Badge requiere</strong>: Badge naranja con requisitos (📋 Nivel 4, 📋 Requiere Escudo)</li>
+                <li><strong>Badge genera_recurso</strong>: Badge verde mostrando recurso generado (⬆️ Furia: +10)</li>
+                <li><strong>Badge costo_recurso</strong>: Badge amarillo con costo (⬇️ Maná: 30)</li>
+                <li><strong>Badge recuperacion</strong>: Badge cyan con cooldown (⏱️ 12s)</li>
+                <li><strong>Ubicación</strong>: Todos los badges se muestran en la tarjeta de la habilidad</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-green-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🔢 Rangos y Niveles Clarificados</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Héroe (Catálogo)</strong>: Solo almacena <code>nivel_maximo</code> (datos maestros)</li>
+                <li><strong>Personaje (Build)</strong>: Almacena <code>nivel_actual</code> y <code>nivel_maximo</code> (build específico)</li>
+                <li><strong>Bonificaciones</strong>: <code>nivel_actual</code> puede ser mayor que <code>nivel_maximo</code> (bonificaciones de equipo)</li>
+                <li><strong>Ejemplos</strong>: "Rango 3/5" → nivel_actual: 3, nivel_maximo: 5</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-purple-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">📋 Instrucciones Mejoradas</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>14 reglas críticas</strong>: Prompt actualizado con instrucciones detalladas y específicas</li>
+                <li><strong>Ejemplos específicos</strong>: JSON de ejemplo incluye todos los campos requeridos</li>
+                <li><strong>Formato consistente</strong>: Estructura clara para activas (con rango) y pasivas (sin rango)</li>
+                <li><strong>Resumen visual</strong>: Árbol de decisión en el prompt para clasificación correcta</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-orange-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🆕 Nueva Clase - Conjurador</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Clase agregada</strong>: "Conjurador" ahora disponible en todos los selectores</li>
+                <li><strong>Ubicaciones</strong>: Creación de personajes, gestión de héroes, modal de captura</li>
+                <li><strong>Total de clases</strong>: Paladín, Bárbaro, Hechicero, Pícaro, Druida, Nigromante, Espiritista, Conjurador</li>
+              </ul>
+            </div>
+
+            <div className="bg-d4-bg border-l-4 border-red-500 p-4 rounded">
+              <h4 className="font-bold text-d4-text mb-2 text-sm">🗑️ Gestión de Galería - Eliminación de Elementos</h4>
+              <ul className="list-disc list-inside space-y-1 text-d4-text-dim text-sm">
+                <li><strong>Multiselección</strong>: Checkbox en cada elemento para seleccionar múltiples items</li>
+                <li><strong>Eliminación múltiple</strong>: Botón "Eliminar seleccionados" elimina todos los marcados</li>
+                <li><strong>Eliminación individual</strong>: Botón 🗑️ en cada elemento al hacer hover</li>
+                <li><strong>Modal de confirmación</strong>: Muestra lista de elementos a eliminar antes de confirmar</li>
+                <li><strong>Eliminación completa</strong>: Borra imagen (.png), JSON (.json) y metadata (.meta.json)</li>
+                <li><strong>Seleccionar todo</strong>: Marca/desmarca todos los elementos visibles</li>
+                <li><strong>Contador visual</strong>: Indica cuántos elementos están seleccionados</li>
+                <li><strong>Feedback visual</strong>: Items seleccionados resaltados con borde rojo</li>
+              </ul>
             </div>
           </div>
         </div>

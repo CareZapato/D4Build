@@ -912,15 +912,84 @@ Ejemplo de estructura JSON:
   static generateFullSkillsPrompt(): string {
     return `Analiza la imagen que te voy a proporcionar y extrae la información completa de las habilidades (activas y pasivas) de Diablo 4.
 
+**⚠️ CRÍTICO - ORDEN DE LECTURA Y AGRUPACIÓN:**
+
+📖 **REGLA FUNDAMENTAL DE LECTURA (IZQUIERDA → DERECHA, ARRIBA → ABAJO):**
+
+**IMPORTANTE**: Lee los elementos EN EL ORDEN VISUAL en que aparecen, como si leyeras un libro:
+
+Ejemplo de orden visual (8 elementos en 2 filas):
+   🔷 1    🔷 2    🔷 3    🟦 4
+   🔸 5    🔸 6    🔸 7    🔸 8
+
+**Ejemplo típico:**
+- **Elementos 1, 2, 3** (rombo + mismo dibujo) = MODIFICADORES de la activa 4
+- **Elemento 4** (cuadrado) = HABILIDAD ACTIVA principal
+- **Elementos 5, 6, 7, 8** (rombo + dibujo diferente) = PASIVAS relacionadas con activa 4
+
+⚠️ **REGLA DE AGRUPACIÓN:**
+Después de leer en orden visual:
+1. Identifica cuál es la ACTIVA (icono CUADRADO)
+2. Agrupa los MODIFICADORES (rombo + mismo dibujo que activa) → array "modificadores" de la activa
+3. Agrupa las PASIVAS (rombo + dibujo diferente) → array "habilidades_pasivas" de la activa
+
+**SI la imagen NO sigue el orden típico:**
+- Mantén las reglas base de identificación visual (forma del icono + similitud de dibujo)
+- Un cuadrado SIEMPRE es activa
+- Rombo con mismo dibujo que activa = modificador
+- Rombo con dibujo diferente = pasiva
+
+🎯 **UBICACIÓN DEL ICONO:**
+Cada habilidad tiene un **ICONO CON FORMA GEOMÉTRICA** en la parte superior del elemento. Este icono es una **imagen colorida con un dibujo** que representa la habilidad.
+
+**🔍 CÓMO IDENTIFICAR LA RELACIÓN ENTRE HABILIDADES POR LA FORMA DEL ICONO:**
+
+**1. HABILIDAD ACTIVA (LA PRINCIPAL):**
+   - 🟦 **ICONO EN FORMA DE CUADRADO** (bordes rectos, cuatro lados iguales) ← **ESTE ES EL IDENTIFICADOR PRINCIPAL**
+   - 📊 Puede tener "Rango X/Y" en la descripción (pero NO SIEMPRE - algunas activas no tienen rango)
+   - ⚠️ **IMPORTANTE**: El CUADRADO es el identificador definitivo, NO el rango
+   - 🎨 Tiene un icono colorido con un dibujo específico
+   - 📍 Este icono será la REFERENCIA para encontrar sus modificadores y pasivas relacionadas
+   - 🔗 **TODAS las habilidades en la imagen están conectadas visualmente (líneas) con esta activa principal**
+
+**2. MODIFICADORES (RELACIONADOS CON LA ACTIVA):**
+   - 🔷 **ICONO EN FORMA DE ROMBO** (diamante, cuatro puntas)
+   - ❌ NO tienen "Rango X/Y" en la descripción
+   - 🎨 Tienen el MISMO DIBUJO que la habilidad activa
+   - 🌈 A veces el icono tiene el mismo dibujo pero con DIFERENTE COLOR (sigue siendo modificador)
+   - ✨ **CLAVE**: Si el dibujo del icono es visualmente similar/igual al de la activa Y está en rombo → Es MODIFICADOR
+   - 📦 Los modificadores van DENTRO del array "modificadores" de su habilidad activa
+
+**3. HABILIDADES PASIVAS (RELACIONADAS CON LA ACTIVA):**
+   - 🔸 **ICONO EN FORMA DE ROMBO** (igual que modificadores, pero con características diferentes)
+   - 🟤 **Color opaco/café/gris** (estética apagada, sin brillo)
+   - ❌ NO tienen "Rango X/Y" en la descripción
+   - 🎨 Tienen un icono con un dibujo COMPLETAMENTE DIFERENTE al de la activa
+   - 🚫 NO hay similitud visual con el icono de la habilidad activa
+   - 🔗 **IMPORTANTE**: Están conectadas visualmente (líneas) con la habilidad activa principal
+   - � Van en el array "habilidades_pasivas" DENTRO de su habilidad activa (NO en array separado)
+
 **⚠️ IMPORTANTE - TAGS ESTRUCTURADOS:**
 
 Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADAS.
 
-**Instrucciones:**
-1. Identifica tanto habilidades activas como pasivas
-2. Extrae: nombre, tipo, niveles, efectos, modificadores
-3. Identifica tags (palabras blancas/subrayadas) y crea objetos estructurados
-4. Organiza en dos categorías: activas y pasivas
+**Instrucciones PASO A PASO:**
+1. **PRIMERO:** Observa TODOS los elementos de IZQUIERDA → DERECHA, ARRIBA → ABAJO (como leer un libro)
+   - Ejemplo: Si hay 8 elementos, obsérvalos en orden: 1, 2, 3, 4 (fila 1), luego 5, 6, 7, 8 (fila 2)
+2. **SEGUNDO:** Identifica la habilidad ACTIVA (icono CUADRADO) - memoriza su nombre y dibujo del icono
+3. **TERCERO:** Identifica MODIFICADORES comparando iconos:
+   - ¿Icono en forma de ROMBO? ✓
+   - ¿El DIBUJO del icono es SIMILAR/IGUAL al de la activa? ✓
+   - → Es MODIFICADOR de esa activa
+4. **CUARTO:** Identifica PASIVAS comparando iconos:
+   - ¿Icono en forma de ROMBO? ✓
+   - ¿El DIBUJO del icono es DIFERENTE al de la activa? ✓
+   - → Es PASIVA relacionada con esa activa
+5. **QUINTO:** Agrupa todo bajo la habilidad activa:
+   - Modificadores → array "modificadores" dentro de la activa
+   - Pasivas → array "habilidades_pasivas" dentro de la activa
+6. Extrae para cada elemento: nombre, tipo, niveles, efectos, tipo_danio, requisitos, recursos, cooldown
+7. Identifica tags (palabras blancas/subrayadas) y crea objetos estructurados
 
 **Formato JSON esperado:**
 
@@ -940,30 +1009,34 @@ Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADA
       "tags": [],
       "modificadores": [
         {
+          "id": "mod_luz_sagrada_mejorada",
           "nombre": "Luz Sagrada Mejorada",
+          "tipo_habilidad": "modificador",
           "descripcion": "Luz sagrada ahora penetra en los enemigos y activa contra todos los enemigos situados en su trayectoria.",
           "tags": []
         },
         {
+          "id": "mod_luz_sagrada_santificada",
           "nombre": "Luz Sagrada Santificada",
+          "tipo_habilidad": "modificador",
           "descripcion": "Luz sagrada inflige un 30% más de daño y lanza una nova que inflige un 20% de su daño.",
           "tags": ["fortificar"]
         }
+      ],
+      "habilidades_pasivas": [
+        {
+          "id": "skill_pasiva_longevidad",
+          "nombre": "Longevidad",
+          "tipo_habilidad": "pasiva",
+          "tipo": "Pasiva",
+          "rama": "Sagrado",
+          "nivel": 3,
+          "nivel_maximo": 3,
+          "efecto": "Obtienes un 30% de la sanación recibida.",
+          "puntos_asignados": 3,
+          "tags": []
+        }
       ]
-    }
-  ],
-  "habilidades_pasivas": [
-    {
-      "id": "skill_pasiva_12345",
-      "nombre": "Longevidad",
-      "tipo_habilidad": "pasiva",
-      "tipo": "Pasiva",
-      "rama": "Sagrado",
-      "nivel": 3,
-      "nivel_maximo": 3,
-      "efecto": "Obtienes un 30% de la sanación recibida.",
-      "puntos_asignados": 3,
-      "tags": []
     }
   ],
   "palabras_clave": [
@@ -980,40 +1053,163 @@ Los tags son palabras clave del juego. Solo captura palabras en BLANCO/SUBRAYADA
 
 **REGLAS CRÍTICAS:**
 
-1. **Tags solo palabras blancas/subrayadas**: ✅ "fortificar", ✅ "imparable", ❌ "asestas golpe"
+1. **IDENTIFICACIÓN POR FORMA DEL ICONO (MUY IMPORTANTE):**
+   
+   **📍 UBICACIÓN DEL ICONO:** Parte superior de cada habilidad
+   
+   **🎨 ASPECTO DEL ICONO:** Imagen colorida con un dibujo que representa la habilidad
+   ):
+      - 🟦 **ICONO EN FORMA DE CUADRADO** (4 lados rectos, bordes cuadrados) ← **IDENTIFICADOR DEFINITIVO**
+      - 📊 Puede tener "Rango X/Y" visible (pero NO SIEMPRE)
+      - ⚠️ **REGLA**: Si el icono es CUADRADO → Es ACTIVA (sin importar si tiene rango o no)
+      - 🎨 Icono colorido con un dibujo específico
+      - Ejemplo 1: "Luz Sagrada - Rango 3/5" con icono de espada brillante en CUADRADO
+      - Ejemplo 2: "Bomba de Lava - 1/15" con icono en CUADRADO (tiene niveles pero no dice "Rango")
+      - JSON: nivel_actual: 3, nivel_maximo: 5 o 1cripción
+      - 🎨 Icono colorido con un dibujo específico
+      - Ejemplo: "Luz Sagrada - Rango 3/5" con icono de espada brillante en CUADRADO
+      - JSON: nivel_actual: 3, nivel_maximo: 5, tipo_habilidad: "skill"
+   
+   b) **MODIFICADORES** (Mejoras de la activa):
+      - 🔷 **ICONO EN FORMA DE ROMBO** (diamante, 4 puntas)
+      - ❌ NO tienen "Rango X/Y" en la descripción
+      - 🎨 Icono con el MISMO DIBUJO que la habilidad activa
+      - 🌈 El dibujo puede teneRelacionadas con la activa):
+      - 🔸 **ICONO EN FORMA DE ROMBO** (igual que modificadores, pero estéticamente diferente)
+      - 🟤 **Color opaco/café/gris** (tonos apagados, sin brillo)
+      - ❌ NO tienen "Rango X/Y" en la descripción
+      - 🎨 Icono con un dibujo COMPLETAMENTE DIFERENTE al de la activa
+      - 🚫 NO hay similitud visual con el icono de la activa (dibujo distinto)
+      - 🔗 **Conexión visual**: Están conectadas con líneas a la habilidad activa principal
+      - Ejemplo: "Bonificación de Área" con icono en ROMBO opaco (dibujo diferente, conectada visualmente con "Bomba de Lava")
+      - JSON: Van en array "habilidades_pasivas", nivel: 1, puntos_asignados: 1, tipo_habilidad: "pasiva", habilidad_activa_vinculada: "Bomba de La
+      - ❌ NO tienen "Rango X/Y" en la descripción
+   
+   **⚠️ REGLA DE ORO:** 
+   - Forma CUADRADO = ACTIVA → Array "habilidades_activas" (NO importa si tiene "Rango" o no)
+   - Forma ROMBO + mismo dibujo que activa = MODIFICADOR → Dentro de "modificadores" de la activa
+   - Forma ROMBO + color opaco/café + dibujo diferente = PASIVA → Dentro de "habilidades_pasivas" de la activa
 
-2. **Tags en modificadores**: Cada modificador puede tener su propio array tags
+2. **Tags solo palabras blancas/subrayadas**: ✅ "fortificar", ✅ "imparable", ❌ "asestas golpe"
 
-3. **Niveles**:
-   - Activas: nivel_actual, nivel_maximo
-   - Pasivas: nivel, nivel_maximo, puntos_asignados
+3. **Tags en modificadores**: Cada modificador puede tener su propio array tags
 
-4. **Tipo de habilidad**:
-   - Activas: "skill" o "modificador"
-   - Pasivas: "pasiva"
+4. **Niveles y Rangos**:
+   - **ACTIVAS (con rango visible)**:
+     * nivel_actual: Número antes de la barra (ej: en "Rango 3/5" → nivel_actual: 3)
+     * nivel_maximo: Número después de la barra (ej: en "Rango 3/5" → nivel_maximo: 5)
+     * NOTA: nivel_actual PUEDE ser mayor que nivel_maximo (bonificaciones de equipo)
+   - **PASIVAS (sin rango)**:
+     * nivel: Número visible de puntos asignados
+     * nivel_maximo: Máximo de puntos permitidos
+     * puntos_asignados: Mismo valor que nivel
 
-5. **Modificadores de habilidades activas**:
+5. **Campos obligatorios para ACTIVAS**:
+   - id, nombre, tipo_habilidad ("skill"), tipo, rama, nivel_actual, nivel_maximo, descripcion
+   - tipo_danio (si visible: "Físico", "Sagrado", "Sombra", "Fuego", "Hielo", "Veneno", "Rayo")
+   - requiere (si visible: "Nivel X", "Requiere Y")
+   - genera_recurso (si genera: {tipo: "Recurso", cantidad: X})
+   - costo_recurso (si consume: {tipo: "Recurso", cantidad: X})
+   - recuperacion_segundos (si tiene cooldown visible)
+   - modificadores (array, puede estar vacío [])
+   - tags (array de IDs)
+
+6. **Campos obligatorios para PASIVAS**:
+   - id, nombre, tipo_habilidad ("pasiva"), tipo, rama, nivel, nivel_maximo, efecto
+   - puntos_asignados (mismo valor que nivel)
+   - tags (array de IDs)
+
+7. **Tipo de habilidad**:
+   - Habilidad activa con rango: "skill"
+   - Modificadores (mismo icono circular/dibujo que su activa): "modificador"
+   - Pasivas (iconos diferentes, sin rango): "pasiva"
+
+8. **Modificadores de habilidades activas - IDENTIFICACIÓN POR ICONO CIRCULAR**:
+   - **UBICACIÓN:** Cada habilidad tiene un icono circular en la parte superior (borde/centro)
+   - **CLAVE VISUAL:** Los modificadores tienen el MISMO DIBUJO en su icono circular que la habilidad activa
+   - **VARIACIONES DE COLOR:** El mismo dibujo puede tener diferente color → Sigue siendo modificador
+   - **EJEMPLO:** Si la activa tiene icono de "espada brillante", los modificadores también tienen "espada brillante" (puede ser roja, azul, dorada, etc.)
+   - **DIFERENCIA CON PASIVAS:** Las pasivas tienen dibujos COMPLETAMENTE DIFERENTES en sus iconos (ej: escudo, corazón, rayo)
    - Cada modificador DEBE tener: id, nombre, tipo_habilidad: "modificador", descripcion, tags
-   - Ejemplo ID: "mod_luz_sagrada_potenciada"
-   - Los modificadores van en el array modificadores de cada skill
+   - Ejemplo ID: "mod_luz_sagrada_mejorada"
+   - Los modificadores van en el array "modificadores" DENTRO de su habilidad activa
 
-6. **Tipo**:
+9. **Tipo**:
    - Activas: "Básica", "Principal", "Defensiva", "Movilidad", "Definitiva", "Arma de Arsenal"
    - Pasivas: "Pasiva", "Pasiva Clave", "Pasiva Potenciada", "Nodo del tablero Paragon"
 
-7. **Estructura de tag**:
+10. **Tipo de daño** (solo activas):
+    - Extrae del texto de descripción o icono visible
+    - Valores posibles: "Físico", "Sagrado", "Sombra", "Fuego", "Hielo", "Veneno", "Rayo"
+    - Si no es visible, omitir el campo
+
+11. **Requisitos** (requiere):
+    - Si ves "Requiere nivel X" o similar, extraer como string
+    - Ejemplo: "Nivel 4", "Requiere Escudo"
+
+12. **Recursos**:
+    - genera_recurso: Si la habilidad GENERA recurso (Furia, Esencia, Espíritu, etc.)
+    - costo_recurso: Si la habilidad CONSUME/CUESTA recurso (Maná, Furia, etc.)
+    - Formato: {tipo: "NombreRecurso", cantidad: número}
+
+13. **Estructura de tag**:
    - tag: snake_case normalizado
    - texto_original: como aparece en imagen
    - significado: definición (null si no disponible)
    - categoria: mecanica, condicion, efecto, danio, recurso, etc.
    - fuente: tooltip, habilidad, manual
 
-8. **Sección palabras_clave global**:
+14. **Sección palabras_clave global**:
    - Todos los tags detectados (activas + pasivas)
    - Con significado si está en tooltip
    - Sin duplicados por nombre
 
 **NO uses**: "palabras_clave" en objetos de skill/pasiva, solo "tags"
+
+**RESUMEN VISUAL - IDENTIFICACIÓN POR FORMA DEL ICONO:**
+
+┌────────────────────────────────────────────────────────────────┐
+│ 🔍 CADA HABILIDAD TIENE UN ICONO CON FORMA GEOMÉTRICA          │
+│    (Parte superior, imagen colorida con dibujo representativo) │
+├────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1️⃣ HABILIDAD ACTIVA (La principal)                             │
+│    🟦 ICONO EN CUADRADO (4 lados rectos)                       │
+│    ✅ Tiene "Rango X/Y" en la descripción                      │
+│    🎨 Dibujo específico (ej: 🗡️ espada)                        │
+│    │                                                            │
+│    ├──> 2️⃣ MODIFICADOR #1                                      │
+│    │     🔷 ICONO EN ROMBO (4 puntas de diamante)              │
+│    │     ❌ NO tiene "Rango X/Y"                               │
+│    │     🎨 MISMO DIBUJO que la activa (🗡️ espada)             │
+│    │     🌈 Puede ser diferente color (ej: roja vs azul)       │
+│    │     ✨ Mismo dibujo + rombo = MODIFICADOR                 │
+│    │                                                            │
+│    └──> 2️⃣ MODIFICADOR #2                                      │
+│          🔷 ICONO EN ROMBO                                     │
+│          🎨 MISMO DIBUJO (🗡️ espada dorada)                    │
+│          🌈 Variación de color del mismo icono                 │
+│                                                                 │
+│ 3️⃣ HABILIDAD PASIVA #1 (Independiente)                         │
+│    🔸 ICONO EN ROMBO (igual forma que modificadores)           │
+│    🟤 Color opaco/café/gris (tonos apagados)                   │
+│    ❌ NO tiene "Rango X/Y"                                     │
+│    🎨 DIBUJO DIFERENTE (🛡️ escudo)                             │
+│    🚫 NO se parece al icono de la activa                       │
+│                                                                 │
+│ 3️⃣ HABILIDAD PASIVA #2 (Independiente)                         │
+│    🔸 ICONO EN ROMBO                                           │
+│    🟤 Color opaco/café/gris                                    │
+│    ❌ NO tiene "Rango X/Y"                                     │
+│    🎨 DIBUJO DIFERENTE (❤️ corazón)                            │
+│    🚫 Icono completamente distinto                             │
+└────────────────────────────────────────────────────────────────┘
+
+**⚠️ REGLA DE ORO:**
+👉 Fíjate en la FORMA del icono y el DIBUJO:
+   - CUADRADO = ACTIVA → Array "habilidades_activas" (NO importa si tiene "Rango" o no)
+   - ROMBO + mismo dibujo que activa = MODIFICADOR → Dentro de "modificadores" de la activa
+   - ROMBO + color opaco/café + dibujo diferente = PASIVA → Dentro de "habilidades_pasivas" de la activa
 
 **Incluye TODAS las habilidades visibles en la imagen**`;
   }

@@ -280,6 +280,21 @@ export class ImageService {
     }
   }
 
+  // 🗑️ Eliminar metadata asociada a una imagen (v0.8.9)
+  static async deleteMetadata(categoria: ImageCategory, imageName: string): Promise<void> {
+    const metaFileName = imageName.replace(/\.(png|json)$/, '.meta.json');
+    const folders = await this.getReadCategoryFolders(categoria);
+
+    for (const folder of folders) {
+      try {
+        await folder.handle.removeEntry(metaFileName);
+        console.log(`🗑️ Metadata eliminada: imagenes/${folder.name}/${metaFileName}`);
+      } catch {
+        // si no existe en esa carpeta, continuar
+      }
+    }
+  }
+
   // Listar todas las imágenes con JSONs de una categoría
   static async listImagesWithJSON(categoria: ImageCategory): Promise<SavedImage[]> {
     const images = await this.listImages(categoria);

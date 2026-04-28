@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Zap, Shield } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Zap, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { HabilidadActiva, HabilidadPasiva, HabilidadesPersonaje } from '../../types';
 import Modal from '../common/Modal';
 import { useModal } from '../../hooks/useModal';
@@ -18,6 +18,7 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [skillType, setSkillType] = useState<'activa' | 'pasiva'>('activa');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
   const [editFormActive, setEditFormActive] = useState<HabilidadActiva>({
     id: '',
     nombre: '',
@@ -40,6 +41,18 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
     setActiveSkills(skills.habilidades_activas || []);
     setPassiveSkills(skills.habilidades_pasivas || []);
   }, [skills]);
+
+  const toggleSkillExpanded = (skillId: string) => {
+    setExpandedSkills(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(skillId)) {
+        newSet.delete(skillId);
+      } else {
+        newSet.add(skillId);
+      }
+      return newSet;
+    });
+  };
 
   const handleAdd = (type: 'activa' | 'pasiva') => {
     setSkillType(type);
@@ -349,6 +362,17 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                 />
               </div>
 
+              <div>
+                <label className="block text-sm text-d4-text mb-1">Habilidad Activa Vinculada</label>
+                <input
+                  type="text"
+                  value={(editFormPassive as any).habilidad_activa_vinculada || ''}
+                  onChange={(e) => setEditFormPassive({ ...editFormPassive, habilidad_activa_vinculada: e.target.value } as any)}
+                  className="input w-full"
+                  placeholder="Nombre de la habilidad activa relacionada"
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm text-d4-text mb-1">Efecto *</label>
                 <textarea
@@ -403,16 +427,34 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                     {skill.tipo_danio && (
                       <span className="text-xs text-orange-400">| {skill.tipo_danio}</span>
                     )}
+                    {skill.modificadores && skill.modificadores.length > 0 && (
+                      <span className="text-xs badge-magico px-2 py-0.5">
+                        {skill.modificadores.length} modificador{skill.modificadores.length !== 1 ? 'es' : ''}
+                      </span>
+                    )}
+                    {(skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0 && (
+                      <span className="text-xs badge-normal px-2 py-0.5">
+                        {(skill as any).habilidades_pasivas.length} pasiva{(skill as any).habilidades_pasivas.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-d4-text">{skill.descripcion}</p>
-                  {skill.modificadores && skill.modificadores.length > 0 && (
-                    <p className="text-xs text-d4-text-dim mt-1">
-                      Modificadores: {skill.modificadores.length}
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex gap-1 flex-shrink-0">
+                  {((skill.modificadores && skill.modificadores.length > 0) || ((skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0)) && (
+                    <button
+                      onClick={() => toggleSkillExpanded(skill.id || '')}
+                      className="p-1.5 hover:bg-d4-accent/20 rounded transition-colors"
+                      title={expandedSkills.has(skill.id || '') ? 'Ocultar detalles' : 'Mostrar detalles'}
+                    >
+                      {expandedSkills.has(skill.id || '') ? (
+                        <ChevronUp className="w-4 h-4 text-d4-accent" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-d4-accent" />
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(skill, 'activa')}
                     className="p-1.5 hover:bg-d4-accent/20 rounded transition-colors"
@@ -431,6 +473,52 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
                   </button>
                 </div>
               </div>
+              
+              {/* Modificadores y Pasivas expandibles */}
+              {expandedSkills.has(skill.id || '') && ((skill.modificadores && skill.modificadores.length > 0) || ((skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0)) && (
+                <div className="mt-3 pt-3 border-t border-d4-border/50 space-y-3">
+                  {/* Modificadores */}
+                  {skill.modificadores && skill.modificadores.length > 0 && (
+                    <div>
+                      <h6 className="text-xs font-semibold text-purple-400 uppercase mb-2 flex items-center gap-2">
+                        <span>🔷 Modificadores ({skill.modificadores.length})</span>
+                      </h6>
+                      <div className="space-y-2">
+                        {skill.modificadores.map((mod, idx) => (
+                          <div key={idx} className="bg-purple-900/20 p-2 rounded border border-purple-700/40">
+                            <div className="font-semibold text-purple-300 text-sm mb-1">{mod.nombre}</div>
+                            <p className="text-xs text-d4-text-dim">{mod.descripcion}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Pasivas Relacionadas */}
+                  {(skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0 && (
+                    <div>
+                      <h6 className="text-xs font-semibold text-green-400 uppercase mb-2 flex items-center gap-2">
+                        <span>🔸 Pasivas Relacionadas ({(skill as any).habilidades_pasivas.length})</span>
+                      </h6>
+                      <div className="space-y-2">
+                        {(skill as any).habilidades_pasivas.map((pasiva: any, idx: number) => (
+                          <div key={idx} className="bg-green-900/20 p-2 rounded border border-green-700/40">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-semibold text-green-300 text-sm">{pasiva.nombre}</div>
+                              {pasiva.nivel && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300">
+                                  Nv. {pasiva.nivel}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-d4-text-dim">{pasiva.efecto}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -459,10 +547,15 @@ const HeroSkills: React.FC<HeroSkillsProps> = ({ heroClass, skills, onUpdate }) 
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h5 className="font-bold text-purple-400">{skill.nombre}</h5>
                     {skill.nivel && (
                       <span className="text-xs badge-normal px-2 py-0.5">Nv. {skill.nivel}</span>
+                    )}
+                    {(skill as any).habilidad_activa_vinculada && (
+                      <span className="text-xs badge-raro px-2 py-0.5">
+                        🔗 {(skill as any).habilidad_activa_vinculada}
+                      </span>
                     )}
                   </div>
                   <p className="text-sm text-d4-text">{skill.efecto}</p>

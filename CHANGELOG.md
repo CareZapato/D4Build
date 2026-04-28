@@ -7,6 +7,69 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.8.9] - 2026-04-28
+
+### 🔧 Fixed (Corregido)
+
+#### Sistema de Habilidades - Extracción Mejorada
+- **Diferenciación correcta Activas/Pasivas**:
+  - **Regla principal**: Habilidades CON RANGO (ej: "Rango 3/5") son ACTIVAS, SIN RANGO son PASIVAS
+  - Prompt actualizado con identificación visual clara basada en el rango
+  - Diagrama visual en prompt para guiar correctamente a la IA
+- **Jerarquía visual basada en iconos**:
+  - **Una imagen contiene**: UNA habilidad activa + sus modificadores (mismo icono) + pasivas (iconos diferentes)
+  - Los modificadores comparten el MISMO ICONO que su habilidad activa (puede variar color/tonalidad)
+  - Las pasivas tienen iconos completamente DIFERENTES
+  - Prompt actualizado para enfatizar esta relación visual
+  - Documentación actualizada en CONTEXT.md y README.md
+- **Campos agregados al prompt**:
+  - `tipo_danio`: Tipo de daño infligido (Físico, Sagrado, Sombra, Fuego, Hielo, Veneno, Rayo)
+  - `requiere`: Requisitos de nivel o equipo (ej: "Nivel 4", "Requiere Escudo")
+  - `genera_recurso`: Si la habilidad genera recurso `{tipo, cantidad}`
+  - `costo_recurso`: Si la habilidad consume recurso `{tipo, cantidad}`
+  - `recuperacion_segundos`: Cooldown de la habilidad si visible
+- **Rangos y niveles clarificados**:
+  - **Héroe**: Solo almacena `nivel_maximo` (catálogo)
+  - **Personaje**: Almacena `nivel_actual` y `nivel_maximo` (build específico)
+  - **Nota**: `nivel_actual` puede ser mayor que `nivel_maximo` (bonificaciones de equipo)
+- **Instrucciones mejoradas**:
+  - 14 reglas críticas detalladas en el prompt
+  - Ejemplos específicos para cada tipo de habilidad
+  - Formato JSON actualizado con todos los campos requeridos
+  - Resumen visual con árbol de decisión para clasificación
+
+#### Interfaz de Usuario - Visualización de Atributos de Habilidades
+- **Badges informativos** para habilidades activas:
+  - `tipo_danio`: Badge rojo con tipo de daño (Físico, Sagrado, Sombra, etc.)
+  - `requiere`: Badge naranja con requisitos (ej: "📋 Nivel 4", "📋 Requiere Escudo")
+  - `genera_recurso`: Badge verde mostrando recurso generado (ej: "⬆️ Furia: +10")
+  - `costo_recurso`: Badge amarillo con costo de recurso (ej: "⬇️ Maná: 30")
+  - `recuperacion_segundos`: Badge cyan con cooldown (ej: "⏱️ 12s")
+- Todos los badges se muestran en la tarjeta de la habilidad junto a tipo, rama y modificadores
+
+### ✨ Added (Agregado)
+
+#### Nueva Clase - Conjurador
+- Agregada clase "Conjurador" a todos los selectores y arrays de clases
+- Disponible en:
+  - Creación de personajes
+  - Gestión de héroes
+  - Modal de captura de imágenes
+  - Filtros y búsquedas
+- Total de clases: Paladín, Bárbaro, Hechicero, Pícaro, Druida, Nigromante, Espiritista, Conjurador
+
+#### Gestión de Galería - Eliminación de Elementos
+- **Multiselección**: Checkbox en cada elemento de la galería para seleccionar múltiples items
+- **Eliminación múltiple**: Botón "Eliminar seleccionados" elimina todos los elementos marcados en una sola operación
+- **Eliminación individual**: Botón de eliminar (🗑️) en cada elemento al hacer hover
+- **Modal de confirmación**: Muestra lista de elementos a eliminar antes de confirmar
+- **Eliminación completa**: Borra imagen (.png), JSON (.json) y metadata (.meta.json) asociados
+- **Botón "Seleccionar todo"**: Marca/desmarca todos los elementos visibles en la galería filtrada
+- **Contador de selección**: Indica cuántos elementos están seleccionados
+- **Feedback visual**: Items seleccionados se resaltan con borde rojo
+
+---
+
 ## [0.8.8] - 2026-04-26
 
 ### 🔧 Fixed (Corregido)

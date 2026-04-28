@@ -14,6 +14,21 @@ export class PromptService {
     
     prompt += `**OBJETIVO DEL ANÁLISIS**: Identificar tags compartidos entre elementos para descubrir sinergias, optimizar el build y detectar mecánicas desaprovechadas.\n\n`;
     
+    prompt += `## ⚠️ REGLAS CRÍTICAS DE HABILIDADES\n`;
+    prompt += `**ESTRUCTURA ANIDADA**: Cada Habilidad Activa contiene:\n`;
+    prompt += `- **Modificadores** (🔷 rombo, mismo dibujo): Mejoras opcionales de la activa\n`;
+    prompt += `- **Pasivas Relacionadas** (🔸 rombo, dibujo diferente): Pasivas que solo funcionan con esa activa\n\n`;
+    prompt += `**DEPENDENCIA OBLIGATORIA**:\n`;
+    prompt += `- ❌ NO puedes usar una pasiva si su habilidad activa NO está seleccionada/equipada\n`;
+    prompt += `- ❌ NO puedes usar un modificador si su habilidad activa NO está seleccionada/equipada\n`;
+    prompt += `- ⚠️ Solo 1 modificador puede estar activo por habilidad activa (restricción del juego)\n`;
+    prompt += `- ✅ Para recomendar una pasiva o modificador, PRIMERO debes recomendar su habilidad activa\n\n`;
+    prompt += `**IMPLICACIÓN PARA ANÁLISIS**:\n`;
+    prompt += `Cuando evalúes o recomiendes habilidades, considera:\n`;
+    prompt += `1. ¿La habilidad activa está seleccionada? (requisito previo)\n`;
+    prompt += `2. ¿Qué pasivas/modificadores de esa activa maximizan sinergias con el build?\n`;
+    prompt += `3. Si recomiendas cambiar activas, evalúa si se pierden pasivas/modificadores valiosos\n\n`;
+    
     prompt += `---\n\n`;
     prompt += `# ANÁLISIS DE BUILD: ${personaje.nombre} (${personaje.clase})\n\n`;
     
@@ -55,6 +70,22 @@ export class PromptService {
               prompt += `  - ${skill.descripcion}\n`;
               if (skill.tags && skill.tags.length > 0) {
                 prompt += `  - 🏷️ Tags: ${skill.tags.join(', ')}\n`;
+              }
+              
+              // Mostrar modificadores activos
+              const activaRef = personaje.habilidades_refs?.activas?.find(ref => ref.skill_id === skill.id);
+              if (skill.modificadores && skill.modificadores.length > 0) {
+                const modificadoresActivos = skill.modificadores.filter(mod => 
+                  activaRef?.modificadores_ids?.includes(mod.id || '')
+                );
+                if (modificadoresActivos.length > 0) {
+                  prompt += `  - 🔷 **Modificadores activos** (${modificadoresActivos.length}/${skill.modificadores.length}): ${modificadoresActivos.map(m => m.nombre).join(', ')}\n`;
+                }
+              }
+              
+              // Mostrar pasivas relacionadas
+              if ((skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0) {
+                prompt += `  - 🔸 **Pasivas relacionadas disponibles** (${(skill as any).habilidades_pasivas.length}): ${(skill as any).habilidades_pasivas.map((p: any) => p.nombre).join(', ')}\n`;
               }
             });
 
@@ -208,7 +239,11 @@ export class PromptService {
     prompt += `## 4️⃣ RECOMENDACIONES PRIORIZADAS\n`;
     prompt += `Ordena por impacto (1 = más urgente):\n`;
     prompt += `1. **Aspectos a cambiar**: Especifica cuáles equipados reemplazar y por cuáles disponibles (justifica con tags compartidos)\n`;
-    prompt += `2. **Habilidades a ajustar**: Si alguna en batalla tiene 0 sinergias, sugiere alternativas\n`;
+    prompt += `2. **Habilidades a ajustar**: \n`;
+    prompt += `   - ⚠️ RECUERDA: Si recomiendas una pasiva/modificador, PRIMERO verifica que su activa esté seleccionada\n`;
+    prompt += `   - Si alguna activa en batalla tiene 0 sinergias, sugiere alternativas\n`;
+    prompt += `   - Evalúa si los modificadores activos (solo 1 por activa) son los óptimos\n`;
+    prompt += `   - Sugiere qué pasivas relacionadas deberían activarse\n`;
     prompt += `3. **Mecánicas de clase a optimizar**: Selecciones que maximicen sinergias con build actual\n`;
     prompt += `4. **Glifos a optimizar**: Prioriza niveles o reemplazos según tags\n`;
     prompt += `5. **Estadísticas a mejorar**: Basado en análisis de stats\n`;
@@ -540,14 +575,22 @@ export class PromptService {
         const heroSkills = await WorkspaceService.loadHeroSkills(personaje.clase);
         
         if (heroSkills) {
+          prompt += `\n## ⚠️ CONTEXTO DE HABILIDADES\n`;
+          prompt += `**REGLA DEL JUEGO**: Cada habilidad activa contiene modificadores y pasivas relacionadas.\n`;
+          prompt += `- Solo puedes usar modificadores/pasivas si su activa está seleccionada\n`;
+          prompt += `- Solo 1 modificador puede estar activo por habilidad activa\n`;
+          prompt += `- Al recomendar cambios, SIEMPRE menciona primero la activa requerida\n\n`;
+          
           // Resolver habilidades activas
           const activeSkills: HabilidadActiva[] = personaje.habilidades_refs.activas
             .map(ref => heroSkills.habilidades_activas.find(s => s.id === ref.skill_id))
             .filter((skill): skill is HabilidadActiva => skill !== undefined);
 
           if (activeSkills.length > 0) {
-            prompt += `\n## Habilidades Activas\n`;
+            prompt += `## Habilidades Activas\n`;
             activeSkills.forEach(skill => {
+              const activaRef = personaje.habilidades_refs?.activas?.find(ref => ref.skill_id === skill.id);
+              
               prompt += `\n### ${skill.nombre} (${skill.tipo} - ${skill.rama})\n`;
               prompt += `- **Nivel**: ${skill.nivel}\n`;
               prompt += `- **Descripción**: ${skill.descripcion}\n`;
@@ -556,10 +599,21 @@ export class PromptService {
                 prompt += `- **Tipo de Daño**: ${skill.tipo_danio}\n`;
               }
 
+              // Mostrar modificadores (indicar cuál está activo)
               if (skill.modificadores && skill.modificadores.length > 0) {
-                prompt += `- **Modificadores**:\n`;
+                prompt += `- **Modificadores disponibles** (${skill.modificadores.length}):\n`;
                 skill.modificadores.forEach(mod => {
-                  prompt += `  - ${mod.nombre}: ${mod.descripcion}\n`;
+                  const isActive = activaRef?.modificadores_ids?.includes(mod.id || '');
+                  const activeTag = isActive ? ' ✅ ACTIVO' : '';
+                  prompt += `  - ${mod.nombre}${activeTag}: ${mod.descripcion}\n`;
+                });
+              }
+              
+              // Mostrar pasivas relacionadas
+              if ((skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0) {
+                prompt += `- **Pasivas relacionadas disponibles** (${(skill as any).habilidades_pasivas.length}):\n`;
+                (skill as any).habilidades_pasivas.forEach((pasiva: any) => {
+                  prompt += `  - ${pasiva.nombre} (Nv ${pasiva.nivel}): ${pasiva.efecto}\n`;
                 });
               }
             });
@@ -708,12 +762,19 @@ export class PromptService {
       incluir_glifos: true,
       incluir_estadisticas: true,
       incluir_mecanicas: true,
-      pregunta_personalizada: `Analiza las sinergias entre las habilidades activas, glifos equipados y mecánicas de clase. 
+      pregunta_personalizada: `Analiza las sinergias entre las habilidades activas, glifos equipados y mecánicas de clase.
+
+⚠️ REGLAS DE HABILIDADES:
+- Cada habilidad activa contiene modificadores y pasivas relacionadas
+- Solo puedes usar pasivas/modificadores si su activa está seleccionada
+- Solo 1 modificador activo por habilidad activa
+- Al recomendar modificadores/pasivas, SIEMPRE menciona primero su activa requerida
+
 Identifica:
 1. Qué combinaciones funcionan bien y por qué
 2. Cómo las mecánicas de clase potencian habilidades/aspectos
 3. Qué glifos podrían optimizarse o cambiarse
-4. Sugerencias de modificadores alternativos
+4. Para cada activa seleccionada: ¿tiene el mejor modificador activo? ¿qué pasivas relacionadas maximizan sinergias?
 5. Posibles debilidades en el build actual`
     });
   }
@@ -726,12 +787,21 @@ Identifica:
       incluir_estadisticas: true,
       incluir_mecanicas: true,
       pregunta_personalizada: `Analiza este build y proporciona recomendaciones para optimizarlo:
-1. ¿Hay mejores opciones de habilidades para el objetivo del build?
-2. ¿Las mecánicas de clase están optimizadas? ¿Selecciones más adecuadas?
-3. ¿Los glifos elegidos son óptimos?
-4. ¿Qué estadísticas debería priorizar?
-5. ¿Hay sinergias no aprovechadas entre mecánicas/habilidades/aspectos?
-6. Sugerencias de aspectos legendarios que complementen el build`
+
+⚠️ REGLAS DE HABILIDADES:
+- Cada habilidad activa contiene modificadores (🔷) y pasivas relacionadas (🔸)
+- NO puedes usar una pasiva/modificador sin tener su activa seleccionada
+- Solo 1 modificador puede estar activo por habilidad activa
+- Al recomendar cambios en habilidades, SIEMPRE especifica: "Selecciona [Activa], luego activa [Modificador/Pasiva]"
+
+Proporciona:
+1. ¿Hay mejores opciones de habilidades activas para el objetivo del build?
+2. Para cada activa seleccionada: ¿el modificador activo es óptimo? ¿qué pasivas relacionadas deberían usarse?
+3. ¿Las mecánicas de clase están optimizadas? ¿Selecciones más adecuadas?
+4. ¿Los glifos elegidos son óptimos?
+5. ¿Qué estadísticas debería priorizar?
+6. ¿Hay sinergias no aprovechadas entre mecánicas/habilidades/aspectos?
+7. Sugerencias de aspectos legendarios que complementen el build`
     });
   }
 
@@ -756,11 +826,12 @@ Identifica:
     });
 
     prompt += `\n## Pregunta\n`;
+    prompt += `⚠️ REGLAS DE HABILIDADES: Cada activa contiene modificadores y pasivas relacionadas. Solo puedes usar pasivas/modificadores si su activa está seleccionada (solo 1 modificador activo por activa).\n\n`;
     prompt += `Compara estos dos builds y proporciona:
 1. Principales diferencias en el enfoque y estilo de juego
 2. Ventajas y desventajas de cada build
 3. Cuál es mejor para diferentes tipos de contenido (campaña, mazmorras, jefes, PvP)
-4. Sugerencias para mejorar cada uno`;
+4. Sugerencias para mejorar cada uno (recordando las reglas de dependencia de habilidades)`;
 
     return prompt;
   }
@@ -1179,6 +1250,8 @@ Identifica:
 
     // Preguntas de análisis
     prompt += `\n## Análisis Solicitado\n\n`;
+    
+    prompt += `⚠️ **NOTA SOBRE HABILIDADES**: Al evaluar sinergias, recuerda que cada habilidad activa contiene modificadores y pasivas relacionadas. Solo se pueden usar si su activa está seleccionada.\n\n`;
     
     prompt += `### 1. Evaluación del Estado Actual (0-10)\n`;
     prompt += `- **Eficiencia de Tableros**: ¿Los tableros equipados son óptimos para la clase?\n`;

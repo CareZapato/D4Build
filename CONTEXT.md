@@ -1,7 +1,7 @@
 # 🎮 D4Builds - Contexto y Arquitectura de la Aplicación
 
-> **Última actualización:** 26 de abril de 2026  
-> **Versión:** 0.8.8  
+> **Última actualización:** 28 de abril de 2026  
+> **Versión:** 0.8.9  
 > **Propósito:** Documentación completa del funcionamiento, procesos y formatos de datos
 
 ---
@@ -124,23 +124,48 @@ interface Personaje {
 ### 3. Estructura de Héroe (Datos Maestros)
 
 #### Habilidades
+
+**⚠️ REGLA DE DETECCIÓN (v0.8.9):**
+- **ACTIVAS**: Tienen "Rango X/Y" visible (ej: "Rango 3/5")
+- **PASIVAS**: NO tienen rango, solo puntos asignados
+
+**🔍 JERARQUÍA VISUAL EN LAS IMÁGENES:**
+La extracción de habilidades desde imágenes sigue esta estructura:
+1. **UNA habilidad ACTIVA principal** con "Rango X/Y" visible
+2. **MODIFICADORES de esa habilidad**: Comparten el MISMO ICONO que la activa (puede variar color/tonalidad)
+3. **Habilidades PASIVAS**: Tienen iconos completamente DIFERENTES, sin relación visual con la activa
+
+Los modificadores se almacenan en el array `modificadores` dentro de su habilidad activa correspondiente.
+
 ```typescript
 interface HeroHabilidades {
   habilidades_activas: Array<{
     id: string;
     nombre: string;
-    tipo: "Básica" | "Principal" | "Definitiva" | "Pasiva";
+    tipo_habilidad: "skill" | "modificador";
+    tipo: "Básica" | "Principal" | "Definitiva" | "Defensiva" | "Movilidad" | "Arma de Arsenal";
     rama?: string;
-    nivel?: number;
-    genera_recurso?: { tipo: string; cantidad: number };
-    costo_recurso?: { tipo: string; cantidad: number };
+    nivel_actual: number;         // Valor del rango (ej: 3 en "Rango 3/5")
+    nivel_maximo: number;         // Máximo del rango (ej: 5 en "Rango 3/5")
     descripcion: string;
-    tipo_danio?: string;
-    requiere?: string;
+    tipo_danio?: string;          // [v0.8.9] "Físico", "Sagrado", "Sombra", "Fuego", "Hielo", "Veneno", "Rayo"
+    requiere?: string;            // [v0.8.9] "Nivel 4", "Requiere Escudo"
+    genera_recurso?: {            // [v0.8.9] Si genera recurso
+      tipo: string;               // "Furia", "Esencia", "Espíritu", etc.
+      cantidad: number;
+    };
+    costo_recurso?: {             // [v0.8.9] Si consume recurso
+      tipo: string;               // "Maná", "Furia", etc.
+      cantidad: number;
+    };
+    recuperacion_segundos?: number; // [v0.8.9] Cooldown si visible
     modificadores?: Array<{
+      id: string;
       nombre: string;
+      tipo_habilidad: "modificador";
       descripcion: string;
       efectos?: string[];
+      tags?: string[];
     }>;
     efectos_generados?: Array<{
       nombre: string;
@@ -153,10 +178,12 @@ interface HeroHabilidades {
   habilidades_pasivas: Array<{
     id: string;
     nombre: string;
-    tipo: "Pasiva";
+    tipo_habilidad: "pasiva";
+    tipo: "Pasiva" | "Pasiva Clave" | "Pasiva Potenciada" | "Nodo del tablero Paragon";
     rama?: string;
-    nivel: number;
-    nivel_maximo?: number;
+    nivel: number;                // Puntos asignados visibles
+    nivel_maximo?: number;        // Máximo de puntos permitidos
+    puntos_asignados: number;     // Mismo valor que nivel
     efecto: string;
     tags?: string[];
   }>;
@@ -172,6 +199,11 @@ interface HeroHabilidades {
     pendiente_revision?: boolean;
   }>;
 }
+
+**Nota importante (v0.8.9):**
+- **Héroe**: Almacena solo `nivel_maximo` (catálogo maestro)
+- **Personaje**: Almacena `nivel_actual` y `nivel_maximo` (build específico)
+- `nivel_actual` PUEDE ser mayor que `nivel_maximo` (bonificaciones de equipo)
 ```
 
 #### Glifos

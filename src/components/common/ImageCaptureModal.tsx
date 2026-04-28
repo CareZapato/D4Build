@@ -157,7 +157,12 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [galleryFilterPersonaje, setGalleryFilterPersonaje] = useState<string>('all');
   const [galleryFilterType, setGalleryFilterType] = useState<string>('all'); // Para paragonType, runaGemaType, mundoType, talismanType
 
-  // 🔄 Estados para modal de restauración de personaje
+  // �️ Estados para eliminación múltiple en galería (v0.8.9)
+  const [selectedGalleryItems, setSelectedGalleryItems] = useState<Set<string>>(new Set());
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [itemsToDelete, setItemsToDelete] = useState<string[]>([]);
+
+  // �🔄 Estados para modal de restauración de personaje
   const [personajeDecisions, setPersonajeDecisions] = useState<Map<string, string>>(new Map()); // nombre -> ID a usar
   const [applyToAllDecision, setApplyToAllDecision] = useState(false); // Decisión de "aplicar a todos"
   const [showRestoreModal, setShowRestoreModal] = useState(false);
@@ -1241,6 +1246,91 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
     } catch (error) {
       console.error('Error abriendo entrada para edición:', error);
       showToast('❌ No se pudo abrir la entrada para edición', 'error');
+    }
+  };
+
+  // 🗑️ NUEVAS FUNCIONES PARA ELIMINACIÓN MÚLTIPLE (v0.8.9)
+  
+  // Toggle selección de un item individual
+  const toggleItemSelection = (itemName: string) => {
+    setSelectedGalleryItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemName)) {
+        newSet.delete(itemName);
+      } else {
+        newSet.add(itemName);
+      }
+      return newSet;
+    });
+  };
+
+  // Seleccionar/deseleccionar todos los items visibles
+  const toggleSelectAll = (filteredImages: typeof galleryImages) => {
+    if (selectedGalleryItems.size === filteredImages.length) {
+      setSelectedGalleryItems(new Set());
+    } else {
+      setSelectedGalleryItems(new Set(filteredImages.map(img => img.nombre)));
+    }
+  };
+
+  // Abrir modal de confirmación para eliminar items seleccionados
+  const confirmDeleteSelected = () => {
+    if (selectedGalleryItems.size === 0) return;
+    setItemsToDelete(Array.from(selectedGalleryItems));
+    setShowDeleteConfirmModal(true);
+  };
+
+  // Abrir modal de confirmación para eliminar un item individual
+  const confirmDeleteItem = (itemName: string) => {
+    setItemsToDelete([itemName]);
+    setShowDeleteConfirmModal(true);
+  };
+
+  // Ejecutar eliminación de items (imagen + JSON + metadata)
+  const executeDelete = async () => {
+    if (itemsToDelete.length === 0) return;
+
+    try {
+      setShowDeleteConfirmModal(false);
+      
+      for (const itemName of itemsToDelete) {
+        try {
+          // Determinar el nombre base (sin extensión)
+          const baseName = itemName.replace(/\.(json|png)$/, '');
+          const imageFileName = `${baseName}.png`;
+          const jsonFileName = `${baseName}.json`;
+
+          // Eliminar imagen (si existe) - deleteImage también elimina el JSON
+          await ImageService.deleteImage(selectedCategory, imageFileName);
+
+          // Eliminar JSON adicional (por si itemName es .json directamente)
+          if (itemName.endsWith('.json')) {
+            await ImageService.deleteImageJSON(selectedCategory, jsonFileName);
+          }
+
+          // Eliminar metadata asociada (nuevo método v0.8.9)
+          await ImageService.deleteMetadata(selectedCategory, itemName);
+
+        } catch (error) {
+          console.error(`Error eliminando ${itemName}:`, error);
+        }
+      }
+
+      // Limpiar selección y recargar galería
+      setSelectedGalleryItems(new Set());
+      setItemsToDelete([]);
+      await loadGallery();
+
+      showToast(
+        itemsToDelete.length === 1 
+          ? '🗑️ Elemento eliminado correctamente'
+          : `🗑️ ${itemsToDelete.length} elementos eliminados correctamente`,
+        'success'
+      );
+
+    } catch (error) {
+      console.error('Error durante eliminación:', error);
+      showToast('❌ Error al eliminar elementos', 'error');
     }
   };
 
@@ -2693,6 +2783,36 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
               const activasNuevas = data.habilidades_activas || [];
               const pasivasNuevas = data.habilidades_pasivas || [];
+              
+              // 📊 AGRUPAR: Si vienen pasivas sueltas, agruparlas dentro de su activa
+              // (Compatibilidad: el JSON puede venir con pasivas en array separado)
+              activasNuevas.forEach((activa: any) => {
+                // Si la activa no tiene habilidades_pasivas, crear array vacío
+                if (!activa.habilidades_pasivas) {
+                  activa.habilidades_pasivas = [];
+                }
+                
+                // Buscar pasivas que pertenecen a esta activa
+                pasivasNuevas.forEach((pasiva: any) => {
+                  // Si la pasiva tiene habilidad_activa_vinculada, moverla a la activa correspondiente
+                  if (pasiva.habilidad_activa_vinculada === activa.nombre) {
+                    // Remover el campo habilidad_activa_vinculada antes de agregar
+                    const { habilidad_activa_vinculada, ...pasivaLimpia } = pasiva;
+                    activa.habilidades_pasivas.push(pasivaLimpia);
+                  }
+                });
+              });
+              
+              // Contar totales individuales
+              let totalModificadores = 0;
+              let totalPasivasAgrupadas = 0;
+              activasNuevas.forEach((skill: any) => {
+                totalModificadores += (skill.modificadores || []).length;
+                totalPasivasAgrupadas += (skill.habilidades_pasivas || []).length;
+              });
+              
+              // Total de elementos individuales
+              const totalElementos = activasNuevas.length + totalModificadores + totalPasivasAgrupadas;
 
               // 🔄 MERGE activas (por nombre)
               activasNuevas.forEach((skill: any) => {
@@ -2716,8 +2836,9 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 fieldsAdded.push(`Activa: ${skill.nombre}`);
               });
 
-              // 🔄 MERGE pasivas (por nombre)
-              pasivasNuevas.forEach((skill: any) => {
+              // 🔄 MERGE pasivas sueltas (solo las que NO fueron agrupadas)
+              const pasivasSinAgrupar = pasivasNuevas.filter((pasiva: any) => !pasiva.habilidad_activa_vinculada);
+              pasivasSinAgrupar.forEach((skill: any) => {
                 const idx = heroSkills.habilidades_pasivas.findIndex((s: any) => s.nombre === skill.nombre);
                 const skillId = idx >= 0 ? heroSkills.habilidades_pasivas[idx].id : (skill.id || `skill_pasiva_${skill.nombre.toLowerCase().replace(/\s+/g, '_')}`);
                 const skillWithId = { ...skill, id: skillId };
@@ -2739,7 +2860,14 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
               });
               
               await WorkspaceService.saveHeroSkills(clase, heroSkills);
-              showToast(`✅ ${itemsImported + itemsUpdated} habilidades procesadas en ${clase} (${itemsImported} nuevas, ${itemsUpdated} actualizadas)`, 'success');
+              
+              // Mensaje con conteo detallado individual
+              const detalles: string[] = [];
+              if (activasNuevas.length > 0) detalles.push(`${activasNuevas.length} activa${activasNuevas.length !== 1 ? 's' : ''}`);
+              if (totalModificadores > 0) detalles.push(`${totalModificadores} modificador${totalModificadores !== 1 ? 'es' : ''}`);
+              if (totalPasivasAgrupadas > 0) detalles.push(`${totalPasivasAgrupadas} pasiva${totalPasivasAgrupadas !== 1 ? 's' : ''}`);
+              
+              showToast(`✅ ${totalElementos} elemento${totalElementos !== 1 ? 's' : ''} procesado${totalElementos !== 1 ? 's' : ''} en ${clase}: ${detalles.join(', ')}`, 'success');
               shouldReload = true;
             }
             break;
@@ -6070,6 +6198,37 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         {/* Contenido según tab */}
         {!showGallery && (
           <div className="space-y-6">
+            {/* ⚠️ ADVERTENCIA INTERMITENTE PARA SKILLS */}
+            {selectedCategory === 'skills' && (
+              <div className="bg-gradient-to-r from-yellow-900/30 via-yellow-800/20 to-yellow-900/30 border-2 border-yellow-500 rounded-lg p-4 animate-pulse">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center animate-bounce">
+                      <span className="text-2xl">⚠️</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-bold text-yellow-300 mb-2">
+                      📋 ORDEN CORRECTO DE CAPTURA - IMPORTANTE
+                    </h4>
+                    <div className="text-xs text-yellow-100 space-y-2">
+                      <p className="font-semibold">
+                        ✅ Para mejor precisión, organiza la captura de IZQUIERDA → DERECHA, ARRIBA → ABAJO:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1 pl-2">
+                        <li><span className="font-semibold text-purple-300">Modificadores</span> primero (iconos rombo con mismo dibujo que la activa)</li>
+                        <li><span className="font-semibold text-cyan-300">Habilidad Activa</span> en medio (icono cuadrado)</li>
+                        <li><span className="font-semibold text-green-300">Pasivas</span> al final (iconos rombo con dibujo diferente)</li>
+                      </ol>
+                      <p className="text-yellow-200/80 mt-2 italic text-[11px]">
+                        💡 Si el orden no es posible, la IA usará las reglas de forma del icono y similitud visual.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Preview de imagen compuesta con panel de prompt lateral */}
             <div className={`grid gap-4 ${showPromptPanel ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
               {/* Panel de Preview */}
@@ -7256,23 +7415,80 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {filteredGalleryImages.map((img, index) => (
+                        {/* 🗑️ Barra de acciones para multiselección (v0.8.9) */}
+                        <div className="mb-4 flex items-center justify-between flex-wrap gap-2 p-3 bg-d4-bg border border-d4-border rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => toggleSelectAll(filteredGalleryImages)}
+                              className="px-3 py-1.5 bg-d4-surface hover:bg-d4-border text-d4-text text-sm rounded transition-colors border border-d4-border flex items-center gap-2"
+                              title={selectedGalleryItems.size === filteredGalleryImages.length ? "Deseleccionar todo" : "Seleccionar todo"}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedGalleryItems.size === filteredGalleryImages.length && filteredGalleryImages.length > 0}
+                                readOnly
+                                className="w-4 h-4"
+                              />
+                              <span>
+                                {selectedGalleryItems.size === filteredGalleryImages.length && filteredGalleryImages.length > 0
+                                  ? 'Deseleccionar todo'
+                                  : 'Seleccionar todo'
+                                }
+                              </span>
+                            </button>
+                            {selectedGalleryItems.size > 0 && (
+                              <span className="text-sm text-d4-text-dim">
+                                {selectedGalleryItems.size} elemento{selectedGalleryItems.size > 1 ? 's' : ''} seleccionado{selectedGalleryItems.size > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                          {selectedGalleryItems.size > 0 && (
+                            <button
+                              onClick={confirmDeleteSelected}
+                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                              title={`Eliminar ${selectedGalleryItems.size} elemento(s)`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Eliminar seleccionados</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredGalleryImages.map((img, index) => {
+                            const isSelected = selectedGalleryItems.has(img.nombre);
+                            return (
                       <div 
                         key={index} 
-                        className={`bg-d4-surface p-2 rounded border relative group transition-all ${
+                        className={`bg-d4-surface p-3 rounded border relative group transition-all ${
                           selectedGalleryImage === img.url && !img.isJSONOnly
                             ? 'border-purple-500 ring-2 ring-purple-500/50' 
                             : img.isJSONOnly
                               ? 'border-orange-500/60'
-                              : 'border-d4-border'
+                              : isSelected
+                                ? 'border-red-500 ring-2 ring-red-500/50'
+                                : 'border-d4-border'
                         }`}
                       >
+                        {/* 🗑️ Checkbox para multiselección (v0.8.9) */}
+                        <div className="absolute top-2 left-2 z-10">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleItemSelection(img.nombre);
+                            }}
+                            className="w-5 h-5 cursor-pointer accent-red-600"
+                            title="Seleccionar para eliminar"
+                          />
+                        </div>
+
                         <div className="relative">
                           {/* Placeholder para entradas JSON-only */}
                           {img.isJSONOnly ? (
                             <div
-                              className="w-full h-32 flex flex-col items-center justify-center bg-d4-bg rounded border-2 border-dashed border-orange-500/40 text-orange-400 cursor-pointer hover:border-orange-500 transition-colors"
+                              className="w-full h-48 flex flex-col items-center justify-center bg-d4-bg rounded border-2 border-dashed border-orange-500/40 text-orange-400 cursor-pointer hover:border-orange-500 transition-colors"
                               onClick={() => selectGalleryImage(img.url, img.nombre, img.hasJSON, true)}
                               title="Cargar JSON en panel de importación"
                             >
@@ -7281,25 +7497,36 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                               <span className="text-[9px] text-d4-text-dim mt-0.5">Sin imagen</span>
                             </div>
                           ) : (
-                            <img src={img.url} alt={img.nombre} className="w-full h-32 object-contain bg-white rounded" />
+                            <img src={img.url} alt={img.nombre} className="w-full h-48 object-contain bg-white rounded" />
                           )}
                           
                           {/* Indicador de JSON guardado */}
                           {img.hasJSON && !img.isJSONOnly && (
-                            <div className="absolute top-2 left-2 bg-green-600 text-white rounded-full p-1" title="Tiene JSON guardado">
+                            <div className="absolute top-2 left-10 bg-green-600 text-white rounded-full p-1" title="Tiene JSON guardado">
                               <FileJson className="w-4 h-4" />
                             </div>
                           )}
                           
                           {/* Indicador de selección */}
                           {selectedGalleryImage === img.url && (
-                            <div className="absolute top-2 left-14 bg-purple-600 text-white rounded-full p-1">
+                            <div className="absolute top-2 left-20 bg-purple-600 text-white rounded-full p-1">
                               <CheckCircle className="w-4 h-4" />
                             </div>
                           )}
                           
-                          {/* Botones de acción (aparecen al hover) */}
-                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Botones de acción (aparecen al hover) - Organizados en 2 filas */}
+                          <div className="absolute top-2 right-2 flex flex-wrap gap-1 max-w-[140px] opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* 🗑️ Botón de eliminar individual (v0.8.9) */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                confirmDeleteItem(img.nombre);
+                              }}
+                              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg"
+                              title="Eliminar este elemento"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => editGalleryEntry(img)}
                               className="p-2 bg-amber-600 hover:bg-amber-700 text-white rounded-full shadow-lg"
@@ -7357,7 +7584,8 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           {img.fecha}
                         </p>
                       </div>
-                    ))}
+                            );
+                          })}
                   </div>
                 </>
               )}
@@ -7419,6 +7647,73 @@ const ImageCaptureModal: React.FC<Props> = ({ isOpen, onClose }) => {
         existingPersonaje={pendingRestoreData?.existingPersonaje || { nombre: '', clase: '', nivel: 0, id: '' }}
         incomingData={pendingRestoreData?.incomingData || { clase: '', nivel: 0, id: '' }}
       />
+
+      {/* 🗑️ Modal de Confirmación de Eliminación (v0.8.9) */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowDeleteConfirmModal(false)}></div>
+          
+          {/* Modal Content */}
+          <div className="card max-w-md w-full relative z-[1] animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-d4-border">
+              <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
+                <Trash2 className="w-6 h-6" />
+                Confirmar Eliminación
+              </h2>
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="p-2 hover:bg-d4-border rounded transition-colors"
+                title="Cancelar"
+              >
+                <X className="w-5 h-5 text-d4-text" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="mb-6">
+              <p className="text-d4-text mb-3">
+                {itemsToDelete.length === 1 
+                  ? '¿Estás seguro de que quieres eliminar este elemento?'
+                  : `¿Estás seguro de que quieres eliminar estos ${itemsToDelete.length} elementos?`
+                }
+              </p>
+              <div className="bg-d4-bg border border-d4-border rounded p-3 max-h-48 overflow-y-auto">
+                <ul className="space-y-1">
+                  {itemsToDelete.map((name, idx) => (
+                    <li key={idx} className="text-sm text-d4-text-dim flex items-center gap-2">
+                      <span className="text-red-400">•</span>
+                      <span className="truncate" title={name}>{name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-sm text-amber-400 mt-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>Se eliminarán la imagen, el JSON y los metadatos asociados. Esta acción no se puede deshacer.</span>
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="flex-1 px-4 py-2 bg-d4-surface hover:bg-d4-border text-d4-text rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executeDelete}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Eliminar {itemsToDelete.length > 1 ? `(${itemsToDelete.length})` : ''}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Modal de Configuración AI */}
       {showAIConfigModal && (

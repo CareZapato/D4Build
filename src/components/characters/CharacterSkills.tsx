@@ -822,19 +822,44 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                               {skill.tipo_danio}
                             </span>
                           )}
+                          {skill.requiere && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-900/60 text-orange-200 border border-orange-600/50 font-semibold uppercase">
+                              📋 {skill.requiere}
+                            </span>
+                          )}
+                          {skill.genera_recurso && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-900/60 text-green-200 border border-green-600/50 font-semibold">
+                              ⬆️ {skill.genera_recurso.tipo}: +{skill.genera_recurso.cantidad}
+                            </span>
+                          )}
+                          {skill.costo_recurso && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-900/60 text-yellow-200 border border-yellow-600/50 font-semibold">
+                              ⬇️ {skill.costo_recurso.tipo}: {skill.costo_recurso.cantidad}
+                            </span>
+                          )}
+                          {skill.recuperacion_segundos && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-900/60 text-cyan-200 border border-cyan-600/50 font-semibold">
+                              ⏱️ {skill.recuperacion_segundos}s
+                            </span>
+                          )}
                           {hasModifiers && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 border border-purple-600/50 font-semibold">
                               {modificadoresPersonaje.length} modificador{modificadoresPersonaje.length !== 1 ? 'es' : ''}
                             </span>
                           )}
+                          {(skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0 && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-900/60 text-green-200 border border-green-600/50 font-semibold">
+                              {(skill as any).habilidades_pasivas.length} pasiva{(skill as any).habilidades_pasivas.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-1 flex-shrink-0">
-                        {hasModifiers && (
+                        {(hasModifiers || ((skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0)) && (
                           <button
                             onClick={() => toggleSkillExpanded(skill.id!)}
                             className="p-1 hover:bg-d4-accent/20 rounded transition-colors"
-                            title={isExpanded ? 'Ocultar modificadores' : 'Mostrar modificadores'}
+                            title={isExpanded ? 'Ocultar detalles' : 'Mostrar detalles'}
                           >
                             {isExpanded ? <ChevronUp className="w-4 h-4 text-d4-accent" /> : <ChevronDown className="w-4 h-4 text-d4-accent" />}
                           </button>
@@ -874,64 +899,103 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                     )}
                   </div>
 
-                  {/* Modificadores (colapsable) */}
+                  {/* Modificadores y Pasivas Relacionadas (colapsable) */}
                   {isExpanded && (
-                    <div className="border-t border-d4-border/50 bg-d4-bg-secondary/30 p-3">
-                      <h6 className="text-xs font-semibold text-d4-accent mb-2 uppercase">
-                        Modificadores
-                      </h6>
-                      {(() => {
-                        // Mostrar TODOS los modificadores que tiene el personaje (todos activos)
-                        const modificadoresPersonaje = skill.modificadores || [];
+                    <div className="border-t border-d4-border/50 bg-d4-bg-secondary/30 p-3 space-y-3">
+                      {/* Modificadores */}
+                      <div>
+                        <h6 className="text-xs font-semibold text-purple-400 mb-2 uppercase flex items-center gap-2">
+                          <span>🔷 Modificadores</span>
+                          <span className="text-[10px] text-d4-text-dim font-normal">(solo 1 activo)</span>
+                        </h6>
+                        {(() => {
+                          // Mostrar TODOS los modificadores que tiene el personaje (todos activos)
+                          const modificadoresPersonaje = skill.modificadores || [];
 
-                        if (modificadoresPersonaje.length === 0) {
+                          if (modificadoresPersonaje.length === 0) {
+                            return (
+                              <p className="text-xs text-d4-text-dim italic">
+                                Esta habilidad no tiene modificadores
+                              </p>
+                            );
+                          }
+
                           return (
-                            <p className="text-xs text-d4-text-dim italic">
-                              Esta habilidad no tiene modificadores
-                            </p>
+                            <div className="space-y-2">
+                              {modificadoresPersonaje.map((mod, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="bg-purple-900/20 border border-purple-500/70 p-2 rounded"
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-semibold text-sm text-purple-300 mb-1">
+                                        {mod.nombre}
+                                      </div>
+                                      <p className="text-xs text-d4-text-dim leading-relaxed">
+                                        {mod.descripcion}
+                                      </p>
+                                      {/* Tags del modificador */}
+                                      {mod.tags && Array.isArray(mod.tags) && mod.tags.length > 0 && (
+                                        <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                          <span className="text-[9px] text-d4-text-dim font-semibold">Tags:</span>
+                                          {mod.tags.map((tagItem, idx) => {
+                                            const tagId = typeof tagItem === 'string' ? tagItem : (tagItem as any).tag || (tagItem as any).id;
+                                            if (!tagId) return null;
+                                            return (
+                                              <TagBadge 
+                                                key={idx} 
+                                                tagId={tagId} 
+                                                iconSize={10} 
+                                                textSize="text-[9px]"
+                                              />
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           );
-                        }
-
-                        return (
+                        })()}
+                      </div>
+                      
+                      {/* Pasivas Relacionadas */}
+                      {(skill as any).habilidades_pasivas && (skill as any).habilidades_pasivas.length > 0 && (
+                        <div>
+                          <h6 className="text-xs font-semibold text-green-400 mb-2 uppercase flex items-center gap-2">
+                            <span>🔸 Pasivas Relacionadas ({(skill as any).habilidades_pasivas.length})</span>
+                          </h6>
                           <div className="space-y-2">
-                            {modificadoresPersonaje.map((mod, idx) => (
+                            {(skill as any).habilidades_pasivas.map((pasiva: any, idx: number) => (
                               <div 
                                 key={idx} 
-                                className="bg-purple-900/20 border border-purple-500/70 p-2 rounded"
+                                className="bg-green-900/20 border border-green-500/70 p-2 rounded"
                               >
                                 <div className="flex items-start gap-2">
                                   <div className="flex-1 min-w-0">
-                                    <div className="font-semibold text-sm text-purple-300 mb-1">
-                                      {mod.nombre}
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <div className="font-semibold text-sm text-green-300">
+                                        {pasiva.nombre}
+                                      </div>
+                                      {pasiva.nivel && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300">
+                                          Nv. {pasiva.nivel}
+                                        </span>
+                                      )}
                                     </div>
                                     <p className="text-xs text-d4-text-dim leading-relaxed">
-                                      {mod.descripcion}
+                                      {pasiva.efecto}
                                     </p>
-                                    {/* Tags del modificador */}
-                                    {mod.tags && Array.isArray(mod.tags) && mod.tags.length > 0 && (
-                                      <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                        <span className="text-[9px] text-d4-text-dim font-semibold">Tags:</span>
-                                        {mod.tags.map((tagItem, idx) => {
-                                          const tagId = typeof tagItem === 'string' ? tagItem : (tagItem as any).tag || (tagItem as any).id;
-                                          if (!tagId) return null;
-                                          return (
-                                            <TagBadge 
-                                              key={idx} 
-                                              tagId={tagId} 
-                                              iconSize={10} 
-                                              textSize="text-[9px]"
-                                            />
-                                          );
-                                        })}
-                                      </div>
-                                    )}
                                   </div>
                                 </div>
                               </div>
                             ))}
                           </div>
-                        );
-                      })()}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -971,6 +1035,11 @@ const CharacterSkills: React.FC<Props> = ({ personaje, onChange }) => {
                       {skill.tipo && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-600/50 font-semibold uppercase">
                           {skill.tipo}
+                        </span>
+                      )}
+                      {(skill as any).habilidad_activa_vinculada && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200 border border-purple-600/50 font-semibold">
+                          🔗 {(skill as any).habilidad_activa_vinculada}
                         </span>
                       )}
                     </div>
